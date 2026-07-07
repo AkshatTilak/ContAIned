@@ -6,6 +6,7 @@ Shared across all projects and backends.
 """
 
 import logging
+from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter

@@ -39,12 +39,12 @@ This document details the shared library modules used by all backends and projec
 
 ## 2. Database Clients (`common/clients/`)
 
-### [ ] PostgreSQL Client (`postgres.py`)
-- [ ] **Fix Critical Bug:** Switch from synchronous `create_engine()` to `create_async_engine()` from `sqlalchemy.ext.asyncio`.
-- [ ] Use `AsyncSession` throughout (compatible with `asyncpg` driver in `DATABASE_URL`).
-- [ ] Maintain connection pooling: `pool_size=10`, `max_overflow=20`, `pool_pre_ping=True`.
-- [ ] Provide `get_async_db()` FastAPI dependency generator yielding `AsyncSession`.
-- [ ] Handle connection failures with retry/backoff on startup.
+### [x] PostgreSQL Client (`postgres.py`)
+- [x] **Fix Critical Bug:** Switch from synchronous `create_engine()` to `create_async_engine()` from `sqlalchemy.ext.asyncio`.
+- [x] Use `AsyncSession` throughout (compatible with `asyncpg` driver in `DATABASE_URL`).
+- [x] Maintain connection pooling: `pool_size=10`, `max_overflow=20`, `pool_pre_ping=True`.
+- [x] Provide `get_async_db()` FastAPI dependency generator yielding `AsyncSession`.
+- [x] Handle connection failures with retry/backoff on startup.
 
 ### [ ] Qdrant Client (`qdrant.py`)
 - [ ] Maintain the existing `VectorClient` wrapper.
@@ -52,13 +52,13 @@ This document details the shared library modules used by all backends and projec
 - [ ] Add `async_search_similarity()` for non-blocking searches.
 - [ ] Accept vector dimension dynamically from the Model Registry.
 
-### [ ] Neo4j Client (`neo4j.py`) — NEW
-- [ ] Create `common/clients/neo4j.py` wrapping the `neo4j` Python driver.
-- [ ] Provide connection pooling with configurable session lifecycle management.
-- [ ] Implement **read-only mode enforcement**: block Cypher commands containing `CREATE`, `MERGE`, `DELETE`, `SET`, `REMOVE`, `DROP` for read-only tools.
-- [ ] Provide parameterized query helpers to prevent Cypher injection.
-- [ ] Handle graceful connection failure with retry logic.
-- [ ] Provide `get_neo4j_session()` dependency generator.
+### [x] Neo4j Client (`neo4j.py`) — NEW
+- [x] Create `common/clients/neo4j.py` wrapping the `neo4j` Python driver.
+- [x] Provide connection pooling with configurable session lifecycle management.
+- [x] Implement **read-only mode enforcement**: block Cypher commands containing `CREATE`, `MERGE`, `DELETE`, `SET`, `REMOVE`, `DROP` for read-only tools.
+- [x] Provide parameterized query helpers to prevent Cypher injection.
+- [x] Handle graceful connection failure with retry logic.
+- [x] Provide `get_neo4j_session()` dependency generator.
 
 ### [ ] Inference Client (`inference.py`)
 - [ ] **Fix Docstring:** Change `transcribe()` docstring from "Whisper-v3-turbo" to model-agnostic description.
@@ -74,10 +74,10 @@ This document details the shared library modules used by all backends and projec
 - [ ] Add token counting for cost tracking.
 - [ ] Add context truncation logic for models with smaller context windows.
 
-### [ ] Redis Client (`redis.py`) — NEW
-- [ ] Create `common/clients/redis.py` wrapping `redis[hiredis]`.
-- [ ] Provide async Redis client for caching, session storage, and pub/sub.
-- [ ] Configure connection from `REDIS_URL` setting.
+### [x] Redis Client (`redis.py`) — NEW
+- [x] Create `common/clients/redis.py` wrapping `redis[hiredis]`.
+- [x] Provide async Redis client for caching, session storage, and pub/sub.
+- [x] Configure connection from `REDIS_URL` setting.
 
 ---
 
@@ -88,8 +88,8 @@ This document details the shared library modules used by all backends and projec
 - [ ] Support structured JSON logging for production (`APP_ENV=production`).
 - [ ] Add request ID correlation to log entries.
 
-### [ ] Tracing (`tracing.py`)
-- [ ] **Fix Critical Bug:** Add `from typing import Optional` import (missing, causes crash).
+### [x] Tracing (`tracing.py`)
+- [x] **Fix Critical Bug:** Add `from typing import Optional` import (missing, causes crash).
 - [ ] Configure OpenTelemetry OTLP export to Jaeger (recommended backend).
 - [ ] Maintain LangSmith integration toggle for LLM-specific tracing.
 - [ ] Add span naming conventions: `{project}.{operation}` (e.g., `syntraflow.ingest`, `guardroute.classify`).

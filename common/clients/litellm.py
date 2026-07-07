@@ -7,7 +7,6 @@ Also sets up tracing automatically if configured in settings.
 from typing import Any, Optional
 
 import litellm
-from litellm import completion
 
 from common.config.settings import settings
 from common.observability.logger import get_logger

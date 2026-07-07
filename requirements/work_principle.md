@@ -50,3 +50,13 @@ This document outlines the strict protocol and guidelines for developers and AI 
 ### Clarity & Collaboration
 - If a requirement, contract, or design decision is ambiguous or doesn't make sense, **stop and ask the user for clarification** before making assumptions.
 - If you introduce improvements, configurations, or setup flags while executing a task, immediately **update the project-level and submodule-level READMEs** to track these changes for other developers.
+
+### Documentation & Version Verification
+- **Check Documentation Online:** Before modifying or adding code, check the official online documentation to ensure proper implementation details, best practices, and compatibility with the specific library versions defined in [pyproject.toml](file:///c:/Akshat/ContAIned/pyproject.toml).
+- **Official Documentation Sources:** Refer to these resources for packages listed in [pyproject.toml](file:///c:/Akshat/ContAIned/pyproject.toml):
+  - **Hugging Face & ML:** [Hugging Face Docs](https://huggingface.co/docs), [Transformers Docs](https://huggingface.co/docs/transformers/index), [Sentence Transformers](https://sbert.net/)
+  - **LLM Orchestration & Clients:** [LangChain Docs](https://python.langchain.com/v0.3/docs/introduction/), [LangGraph Docs](https://langchain-ai.github.io/langgraph/), [LiteLLM Docs](https://docs.litellm.ai/)
+  - **API & Data Validation:** [FastAPI Docs](https://fastapi.tiangolo.com/), [Pydantic v2 Docs](https://docs.pydantic.dev/latest/)
+  - **Database & Storage:** [SQLAlchemy v2 Docs](https://docs.sqlalchemy.org/en/20/), [Qdrant Docs](https://qdrant.tech/documentation/), [Neo4j Python Driver](https://neo4j.com/docs/python-manual/current/)
+  - **Evaluation & MLOps:** [DeepEval Docs](https://docs.confident-ai.com/), [Ragas Docs](https://docs.ragas.io/en/stable/), [MLflow Docs](https://mlflow.org/docs/latest/index.html)
+  - **Other Integrations:** [Model Context Protocol (MCP)](https://modelcontextprotocol.io/), [Llama.cpp Python](https://abetlen.github.io/llama-cpp-python/), [Confluent Kafka Python](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html)

@@ -5,7 +5,6 @@ to compose domain-specific settings classes into a single Settings instance.
 All backends and projects import settings from here.
 """
 
-import json
 import logging
 from pathlib import Path
 from typing import Optional

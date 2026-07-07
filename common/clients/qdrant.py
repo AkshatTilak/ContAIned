@@ -4,7 +4,7 @@ Shared across all projects and backends.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
