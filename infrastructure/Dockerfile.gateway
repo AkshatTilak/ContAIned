@@ -1,0 +1,32 @@
+# Gateway Dockerfile — lightweight CPU-only image
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+RUN pip install --no-cache-dir poetry>=2.0.0
+
+# Copy dependency files
+COPY pyproject.toml poetry.lock* ./
+
+# Install base + project deps (no GPU packages)
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi \
+    --extras "syntraflow" --extras "guardroute" --extras "evalops" \
+    || poetry install --no-interaction --no-ansi
+
+# Copy source code
+COPY common/ common/
+COPY gateway/ gateway/
+COPY projects/ projects/
+COPY inference/__init__.py inference/__init__.py
+COPY .env.example .env.example
+
+EXPOSE 8000
+
+CMD ["uvicorn", "gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]

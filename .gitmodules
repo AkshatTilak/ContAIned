@@ -1,0 +1,9 @@
+[submodule "projects/syntraflow"]
+	path = projects/syntraflow
+	url = https://github.com/AkshatTilak/syntraflow
+[submodule "projects/guardroute"]
+	path = projects/guardroute
+	url = https://github.com/AkshatTilak/guardroute
+[submodule "projects/evalops"]
+	path = projects/evalops
+	url = https://github.com/AkshatTilak/evalops

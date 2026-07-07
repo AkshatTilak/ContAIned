@@ -1,0 +1,67 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+*.venv
+venv/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Poetry lock (managed per install)
+poetry.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.deepeval/
+
+# Logs
+*.log
+logs/
+
+# Model weights (download at runtime)
+*.gguf
+*.bin
+*.safetensors
+models/
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.tiff
+
+# Database files
+*.db
+*.sqlite3
+
+# Keys and secrets
+*.pem
+service-account*.json
+
+# Temporary
+temporary/
