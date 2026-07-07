@@ -6,8 +6,8 @@ This document defines the configurable model selection system that allows operat
 
 ## 1. Model Registry Architecture
 
-### [ ] Registry Storage
-- [ ] Maintain a `model_registry` table in PostgreSQL:
+### [x] Registry Storage
+- [x] Maintain a `model_registry` table in PostgreSQL:
   ```sql
   CREATE TABLE model_registry (
       id              SERIAL PRIMARY KEY,
@@ -28,8 +28,8 @@ This document defines the configurable model selection system that allows operat
       created_at      TIMESTAMP DEFAULT NOW()
   );
   ```
-- [ ] Seed the table with all supported model entries on first startup.
-- [ ] Use the `model_registry_` prefix for namespace isolation.
+- [x] Seed the table with all supported model entries on first startup.
+- [x] Use the `model_registry_` prefix for namespace isolation.
 
 ### [ ] Environment Override Pattern
 Allow quick model switching without touching the database:
@@ -42,15 +42,15 @@ COMPLETION_MODEL=gemini   # or 'openrouter', 'groq', 'local'
 ```
 Environment overrides take priority over database entries.
 
-### [ ] Registry API (`common/models/registry.py`)
-- [ ] `get_model_spec(role: str, mode: str = "auto") -> ModelSpec` — Resolve the active model for a given role.
-- [ ] `get_active_model(role: str) -> ModelSpec` — Get the current default model.
-- [ ] `list_available(role: str) -> list[ModelSpec]` — List all enabled models for a role.
-- [ ] `get_fallback_chain(role: str) -> list[ModelSpec]` — Get ordered fallback list.
+### [x] Registry API (`common/models/registry.py`)
+- [x] `get_model_spec(role: str, mode: str = "auto") -> ModelSpec` — Resolve the active model for a given role.
+- [x] `get_active_model(role: str) -> ModelSpec` — Get the current default model.
+- [x] `list_available(role: str) -> list[ModelSpec]` — List all enabled models for a role.
+- [x] `get_fallback_chain(role: str) -> list[ModelSpec]` — Get ordered fallback list.
 
-### [ ] Dynamic Vector Dimension
-- [ ] Qdrant collection creation must read the `vector_dim` from the active embedding model's registry entry.
-- [ ] Switching embedding models requires re-indexing all vectors. The system must detect dimension mismatches and warn/block on startup.
+### [x] Dynamic Vector Dimension
+- [x] Qdrant collection creation must read the `vector_dim` from the active embedding model's registry entry.
+- [x] Switching embedding models requires re-indexing all vectors. The system must detect dimension mismatches and warn/block on startup.
 
 ---
 

@@ -46,11 +46,11 @@ This document details the shared library modules used by all backends and projec
 - [x] Provide `get_async_db()` FastAPI dependency generator yielding `AsyncSession`.
 - [x] Handle connection failures with retry/backoff on startup.
 
-### [ ] Qdrant Client (`qdrant.py`)
-- [ ] Maintain the existing `VectorClient` wrapper.
-- [ ] Add configurable timeout and retry policy.
-- [ ] Add `async_search_similarity()` for non-blocking searches.
-- [ ] Accept vector dimension dynamically from the Model Registry.
+### [x] Qdrant Client (`qdrant.py`)
+- [x] Maintain the existing `VectorClient` wrapper.
+- [x] Add configurable timeout and retry policy.
+- [x] Add `async_search_similarity()` for non-blocking searches.
+- [x] Accept vector dimension dynamically from the Model Registry.
 
 ### [x] Neo4j Client (`neo4j.py`) — NEW
 - [x] Create `common/clients/neo4j.py` wrapping the `neo4j` Python driver.
@@ -60,19 +60,19 @@ This document details the shared library modules used by all backends and projec
 - [x] Handle graceful connection failure with retry logic.
 - [x] Provide `get_neo4j_session()` dependency generator.
 
-### [ ] Inference Client (`inference.py`)
-- [ ] **Fix Docstring:** Change `transcribe()` docstring from "Whisper-v3-turbo" to model-agnostic description.
-- [ ] Update return schema comments to include `emotion` and `audio_events` fields for ASR.
-- [ ] Add configurable timeout (default: 120s).
-- [ ] Add retry policy for transient failures (503, connection reset).
-- [ ] Add circuit breaker: after N consecutive failures, mark inference server as degraded.
+### [x] Inference Client (`inference.py`)
+- [x] **Fix Docstring:** Change `transcribe()` docstring from "Whisper-v3-turbo" to model-agnostic description.
+- [x] Update return schema comments to include `emotion` and `audio_events` fields for ASR.
+- [x] Add configurable timeout (default: 120s).
+- [x] Add retry policy for transient failures (503, connection reset).
+- [x] Add circuit breaker: after N consecutive failures, mark inference server as degraded.
 
-### [ ] LiteLLM Client (`litellm.py`)
-- [ ] **Fix Default Model:** Update from `gemini/gemini-1.5-flash` to `gemini/gemini-3.5-flash`.
-- [ ] **Update Fallback Chain:** Use the Model Registry's fallback configuration instead of hardcoded list.
-- [ ] Add Groq and Cerebras to the fallback chain.
-- [ ] Add token counting for cost tracking.
-- [ ] Add context truncation logic for models with smaller context windows.
+### [x] LiteLLM Client (`litellm.py`)
+- [x] **Fix Default Model:** Update from `gemini/gemini-1.5-flash` to `gemini/gemini-3.5-flash`.
+- [x] **Update Fallback Chain:** Use the Model Registry's fallback configuration instead of hardcoded list.
+- [x] Add Groq and Cerebras to the fallback chain.
+- [x] Add token counting for cost tracking.
+- [x] Add context truncation logic for models with smaller context windows.
 
 ### [x] Redis Client (`redis.py`) — NEW
 - [x] Create `common/clients/redis.py` wrapping `redis[hiredis]`.
@@ -103,10 +103,10 @@ This document details the shared library modules used by all backends and projec
 - [ ] Add `latency_ms: float` field to `SubAgentResult` for timing.
 - [ ] Add `model_used: str` field to track which model was used (from Registry).
 
-### [ ] Model Registry Types — NEW
-- [ ] `ModelSpec` — Pydantic model representing a registry entry.
-- [ ] `ModelRole` — Enum of roles: `OCR`, `ASR`, `EMBEDDING`, `CLASSIFIER`, `COMPLETION`.
-- [ ] `ModelMode` — Enum: `LOCAL`, `CLOUD`, `AUTO`.
+### [x] Model Registry Types — NEW
+- [x] `ModelSpec` — Pydantic model representing a registry entry.
+- [x] `ModelRole` — Enum of roles: `OCR`, `ASR`, `EMBEDDING`, `CLASSIFIER`, `COMPLETION`.
+- [x] `ModelMode` — Enum: `LOCAL`, `CLOUD`, `AUTO`.
 
 ### [ ] API Request/Response Schemas — NEW
 - [ ] Define shared request/response schemas for common API patterns.

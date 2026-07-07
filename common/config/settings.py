@@ -38,6 +38,10 @@ class DatabaseSettings(BaseSettings):
     QDRANT_API_KEY: Optional[str] = Field(default=None, alias="QDRANT_API_KEY")
     REDIS_URL: str = Field(default="redis://localhost:6379", alias="REDIS_URL")
     
+    # Qdrant
+    QDRANT_TIMEOUT: float = Field(default=60.0, alias="QDRANT_TIMEOUT")
+    QDRANT_RETRIES: int = Field(default=3, alias="QDRANT_RETRIES")
+
     # Graph Database
     NEO4J_URL: str = Field(default="bolt://localhost:7687", alias="NEO4J_URL")
     NEO4J_USER: str = Field(default="neo4j", alias="NEO4J_USER")
@@ -61,6 +65,7 @@ class InferenceSettings(BaseSettings):
         default="http://localhost:8010", alias="INFERENCE_SERVER_URL"
     )
     INFERENCE_SERVER_PORT: int = Field(default=8010, alias="INFERENCE_SERVER_PORT")
+    INFERENCE_TIMEOUT: float = Field(default=120.0, alias="INFERENCE_TIMEOUT")
     CLASSIFIER_MODEL_PATH: str = Field(
         default="models/Arch-Router-1.5B-Q8_0.gguf", alias="CLASSIFIER_MODEL_PATH"
     )
