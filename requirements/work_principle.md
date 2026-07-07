@@ -47,6 +47,7 @@ This document outlines the strict protocol and guidelines for developers and AI 
 - Ensure proper logging and transaction tracing is integrated via the `common.observability` framework.
 - Write tests (EvalOps benchmarks, safety checks, or unit tests) alongside any new code features.
 - **Docker for Testing:** If needed, use Docker and containers for whatever tests are needed (e.g. databases, message brokers, or integration environment setups).
+- **Dependency Verification:** Always verify `pyproject.toml` when checking off tasks that mention adding new dependencies. Ensure packages are actually moved or added to the correct block (`dependencies` vs `optional-dependencies`).
 
 ### Clarity & Collaboration
 - If a requirement, contract, or design decision is ambiguous or doesn't make sense, **stop and ask the user for clarification** before making assumptions.
