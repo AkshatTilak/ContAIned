@@ -6,34 +6,34 @@ This document details the shared library modules used by all backends and projec
 
 ## 1. Configuration (`common/config/`)
 
-### [ ] Pydantic-Settings Composition Pattern
-- [ ] Use multi-inheritance to compose domain-specific settings classes into a single `Settings` instance.
-- [ ] All backends and projects must import settings from `common.config.settings`.
-- [ ] Add new settings classes as parents to the composed `Settings` when adding features.
+### [x] Pydantic-Settings Composition Pattern
+- [x] Use multi-inheritance to compose domain-specific settings classes into a single `Settings` instance.
+- [x] All backends and projects must import settings from `common.config.settings`.
+- [x] Add new settings classes as parents to the composed `Settings` when adding features.
 
-### [ ] Settings Validation on Startup
-- [ ] Fail-fast if required environment variables are missing (e.g., `DATABASE_URL`).
-- [ ] Log a warning for optional but recommended variables (e.g., `GOOGLE_API_KEY`).
-- [ ] Validate `ACTIVE_PROJECTS` entries against available project directories.
+### [x] Settings Validation on Startup
+- [x] Fail-fast if required environment variables are missing (e.g., `DATABASE_URL`).
+- [x] Log a warning for optional but recommended variables (e.g., `GOOGLE_API_KEY`).
+- [x] Validate `ACTIVE_PROJECTS` entries against available project directories.
 
-### [ ] New Settings Fields Required
-- [ ] `LOG_LEVEL: str = "INFO"` — Configurable log verbosity.
-- [ ] `VRAM_BUDGET_MB: int = 20000` — GPU memory budget (currently hardcoded).
-- [ ] `REDIS_URL: str = "redis://localhost:6379"` — Redis connection.
-- [ ] `CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]` — CORS allowlist.
-- [ ] `AUTH_ENABLED: bool = False` — Toggle API key authentication.
-- [ ] `GROQ_API_KEY: Optional[str] = None` — Groq provider key.
-- [ ] `CEREBRAS_API_KEY: Optional[str] = None` — Cerebras provider key.
-- [ ] `HF_HOME: str = "~/.cache/huggingface/hub"` — HuggingFace cache directory.
-- [ ] `DEVICE: str = "auto"` — Device selection (auto/cuda/cpu).
-- [ ] `INFERENCE_SERVER_PORT: int = 8010` — Explicit port field.
+### [x] New Settings Fields Required
+- [x] `LOG_LEVEL: str = "INFO"` — Configurable log verbosity.
+- [x] `VRAM_BUDGET_MB: int = 20000` — GPU memory budget (currently hardcoded).
+- [x] `REDIS_URL: str = "redis://localhost:6379"` — Redis connection.
+- [x] `CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]` — CORS allowlist.
+- [x] `AUTH_ENABLED: bool = False` — Toggle API key authentication.
+- [x] `GROQ_API_KEY: Optional[str] = None` — Groq provider key.
+- [x] `CEREBRAS_API_KEY: Optional[str] = None` — Cerebras provider key.
+- [x] `HF_HOME: str = "~/.cache/huggingface/hub"` — HuggingFace cache directory.
+- [x] `DEVICE: str = "auto"` — Device selection (auto/cuda/cpu).
+- [x] `INFERENCE_SERVER_PORT: int = 8010` — Explicit port field.
 
-### [ ] Model Override Settings
-- [ ] `OCR_MODEL: str = "glm"` — Active OCR model shorthand.
-- [ ] `ASR_MODEL: str = "sensevoice"` — Active ASR model shorthand.
-- [ ] `EMBEDDING_MODEL: str = "jina"` — Active embedding model shorthand.
-- [ ] `CLASSIFIER_MODEL: str = "arch"` — Active classifier model shorthand.
-- [ ] `COMPLETION_MODEL: str = "gemini"` — Active completion model shorthand.
+### [x] Model Override Settings
+- [x] `OCR_MODEL: str = "glm"` — Active OCR model shorthand.
+- [x] `ASR_MODEL: str = "sensevoice"` — Active ASR model shorthand.
+- [x] `EMBEDDING_MODEL: str = "jina"` — Active embedding model shorthand.
+- [x] `CLASSIFIER_MODEL: str = "arch"` — Active classifier model shorthand.
+- [x] `COMPLETION_MODEL: str = "gemini"` — Active completion model shorthand.
 
 ---
 

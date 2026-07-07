@@ -6,10 +6,14 @@ All backends and projects import settings from here.
 """
 
 import json
+import logging
+from pathlib import Path
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger("common.config")
 
 
 class AppSettings(BaseSettings):
@@ -20,6 +24,11 @@ class AppSettings(BaseSettings):
     APP_HOST: str = Field(default="0.0.0.0", alias="APP_HOST")
     APP_PORT: int = Field(default=8000, alias="APP_PORT")
     OCR_PROVIDER: str = Field(default="local", alias="OCR_PROVIDER")  # local (Baidu) or api (Gemini)
+    CORS_ORIGINS: list[str] = Field(
+        default=["http://localhost:3000", "http://localhost:5173"],
+        alias="CORS_ORIGINS",
+    )
+    AUTH_ENABLED: bool = Field(default=False, alias="AUTH_ENABLED")
 
 
 class DatabaseSettings(BaseSettings):
@@ -28,6 +37,7 @@ class DatabaseSettings(BaseSettings):
     DATABASE_URL: str = Field(..., alias="DATABASE_URL")
     QDRANT_URL: str = Field(default="http://localhost:6333", alias="QDRANT_URL")
     QDRANT_API_KEY: Optional[str] = Field(default=None, alias="QDRANT_API_KEY")
+    REDIS_URL: str = Field(default="redis://localhost:6379", alias="REDIS_URL")
     
     # Graph Database
     NEO4J_URL: str = Field(default="bolt://localhost:7687", alias="NEO4J_URL")
@@ -41,6 +51,8 @@ class LLMSettings(BaseSettings):
     GOOGLE_API_KEY: Optional[str] = Field(default=None, alias="GOOGLE_API_KEY")
     OPENROUTER_API_KEY: Optional[str] = Field(default=None, alias="OPENROUTER_API_KEY")
     OPENAI_API_KEY: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
+    GROQ_API_KEY: Optional[str] = Field(default=None, alias="GROQ_API_KEY")
+    CEREBRAS_API_KEY: Optional[str] = Field(default=None, alias="CEREBRAS_API_KEY")
 
 
 class InferenceSettings(BaseSettings):
@@ -49,17 +61,22 @@ class InferenceSettings(BaseSettings):
     INFERENCE_SERVER_URL: str = Field(
         default="http://localhost:8010", alias="INFERENCE_SERVER_URL"
     )
+    INFERENCE_SERVER_PORT: int = Field(default=8010, alias="INFERENCE_SERVER_PORT")
     CLASSIFIER_MODEL_PATH: str = Field(
         default="models/Arch-Router-1.5B-Q8_0.gguf", alias="CLASSIFIER_MODEL_PATH"
     )
     CLASSIFIER_IDLE_TIMEOUT: int = Field(
         default=300, alias="CLASSIFIER_IDLE_TIMEOUT"
     )
+    VRAM_BUDGET_MB: int = Field(default=20000, alias="VRAM_BUDGET_MB")
+    HF_HOME: str = Field(default="~/.cache/huggingface/hub", alias="HF_HOME")
+    DEVICE: str = Field(default="auto", alias="DEVICE")
 
 
 class ObservabilitySettings(BaseSettings):
     """Tracing and monitoring settings."""
 
+    LOG_LEVEL: str = Field(default="INFO", alias="LOG_LEVEL")
     OTEL_SERVICE_NAME: str = Field(
         default="akshat-platform", alias="OTEL_SERVICE_NAME"
     )
@@ -91,6 +108,16 @@ class ProjectSettings(BaseSettings):
     )
 
 
+class ModelOverrideSettings(BaseSettings):
+    """Model selection overrides shorthand settings."""
+
+    OCR_MODEL: str = Field(default="glm", alias="OCR_MODEL")
+    ASR_MODEL: str = Field(default="sensevoice", alias="ASR_MODEL")
+    EMBEDDING_MODEL: str = Field(default="jina", alias="EMBEDDING_MODEL")
+    CLASSIFIER_MODEL: str = Field(default="arch", alias="CLASSIFIER_MODEL")
+    COMPLETION_MODEL: str = Field(default="gemini", alias="COMPLETION_MODEL")
+
+
 class Settings(
     AppSettings,
     DatabaseSettings,
@@ -99,6 +126,7 @@ class Settings(
     ObservabilitySettings,
     RAGSettings,
     ProjectSettings,
+    ModelOverrideSettings,
 ):
     """Combined settings for the entire platform.
 
@@ -111,6 +139,46 @@ class Settings(
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def validate_settings(self) -> "Settings":
+        # 1. Fail-fast / check required settings.
+        # DATABASE_URL is required and validated by Pydantic schema validation.
+
+        # 2. Log warnings for optional but recommended settings.
+        recommended_vars = {
+            "GOOGLE_API_KEY": "Required for primary completion model (Gemini)",
+            "OPENROUTER_API_KEY": "Required for fallback tier compatibility",
+            "GROQ_API_KEY": "Required for Groq provider integration",
+            "CEREBRAS_API_KEY": "Required for Cerebras provider integration",
+            "OPENAI_API_KEY": "Required by DeepEval QA tests",
+        }
+        for var_name, description in recommended_vars.items():
+            if not getattr(self, var_name, None):
+                logger.warning(
+                    f"Optional but recommended environment variable '{var_name}' is missing. "
+                    f"Description: {description}"
+                )
+
+        # 3. Validate ACTIVE_PROJECTS entries against available project directories.
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        projects_dir = root_dir / "projects"
+
+        if projects_dir.exists() and projects_dir.is_dir():
+            existing_projects = {p.name for p in projects_dir.iterdir() if p.is_dir()}
+            for project in self.ACTIVE_PROJECTS:
+                if project not in existing_projects:
+                    raise ValueError(
+                        f"Project '{project}' listed in ACTIVE_PROJECTS but directory "
+                        f"'{projects_dir / project}' does not exist. Available projects: {list(existing_projects)}"
+                    )
+        else:
+            logger.warning(
+                f"Projects directory '{projects_dir}' could not be located. "
+                "Skipping ACTIVE_PROJECTS validation against local directories."
+            )
+
+        return self
 
     # --- Lowercase Compatibility Properties for Submodules ---
     @property
@@ -145,6 +213,22 @@ class Settings(
     def openai_api_key(self) -> Optional[str]:
         return self.OPENAI_API_KEY
 
+    @property
+    def host(self) -> str:
+        return self.APP_HOST
+
+    @property
+    def port(self) -> int:
+        return self.APP_PORT
+
+    @property
+    def log_level(self) -> str:
+        return self.LOG_LEVEL
+
+    @property
+    def vram_budget_mb(self) -> int:
+        return self.VRAM_BUDGET_MB
+
 
 settings = Settings()
 
@@ -152,3 +236,4 @@ settings = Settings()
 def get_settings() -> Settings:
     """Helper function to fetch cached Settings instance (for compatibility)."""
     return settings
+

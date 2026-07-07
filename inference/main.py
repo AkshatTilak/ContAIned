@@ -19,7 +19,7 @@ logger = get_logger("inference")
 
 # Initialize VRAM manager singleton
 vram = VRAMManager.get_instance(
-    budget_mb=20_000,
+    budget_mb=settings.VRAM_BUDGET_MB,
     idle_timeout=settings.CLASSIFIER_IDLE_TIMEOUT,
 )
 
@@ -80,6 +80,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "inference.main:app",
         host="0.0.0.0",
-        port=int(settings.INFERENCE_SERVER_URL.split(":")[-1]) if ":" in settings.INFERENCE_SERVER_URL else 8010,
+        port=settings.INFERENCE_SERVER_PORT,
         reload=settings.APP_ENV == "development",
     )
