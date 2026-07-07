@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from common.config.settings import settings
-from common.observability.logger import get_logger
+from common.observability.logger import get_logger, RequestIdMiddleware
 from gateway.api import router as api_router
 from gateway.api.health import router as health_router
 from gateway.core.setup import lifespan
@@ -28,6 +28,7 @@ app = FastAPI(
 )
 
 # Middleware
+app.add_middleware(RequestIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,

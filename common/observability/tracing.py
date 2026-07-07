@@ -1,8 +1,12 @@
 """OpenTelemetry tracing setup.
 
 Configures standard tracing exporters to export telemetry data to
-an OTLP Collector (like Prometheus/Grafana or LangSmith/Phoenix).
+an OTLP Collector (like Prometheus/Grafana or Jaeger).
 Shared across all projects and backends.
+
+Span Naming Conventions:
+    Spans created across the platform must follow the naming pattern:
+    `{project}.{operation}` (e.g., `syntraflow.ingest`, `guardroute.classify`).
 """
 
 import logging

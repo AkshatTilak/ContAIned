@@ -12,7 +12,7 @@ from collections.abc import AsyncGenerator
 from fastapi import FastAPI
 
 from common.config.settings import settings
-from common.observability.logger import get_logger
+from common.observability.logger import get_logger, RequestIdMiddleware
 from inference.core.vram_manager import VRAMManager
 
 logger = get_logger("inference")
@@ -40,6 +40,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(RequestIdMiddleware)
 
 
 @app.get("/health")

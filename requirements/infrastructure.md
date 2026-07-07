@@ -34,7 +34,7 @@ This document details Docker images, docker-compose services, local development 
 
 ## 2. docker-compose Services
 
-### [ ] Fix Critical Bug: Malformed `deploy.resources`
+### [x] Fix Critical Bug: Malformed `deploy.resources`
 The inference service has a duplicated `resources` key. Fix:
 ```yaml
 deploy:

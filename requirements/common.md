@@ -83,16 +83,16 @@ This document details the shared library modules used by all backends and projec
 
 ## 3. Observability (`common/observability/`)
 
-### [ ] Logger (`logger.py`)
-- [ ] **Fix:** Read `LOG_LEVEL` from settings instead of hardcoding `INFO`.
-- [ ] Support structured JSON logging for production (`APP_ENV=production`).
-- [ ] Add request ID correlation to log entries.
+### [x] Logger (`logger.py`)
+- [x] **Fix:** Read `LOG_LEVEL` from settings instead of hardcoding `INFO`.
+- [x] Support structured JSON logging for production (`APP_ENV=production`).
+- [x] Add request ID correlation to log entries.
 
 ### [x] Tracing (`tracing.py`)
 - [x] **Fix Critical Bug:** Add `from typing import Optional` import (missing, causes crash).
-- [ ] Configure OpenTelemetry OTLP export to Jaeger (recommended backend).
-- [ ] Maintain LangSmith integration toggle for LLM-specific tracing.
-- [ ] Add span naming conventions: `{project}.{operation}` (e.g., `syntraflow.ingest`, `guardroute.classify`).
+- [x] Configure OpenTelemetry OTLP export to Jaeger (recommended backend).
+- [x] Maintain LangSmith integration toggle for LLM-specific tracing.
+- [x] Add span naming conventions: `{project}.{operation}` (e.g., `syntraflow.ingest`, `guardroute.classify`).
 
 ---
 
