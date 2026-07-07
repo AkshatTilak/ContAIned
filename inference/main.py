@@ -47,11 +47,24 @@ app.add_middleware(RequestIdMiddleware)
 @app.get("/health")
 async def health_check() -> dict:
     """Inference server health — reports loaded models and VRAM usage."""
+    device = settings.DEVICE
+    if device == "auto":
+        try:
+            import torch
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        except ImportError:
+            device = "cpu"
+
     return {
         "status": "healthy",
         "loaded_models": vram.list_loaded(),
         "vram_used_mb": vram.used_mb,
+        "vram_budget_mb": vram._budget_mb,
+        "device": device,
+        "registered_models": list(vram._loaders.keys()),
+        "latency_metrics": vram.get_latency_summary(),
     }
+
 
 
 # Import loaders and routes

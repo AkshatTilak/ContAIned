@@ -29,6 +29,32 @@ class ModelSlot:
         self.last_used = time.time()
 
 
+class ConcurrencyLimiterWrapper:
+    """Wraps a loaded model to limit concurrent calls and track warm inference latency."""
+
+    def __init__(self, model: Any, semaphore: asyncio.Semaphore, model_name: str, manager: "VRAMManager"):
+        self._model = model
+        self._semaphore = semaphore
+        self._model_name = model_name
+        self._manager = manager
+
+    def __getattr__(self, name: str):
+        attr = getattr(self._model, name)
+        if callable(attr):
+            async def wrapped(*args, **kwargs):
+                if args and args[0] is self:
+                    args = args[1:]
+                start = time.time()
+                async with self._semaphore:
+                    res = await attr(*args, **kwargs)
+                elapsed = time.time() - start
+                self._manager._record_warm_latency(self._model_name, elapsed)
+                return res
+            return wrapped
+        return attr
+
+
+
 class VRAMManager:
     """Singleton VRAM budget arbiter for the inference server.
 
@@ -45,6 +71,8 @@ class VRAMManager:
         self._lock = asyncio.Lock()
         self._loaders: dict[str, Any] = {}  # name -> loader callable
         self._cleanup_task: Optional[asyncio.Task] = None
+        self._semaphores: dict[str, asyncio.Semaphore] = {}
+        self._metrics: dict[str, dict[str, list[float]]] = {}
 
     @classmethod
     def get_instance(cls, **kwargs) -> "VRAMManager":
@@ -53,16 +81,18 @@ class VRAMManager:
             cls._instance = cls(**kwargs)
         return cls._instance
 
-    def register_loader(self, name: str, loader_fn, vram_mb: int) -> None:
+    def register_loader(self, name: str, loader_fn, vram_mb: int, max_concurrency: int = 4) -> None:
         """Register a model loader function.
 
         Args:
             name: Model identifier (e.g. 'qwen2.5-vl-7b').
             loader_fn: Async callable that returns the loaded model.
             vram_mb: Estimated VRAM usage in MB.
+            max_concurrency: Max concurrent requests allowed for this model.
         """
-        self._loaders[name] = {"fn": loader_fn, "vram_mb": vram_mb}
-        logger.info("Registered model loader: %s (~%d MB)", name, vram_mb)
+        self._loaders[name] = {"fn": loader_fn, "vram_mb": vram_mb, "max_concurrency": max_concurrency}
+        self._semaphores[name] = asyncio.Semaphore(max_concurrency)
+        logger.info("Registered model loader: %s (~%d MB, max_concurrency=%d)", name, vram_mb, max_concurrency)
 
     async def ensure_loaded(self, name: str) -> Any:
         """Ensure a model is loaded in VRAM, loading it if necessary.
@@ -73,13 +103,18 @@ class VRAMManager:
             name: Model identifier.
 
         Returns:
-            The loaded model instance.
+            The loaded model instance wrapped in ConcurrencyLimiterWrapper.
         """
         async with self._lock:
-            # Already loaded — just touch and return
+            # Already loaded — just touch, wrap and return
             if name in self._slots:
                 self._slots[name].touch()
-                return self._slots[name].model
+                return ConcurrencyLimiterWrapper(
+                    self._slots[name].model,
+                    self._semaphores[name],
+                    name,
+                    self,
+                )
 
             if name not in self._loaders:
                 raise ValueError(f"No loader registered for model: {name}")
@@ -95,6 +130,7 @@ class VRAMManager:
             start = time.time()
             model = await loader_info["fn"]()
             elapsed = time.time() - start
+            self._record_cold_start(name, elapsed)
 
             slot = ModelSlot(name=name, model=model, vram_mb=needed_mb)
             slot.load_count += 1
@@ -104,7 +140,12 @@ class VRAMManager:
                 "Model loaded: %s in %.2fs | VRAM used: %d/%d MB",
                 name, elapsed, self.used_mb, self._budget_mb,
             )
-            return model
+            return ConcurrencyLimiterWrapper(
+                model,
+                self._semaphores[name],
+                name,
+                self,
+            )
 
     async def unload(self, name: str) -> None:
         """Explicitly unload a model from VRAM."""
@@ -169,3 +210,36 @@ class VRAMManager:
         if self._cleanup_task:
             self._cleanup_task.cancel()
             logger.info("VRAM cleanup loop stopped")
+
+    def _record_cold_start(self, name: str, latency: float) -> None:
+        if name not in self._metrics:
+            self._metrics[name] = {"cold": [], "warm": []}
+        self._metrics[name]["cold"].append(latency)
+
+    def _record_warm_latency(self, name: str, latency: float) -> None:
+        if name not in self._metrics:
+            self._metrics[name] = {"cold": [], "warm": []}
+        self._metrics[name]["warm"].append(latency)
+
+    def get_latency_summary(self) -> dict[str, Any]:
+        """Generate summary statistics for cold and warm latencies."""
+        summary = {}
+        for name, data in self._metrics.items():
+            cold = data["cold"]
+            warm = data["warm"]
+            summary[name] = {
+                "cold_start": {
+                    "count": len(cold),
+                    "avg_s": sum(cold) / len(cold) if cold else 0.0,
+                    "min_s": min(cold) if cold else 0.0,
+                    "max_s": max(cold) if cold else 0.0,
+                },
+                "warm_inference": {
+                    "count": len(warm),
+                    "avg_s": sum(warm) / len(warm) if warm else 0.0,
+                    "min_s": min(warm) if warm else 0.0,
+                    "max_s": max(warm) if warm else 0.0,
+                }
+            }
+        return summary
+

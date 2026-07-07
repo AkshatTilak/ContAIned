@@ -11,6 +11,11 @@ from common.schemas.model_registry import (
     ModelMode,
     ModelSpec,
 )
+from common.schemas.api import (
+    HealthResponse,
+    ErrorResponse,
+    PaginatedResponse,
+)
 
 __all__ = [
     "TaskComplexity",
@@ -20,5 +25,9 @@ __all__ = [
     "ModelRole",
     "ModelMode",
     "ModelSpec",
+    "HealthResponse",
+    "ErrorResponse",
+    "PaginatedResponse",
 ]
+
 

@@ -103,7 +103,7 @@ The Inference Server runs GPU-bound deep learning workloads behind a single API 
 
 ## 6. Health Endpoint
 
-### [ ] `/health` Response Schema
+### [x] `/health` Response Schema
 ```json
 {
   "status": "healthy",
@@ -121,14 +121,14 @@ The Inference Server runs GPU-bound deep learning workloads behind a single API 
 
 ## 7. Concurrency & Performance
 
-### [ ] Request Queuing
-- [ ] If two requests arrive simultaneously requiring the same model load, the second should wait for the load to complete (handled by `asyncio.Lock` in `VRAMManager`).
-- [ ] If two inference requests arrive for an already-loaded model, they should execute concurrently (no lock on inference, only on load/unload).
+### [x] Request Queuing
+- [x] If two requests arrive simultaneously requiring the same model load, the second should wait for the load to complete (handled by `asyncio.Lock` in `VRAMManager`).
+- [x] If two inference requests arrive for an already-loaded model, they should execute concurrently (no lock on inference, only on load/unload).
 
-### [ ] Per-Model Concurrency Limits
-- [ ] Optionally limit concurrent inference calls per model (e.g., max 4 concurrent embedding batches).
-- [ ] Prevent GPU memory spikes from oversized batch requests.
+### [x] Per-Model Concurrency Limits
+- [x] Optionally limit concurrent inference calls per model (e.g., max 4 concurrent embedding batches).
+- [x] Prevent GPU memory spikes from oversized batch requests.
 
-### [ ] Cold-Start vs Warm Latency Tracking
-- [ ] Log cold-start latency (first request requiring VRAM load) separately from warm latency (model already loaded).
-- [ ] Include these metrics in the health endpoint for monitoring.
+### [x] Cold-Start vs Warm Latency Tracking
+- [x] Log cold-start latency (first request requiring VRAM load) separately from warm latency (model already loaded).
+- [x] Include these metrics in the health endpoint for monitoring.

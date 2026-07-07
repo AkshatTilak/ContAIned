@@ -98,21 +98,21 @@ This document details the shared library modules used by all backends and projec
 
 ## 4. Schemas (`common/schemas/`)
 
-### [ ] Agent Types (`agent_types.py`)
-- [ ] Maintain existing schemas: `TaskComplexity`, `SubAgentStatus`, `SubAgentResult`, `ClassificationResult`.
-- [ ] Add `latency_ms: float` field to `SubAgentResult` for timing.
-- [ ] Add `model_used: str` field to track which model was used (from Registry).
+### [x] Agent Types (`agent_types.py`)
+- [x] Maintain existing schemas: `TaskComplexity`, `SubAgentStatus`, `SubAgentResult`, `ClassificationResult`.
+- [x] Add `latency_ms: float` field to `SubAgentResult` for timing.
+- [x] Add `model_used: str` field to track which model was used (from Registry).
 
 ### [x] Model Registry Types — NEW
 - [x] `ModelSpec` — Pydantic model representing a registry entry.
 - [x] `ModelRole` — Enum of roles: `OCR`, `ASR`, `EMBEDDING`, `CLASSIFIER`, `COMPLETION`.
 - [x] `ModelMode` — Enum: `LOCAL`, `CLOUD`, `AUTO`.
 
-### [ ] API Request/Response Schemas — NEW
-- [ ] Define shared request/response schemas for common API patterns.
-- [ ] `HealthResponse` — Standardized health check response.
-- [ ] `ErrorResponse` — Standardized error response with error codes.
-- [ ] `PaginatedResponse` — Standardized paginated list response.
+### [x] API Request/Response Schemas — NEW
+- [x] Define shared request/response schemas for common API patterns.
+- [x] `HealthResponse` — Standardized health check response.
+- [x] `ErrorResponse` — Standardized error response with error codes.
+- [x] `PaginatedResponse` — Standardized paginated list response.
 
 ---
 

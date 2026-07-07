@@ -40,8 +40,11 @@ class SubAgentResult(BaseModel):
     content_type: str = Field(default="text", description="Type of content: text, code, json, markdown")
     content: str = Field(default="", description="The actual output content")
     token_count: int = Field(default=0, description="Approximate token count of content")
+    latency_ms: float = Field(default=0.0, description="Execution latency in milliseconds")
+    model_used: Optional[str] = Field(default=None, description="Name/ID of the model used")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     error_message: Optional[str] = Field(default=None, description="Error details if status is error/timeout")
+
 
 
 class ClassificationResult(BaseModel):

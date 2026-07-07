@@ -52,6 +52,8 @@ This document outlines the strict protocol and guidelines for developers and AI 
 ### Clarity & Collaboration
 - If a requirement, contract, or design decision is ambiguous or doesn't make sense, **stop and ask the user for clarification** before making assumptions.
 - If you introduce improvements, configurations, or setup flags while executing a task, immediately **update the project-level and submodule-level READMEs** to track these changes for other developers.
+- If you need valid environment variables, API keys, or custom configuration parameters in `.env` to properly test and execute any part of the base project or project submodules, explicitly prompt or ask the user to provide these values.
+
 
 ### Documentation & Version Verification
 - **Check Documentation Online:** Before modifying or adding code, check the official online documentation to ensure proper implementation details, best practices, and compatibility with the specific library versions defined in [pyproject.toml](file:///c:/Akshat/ContAIned/pyproject.toml).
