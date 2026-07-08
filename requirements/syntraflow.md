@@ -51,13 +51,13 @@ SyntraFlow handles ingestion, layout-aware OCR extraction, keyframe/ASR audio al
   - Audio: `.wav`, `.mp3`, `.flac`, `.ogg`
 - [ ] Enforce limits via FastAPI `UploadFile` size constraints on the gateway.
 
-### [ ] Duplicate Document Detection
+### [/] Duplicate Document Detection
 - [ ] Compute SHA-256 hash of file content on upload.
 - [ ] Check against existing hashes in the `syntraflow_documents` table.
 - [ ] If duplicate: return existing document ID and metadata; skip re-processing.
 
-### [ ] Ingestion Job Status Tracking
-- [ ] Maintain a `syntraflow_jobs` table:
+### [/] Ingestion Job Status Tracking
+- [x] Maintain a `syntraflow_jobs` table:
   ```sql
   CREATE TABLE syntraflow_jobs (
       id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

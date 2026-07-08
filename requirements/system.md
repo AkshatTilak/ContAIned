@@ -13,7 +13,7 @@ This document details the system-level architectures, environment configurations
   - The Gateway must discover active modules via the `ACTIVE_PROJECTS` array in the environment.
   - The Gateway lifespan setup hooks (`setup.py` files) must trigger collection checks and database setups at start time.
   - If a project directory is missing or has unmet dependencies, log a warning and skip — do not crash the gateway.
-- [ ] **Shared Database Namespacing:**
+- [/] **Shared Database Namespacing:**
   - All submodules share the same PostgreSQL database, Neo4j instance, and Qdrant cluster.
   - SQL tables must use submodule prefixes (`syntraflow_`, `guardroute_`, `evalops_`, `model_registry_`).
   - Neo4j node labels must be namespaced with project prefixes (`SyntraFlow_Entity`, `SyntraFlow_RELATION`).

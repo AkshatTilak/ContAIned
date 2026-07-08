@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
+from common.models.database import Base
 from common.config.settings import settings
-from common.models.database import Base as CommonBase
-from projects.syntraflow.src.database.models import Base as SyntraFlowBase
-from projects.evalops.src.database.models import Base as EvalOpsBase
+# Import submodule models so they register their tables on the shared Base.metadata
+import projects.syntraflow.src.database.models  # noqa: F401
+import projects.evalops.src.database.models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -24,13 +25,8 @@ config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-target_metadata = [
-    CommonBase.metadata,
-    SyntraFlowBase.metadata,
-    EvalOpsBase.metadata,
-]
+# All models share a single Base — one metadata target
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
