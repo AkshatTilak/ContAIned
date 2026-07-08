@@ -68,27 +68,27 @@ deploy:
 - [ ] Healthcheck: `cypher-shell -u neo4j -p $password RETURN 1`
 
 #### Redis — NEW
-- [ ] Image: `redis:7-alpine`
-- [ ] Port: 6379
-- [ ] Volume: `redis_data:/data`
-- [ ] Healthcheck: `redis-cli ping`
-- [ ] Configuration: Enable AOF persistence.
+- [x] Image: `redis:7-alpine`
+- [x] Port: 6379
+- [x] Volume: `redis_data:/data`
+- [x] Healthcheck: `redis-cli ping`
+- [x] Configuration: Enable AOF persistence.
 
 #### Kafka + ZooKeeper — NEW
-- [ ] Image: `confluentinc/cp-kafka:7.6.0` (or KRaft mode)
-- [ ] Kafka Port: 9092
-- [ ] ZooKeeper Port: 2181 (if not using KRaft)
-- [ ] Volume: `kafka_data:/var/lib/kafka/data`
-- [ ] Auto-create topics on startup:
-  - `syntraflow-ingestion-jobs`
-  - `guardroute-traces`
-- [ ] Healthcheck: Kafka broker readiness check.
+- [x] Image: `confluentinc/cp-kafka:7.6.0` (or KRaft mode)
+- [x] Kafka Port: 9092
+- [x] ZooKeeper Port: 2181 (if not using KRaft)
+- [x] Volume: `kafka_data:/var/lib/kafka/data`
+- [x] Auto-create topics on startup:
+  - [x] `syntraflow-ingestion-jobs`
+  - [x] `guardroute-traces`
+- [x] Healthcheck: Kafka broker readiness check.
 
 #### Gateway
 - [ ] Build from `Dockerfile.gateway`
 - [ ] Port: 8000
-- [ ] Depends on: postgres (healthy), qdrant (started), neo4j (healthy), redis (healthy)
-- [ ] Environment overrides for container networking (e.g., `DATABASE_URL=postgresql+asyncpg://akshat:changeme@postgres:5432/akshat_platform`)
+- [x] Depends on: postgres (healthy), qdrant (started), neo4j (healthy), redis (healthy)
+- [x] Environment overrides for container networking (e.g., `DATABASE_URL=postgresql+asyncpg://akshat:changeme@postgres:5432/akshat_platform`)
 - [ ] Command: `uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload`
 
 #### Inference
@@ -98,29 +98,29 @@ deploy:
 - [ ] Volume mount: `./models:/app/models` for pre-downloaded weights
 - [ ] Command: `uvicorn inference.main:app --host 0.0.0.0 --port 8010`
 
-### [ ] Admin Profile (`--profile admin`)
+### [x] Admin Profile (`--profile admin`)
 
 #### pgAdmin
-- [ ] Image: `dpage/pgadmin4`
-- [ ] Port: 5050
-- [ ] Default credentials via environment variables.
+- [x] Image: `dpage/pgadmin4`
+- [x] Port: 5050
+- [x] Default credentials via environment variables.
 
 #### Kafka UI
-- [ ] Image: `provectuslabs/kafka-ui:latest`
-- [ ] Port: 8080
-- [ ] Connect to Kafka broker.
+- [x] Image: `provectuslabs/kafka-ui:latest`
+- [x] Port: 8080
+- [x] Connect to Kafka broker.
 
-### [ ] Observability Profile (`--profile observability`)
+### [x] Observability Profile (`--profile observability`)
 
 #### Jaeger (All-in-One)
-- [ ] Image: `jaegertracing/all-in-one:latest`
-- [ ] Ports: 16686 (UI), 4317 (OTLP gRPC), 4318 (OTLP HTTP)
-- [ ] Receives traces from OpenTelemetry Collector and application SDKs.
+- [x] Image: `jaegertracing/all-in-one:latest`
+- [x] Ports: 16686 (UI), 4317 (OTLP gRPC), 4318 (OTLP HTTP)
+- [x] Receives traces from OpenTelemetry Collector and application SDKs.
 
 #### OpenTelemetry Collector
-- [ ] Image: `otel/opentelemetry-collector:latest`
-- [ ] Ports: 4317, 4318
-- [ ] Configured to export to Jaeger.
+- [x] Image: `otel/opentelemetry-collector:latest`
+- [x] Ports: 4317, 4318
+- [x] Configured to export to Jaeger.
 
 ### [ ] Test Profile (`--profile test`)
 
@@ -129,7 +129,7 @@ deploy:
 - [ ] Depends on: gateway, inference, neo4j
 - [ ] Command: `pytest projects/evalops/ -v`
 
-### [ ] Volume Declarations
+### [x] Volume Declarations
 ```yaml
 volumes:
   pgdata:

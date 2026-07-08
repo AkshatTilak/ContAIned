@@ -25,6 +25,8 @@ COPY common/ common/
 COPY gateway/ gateway/
 COPY projects/ projects/
 COPY inference/__init__.py inference/__init__.py
+COPY alembic.ini alembic.ini
+COPY migrations/ migrations/
 COPY .env.example .env.example
 
 EXPOSE 8000

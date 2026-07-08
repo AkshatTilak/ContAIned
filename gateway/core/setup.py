@@ -39,6 +39,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             raise e
 
         try:
+            import asyncio
+            from alembic.config import Config
+            from alembic import command
+            logger.info("Running database migrations via Alembic...")
+            alembic_cfg = Config("alembic.ini")
+            await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+            logger.info("Database migrations completed successfully.")
+        except Exception as e:
+            logger.critical("Failed to run database migrations: %s", e)
+            raise e
+
+        try:
             from common.clients.redis import verify_redis_connection
             logger.info("Verifying Redis connection...")
             await verify_redis_connection()

@@ -87,13 +87,13 @@ Create and maintain a central `.env` file at the monorepo root containing the fo
 
 ## 3. Database & Message Queue Setup
 
-### [ ] PostgreSQL Services (Relational)
-- [ ] Use **asynchronous** SQLAlchemy engine (`create_async_engine` with `asyncpg` driver).
-- [ ] Setup schema migrations using **Alembic** rather than executing programmatic startup `create_all()`.
-  - Add `alembic.ini` and `migrations/` directory at the monorepo root.
-  - Each submodule maintains migration revisions with prefixed IDs.
-- [ ] Verify connection pooling configurations (`pool_size=10`, `max_overflow=20`, `pool_pre_ping=True`) to handle concurrent subagent requests.
-- [ ] Implement retry/backoff on startup if database is not yet ready.
+### [x] PostgreSQL Services (Relational)
+- [x] Use **asynchronous** SQLAlchemy engine (`create_async_engine` with `asyncpg` driver).
+- [x] Setup schema migrations using **Alembic** rather than executing programmatic startup `create_all()`.
+  - [x] Add `alembic.ini` and `migrations/` directory at the monorepo root.
+  - [x] Each submodule maintains migration revisions with prefixed IDs.
+- [x] Verify connection pooling configurations (`pool_size=10`, `max_overflow=20`, `pool_pre_ping=True`) to handle concurrent subagent requests.
+- [x] Implement retry/backoff on startup if database is not yet ready.
 
 ### [ ] Qdrant Services (Vector RAG)
 - [ ] Maintain the collection named `syntraflow_chunks_v1`.
@@ -110,18 +110,18 @@ Create and maintain a central `.env` file at the monorepo root containing the fo
 - [ ] Ensure transaction sessions are closed cleanly after each read-write batch.
 - [ ] Use parameterized Cypher queries exclusively — no string interpolation.
 
-### [ ] Redis Services (Cache & Sessions)
-- [ ] Maintain a Redis instance at `localhost:6379`.
+### [x] Redis Services (Cache & Sessions)
+- [x] Maintain a Redis instance at `localhost:6379`.
 - [ ] Use for: session storage (GuardRoute conversations), response caching, rate limit state.
-- [ ] Enable AOF persistence for durability.
+- [x] Enable AOF persistence for durability.
 
-### [ ] Kafka Services (Asynchronous Messaging)
-- [ ] Maintain a Kafka broker at `localhost:9092`.
-- [ ] Add Kafka + ZooKeeper (or KRaft) services to `docker-compose.yml`.
-- [ ] Maintain the following topics:
+### [x] Kafka Services (Asynchronous Messaging)
+- [x] Maintain a Kafka broker at `localhost:9092`.
+- [x] Add Kafka + ZooKeeper (or KRaft) services to `docker-compose.yml`.
+- [x] Maintain the following topics:
   - `syntraflow-ingestion-jobs` (Ingestion queue)
   - `guardroute-traces` (Orchestration spans)
-- [ ] Add `confluent-kafka` dependency to `guardroute` and `evalops` extras in `pyproject.toml` (currently only in `syntraflow`).
+- [x] Add `confluent-kafka` dependency to `guardroute` and `evalops` extras in `pyproject.toml` (currently only in `syntraflow`).
 - [ ] Handle Kafka broker offline scenarios gracefully — fall back to local file logging without blocking the user response thread.
 
 ---
