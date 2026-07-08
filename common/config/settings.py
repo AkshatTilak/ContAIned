@@ -47,6 +47,11 @@ class DatabaseSettings(BaseSettings):
     NEO4J_USER: str = Field(default="neo4j", alias="NEO4J_USER")
     NEO4J_PASSWORD: str = Field(default="password", alias="NEO4J_PASSWORD")
 
+    # Kafka Messaging
+    KAFKA_BOOTSTRAP_SERVERS: str = Field(
+        default="localhost:9092", alias="KAFKA_BOOTSTRAP_SERVERS"
+    )
+
 
 class LLMSettings(BaseSettings):
     """LLM API keys for LiteLLM multi-provider routing."""

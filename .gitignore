@@ -65,3 +65,6 @@ service-account*.json
 
 # Temporary
 temporary/
+
+# Temporary uploads
+projects/syntraflow/temp_uploads/

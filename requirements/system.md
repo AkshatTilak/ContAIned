@@ -13,7 +13,7 @@ This document details the system-level architectures, environment configurations
   - The Gateway must discover active modules via the `ACTIVE_PROJECTS` array in the environment.
   - The Gateway lifespan setup hooks (`setup.py` files) must trigger collection checks and database setups at start time.
   - If a project directory is missing or has unmet dependencies, log a warning and skip — do not crash the gateway.
-- [/] **Shared Database Namespacing:**
+- [x] **Shared Database Namespacing:**
   - All submodules share the same PostgreSQL database, Neo4j instance, and Qdrant cluster.
   - SQL tables must use submodule prefixes (`syntraflow_`, `guardroute_`, `evalops_`, `model_registry_`).
   - Neo4j node labels must be namespaced with project prefixes (`SyntraFlow_Entity`, `SyntraFlow_RELATION`).
@@ -104,11 +104,11 @@ Create and maintain a central `.env` file at the monorepo root containing the fo
 - [ ] Distance metric: **Cosine**.
 - [ ] On startup, validate that the existing collection dimension matches the active embedding model. Warn if mismatched.
 
-### [ ] Neo4j Services (GraphRAG)
-- [ ] Implement the shared Neo4j client in `common/clients/neo4j.py` (currently missing).
-- [ ] Verify read-only query protections in tools. All Cypher queries must block write commands (`CREATE`, `MERGE`, `DELETE`, `SET`, `REMOVE`, `DROP`).
-- [ ] Ensure transaction sessions are closed cleanly after each read-write batch.
-- [ ] Use parameterized Cypher queries exclusively — no string interpolation.
+### [x] Neo4j Services (GraphRAG)
+- [x] Implement the shared Neo4j client in `common/clients/neo4j.py` (currently missing).
+- [x] Verify read-only query protections in tools. All Cypher queries must block write commands (`CREATE`, `MERGE`, `DELETE`, `SET`, `REMOVE`, `DROP`).
+- [x] Ensure transaction sessions are closed cleanly after each read-write batch.
+- [x] Use parameterized Cypher queries exclusively — no string interpolation.
 
 ### [x] Redis Services (Cache & Sessions)
 - [x] Maintain a Redis instance at `localhost:6379`.

@@ -51,12 +51,12 @@ SyntraFlow handles ingestion, layout-aware OCR extraction, keyframe/ASR audio al
   - Audio: `.wav`, `.mp3`, `.flac`, `.ogg`
 - [ ] Enforce limits via FastAPI `UploadFile` size constraints on the gateway.
 
-### [/] Duplicate Document Detection
-- [ ] Compute SHA-256 hash of file content on upload.
-- [ ] Check against existing hashes in the `syntraflow_documents` table.
-- [ ] If duplicate: return existing document ID and metadata; skip re-processing.
+### [x] Duplicate Document Detection
+- [x] Compute SHA-256 hash of file content on upload.
+- [x] Check against existing hashes in the `syntraflow_documents` table.
+- [x] If duplicate: return existing document ID and metadata; skip re-processing.
 
-### [/] Ingestion Job Status Tracking
+### [x] Ingestion Job Status Tracking
 - [x] Maintain a `syntraflow_jobs` table:
   ```sql
   CREATE TABLE syntraflow_jobs (
@@ -69,8 +69,8 @@ SyntraFlow handles ingestion, layout-aware OCR extraction, keyframe/ASR audio al
       updated_at  TIMESTAMP DEFAULT NOW()
   );
   ```
-- [ ] Publish job to Kafka topic `syntraflow-ingestion-jobs` for async processing.
-- [ ] Expose `GET /api/syntraflow/jobs/{job_id}` status endpoint.
+- [x] Publish job to Kafka topic `syntraflow-ingestion-jobs` for async processing.
+- [x] Expose `GET /api/syntraflow/jobs/{job_id}` status endpoint.
 
 ---
 
