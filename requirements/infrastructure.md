@@ -6,25 +6,25 @@ This document details Docker images, docker-compose services, local development 
 
 ## 1. Docker Images
 
-### [ ] Dockerfile.gateway (CPU-only)
-- [ ] Base: `python:3.11-slim`
-- [ ] Install Poetry for dependency management.
-- [ ] Install base + all project extras (syntraflow, guardroute, evalops).
-- [ ] Install `ffmpeg` binary for media processing (required by SyntraFlow).
-- [ ] Copy `common/`, `gateway/`, `projects/`, and `inference/__init__.py`.
-- [ ] Do NOT install GPU packages (`torch`, `transformers`, `paddleocr`).
-- [ ] Expose port 8000.
+### [x] Dockerfile.gateway (CPU-only)
+- [x] Base: `python:3.11-slim`
+- [x] Install Poetry for dependency management.
+- [x] Install base + all project extras (syntraflow, guardroute, evalops).
+- [x] Install `ffmpeg` binary for media processing (required by SyntraFlow).
+- [x] Copy `common/`, `gateway/`, `projects/`, and `inference/__init__.py`.
+- [x] Do NOT install GPU packages (`torch`, `transformers`, `paddleocr`).
+- [x] Expose port 8000.
 
-### [ ] Dockerfile.inference (GPU)
-- [ ] Base: `nvidia/cuda:12.4.1-runtime-ubuntu22.04`
-- [ ] Install Python 3.11, Poetry, and system build tools.
-- [ ] Install base + inference extras (includes `torch`, `transformers`, `llama-cpp-python`).
-- [ ] Install framework-specific packages based on configured models (`funasr`, `paddleocr`, `surya-ocr`, etc.).
-- [ ] Copy `common/` and `inference/`.
-- [ ] Create `/app/models` directory for weight storage (mount as volume at runtime).
-- [ ] Expose port 8010.
+### [x] Dockerfile.inference (GPU)
+- [x] Base: `nvidia/cuda:12.4.1-runtime-ubuntu22.04`
+- [x] Install Python 3.11, Poetry, and system build tools.
+- [x] Install base + inference extras (includes `torch`, `transformers`, `llama-cpp-python`).
+- [x] Install framework-specific packages based on configured models (`funasr`, `paddleocr`, `surya-ocr`, etc.).
+- [x] Copy `common/` and `inference/`.
+- [x] Create `/app/models` directory for weight storage (mount as volume at runtime).
+- [x] Expose port 8010.
 
-### [ ] Image Security & Optimization
+### [x] Image Security & Optimization
 - [ ] Use multi-stage builds to reduce final image size.
 - [ ] Pin base image versions (avoid `latest` tags in production).
 - [ ] Run as non-root user.
@@ -46,26 +46,26 @@ deploy:
           capabilities: [gpu]
 ```
 
-### [ ] Core Services (Default Profile)
+### [x] Core Services (Default Profile)
 
 #### PostgreSQL
-- [ ] Image: `postgres:16`
-- [ ] Port: 5432
-- [ ] Volume: `pgdata:/var/lib/postgresql/data`
-- [ ] Healthcheck: `pg_isready -U akshat -d akshat_platform`
-- [ ] Environment: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- [x] Image: `postgres:16`
+- [x] Port: 5432
+- [x] Volume: `pgdata:/var/lib/postgresql/data`
+- [x] Healthcheck: `pg_isready -U akshat -d akshat_platform`
+- [x] Environment: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
 
 #### Qdrant
-- [ ] Image: `qdrant/qdrant:latest`
-- [ ] Port: 6333
-- [ ] Volume: `qdrant_data:/qdrant/storage`
-- [ ] Healthcheck: HTTP check on `/readyz`
+- [x] Image: `qdrant/qdrant:latest`
+- [x] Port: 6333
+- [x] Volume: `qdrant_data:/qdrant/storage`
+- [x] Healthcheck: HTTP check on `/readyz`
 
 #### Neo4j
-- [ ] Image: `neo4j:5.20.0`
-- [ ] Ports: 7474 (HTTP), 7687 (Bolt)
-- [ ] Volume: `neo4j_data:/data`, `neo4j_logs:/logs`
-- [ ] Healthcheck: `cypher-shell -u neo4j -p $password RETURN 1`
+- [x] Image: `neo4j:5.20.0`
+- [x] Ports: 7474 (HTTP), 7687 (Bolt)
+- [x] Volume: `neo4j_data:/data`, `neo4j_logs:/logs`
+- [x] Healthcheck: `cypher-shell -u neo4j -p $password RETURN 1`
 
 #### Redis — NEW
 - [x] Image: `redis:7-alpine`
@@ -85,18 +85,18 @@ deploy:
 - [x] Healthcheck: Kafka broker readiness check.
 
 #### Gateway
-- [ ] Build from `Dockerfile.gateway`
-- [ ] Port: 8000
+- [x] Build from `Dockerfile.gateway`
+- [x] Port: 8000
 - [x] Depends on: postgres (healthy), qdrant (started), neo4j (healthy), redis (healthy)
 - [x] Environment overrides for container networking (e.g., `DATABASE_URL=postgresql+asyncpg://akshat:changeme@postgres:5432/akshat_platform`)
-- [ ] Command: `uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload`
+- [x] Command: `uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload`
 
 #### Inference
-- [ ] Build from `Dockerfile.inference`
-- [ ] Port: 8010
-- [ ] GPU reservation via `deploy.resources`
-- [ ] Volume mount: `./models:/app/models` for pre-downloaded weights
-- [ ] Command: `uvicorn inference.main:app --host 0.0.0.0 --port 8010`
+- [x] Build from `Dockerfile.inference`
+- [x] Port: 8010
+- [x] GPU reservation via `deploy.resources`
+- [x] Volume mount: `./models:/app/models` for pre-downloaded weights
+- [x] Command: `uvicorn inference.main:app --host 0.0.0.0 --port 8010`
 
 ### [x] Admin Profile (`--profile admin`)
 

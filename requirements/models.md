@@ -31,7 +31,7 @@ This document defines the configurable model selection system that allows operat
 - [x] Seed the table with all supported model entries on first startup.
 - [x] Use the `model_registry_` prefix for namespace isolation.
 
-### [ ] Environment Override Pattern
+### [x] Environment Override Pattern
 Allow quick model switching without touching the database:
 ```env
 OCR_MODEL=gemini          # shorthand for the default 'cloud' OCR model

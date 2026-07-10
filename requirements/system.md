@@ -5,11 +5,11 @@ This document details the system-level architectures, environment configurations
 ---
 
 ## 1. Monorepo Integration Rules
-- [ ] **Strict Process Separation:**
+- [x] **Strict Process Separation:**
   - The API Gateway and all project submodules must run on CPU-only.
   - The Inference Server must load all deep learning weights.
   - Submodules must never import or call torch/transformers models directly; all execution must go through the typed `InferenceClient`.
-- [ ] **Dynamic Plug-and-Play Lifecycles:**
+- [x] **Dynamic Plug-and-Play Lifecycles:**
   - The Gateway must discover active modules via the `ACTIVE_PROJECTS` array in the environment.
   - The Gateway lifespan setup hooks (`setup.py` files) must trigger collection checks and database setups at start time.
   - If a project directory is missing or has unmet dependencies, log a warning and skip — do not crash the gateway.
@@ -17,7 +17,7 @@ This document details the system-level architectures, environment configurations
   - All submodules share the same PostgreSQL database, Neo4j instance, and Qdrant cluster.
   - SQL tables must use submodule prefixes (`syntraflow_`, `guardroute_`, `evalops_`, `model_registry_`).
   - Neo4j node labels must be namespaced with project prefixes (`SyntraFlow_Entity`, `SyntraFlow_RELATION`).
-- [ ] **Model Configuration via Registry:**
+- [x] **Model Configuration via Registry:**
   - All model references must be resolved through the Model Registry (see `requirements/models.md`).
   - Submodules must not hardcode model names, dimensions, or provider strings.
 
@@ -95,14 +95,14 @@ Create and maintain a central `.env` file at the monorepo root containing the fo
 - [x] Verify connection pooling configurations (`pool_size=10`, `max_overflow=20`, `pool_pre_ping=True`) to handle concurrent subagent requests.
 - [x] Implement retry/backoff on startup if database is not yet ready.
 
-### [ ] Qdrant Services (Vector RAG)
-- [ ] Maintain the collection named `syntraflow_chunks_v1`.
-- [ ] Vector dimension is **dynamically determined** by the active embedding model (see `requirements/models.md`):
+### [x] Qdrant Services (Vector RAG)
+- [x] Maintain the collection named `syntraflow_chunks_v1`.
+- [x] Vector dimension is **dynamically determined** by the active embedding model (see `requirements/models.md`):
   - jina-clip-v2: 1024
   - nomic-embed-vision-v2: 768
   - Gemini Embedding 2: configurable up to 3072
-- [ ] Distance metric: **Cosine**.
-- [ ] On startup, validate that the existing collection dimension matches the active embedding model. Warn if mismatched.
+- [x] Distance metric: **Cosine**.
+- [x] On startup, validate that the existing collection dimension matches the active embedding model. Warn if mismatched.
 
 ### [x] Neo4j Services (GraphRAG)
 - [x] Implement the shared Neo4j client in `common/clients/neo4j.py` (currently missing).
