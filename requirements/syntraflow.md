@@ -20,19 +20,19 @@ SyntraFlow handles ingestion, layout-aware OCR extraction, keyframe/ASR audio al
 ---
 
 ## 2. Video & Audio Ingestion Requirements
-- [ ] **Asynchronous Stream Demuxing:**
+- [x] **Asynchronous Stream Demuxing:**
   - Extract the audio channel from uploaded video containers (`.mp4`, `.mov`, `.webm`, `.mkv`) using an async media pipeline.
   - Generate temporary WAV audio files (`.wav`) for transcription.
   - **Dependency Fix:** Use `ffmpeg-python` or `pydub` (NOT `aiortc`, which is for WebRTC). Require `ffmpeg` binary in Docker image.
-- [ ] **Speech-to-Text Transcription:**
+- [x] **Speech-to-Text Transcription:**
   - Pass audio files to the configured ASR model on the inference server (default: SenseVoice-Small).
   - Return transcribed word segments mapping start/end timestamps.
   - Capture emotion markers and audio event tags (laughter, applause, crying) — unique feature of SenseVoice-Small.
   - See `requirements/models.md` §4 for all ASR model options.
-- [ ] **Keyframe Scene-Change Sampling:**
+- [x] **Keyframe Scene-Change Sampling:**
   - Sample video keyframes on scene change limits (e.g., tracking pixel delta thresholds or visual SSIM changes).
   - Pass keyframes to the configured cloud LLM (default: Gemini 3.5 Flash) to generate visual summaries and describe charts/drawings.
-- [ ] **Temporal Aligner:**
+- [x] **Temporal Aligner:**
   - Align ASR transcript timestamps with LLM keyframe visual descriptions chronologically.
   - Store aligned timeline blocks in the relational database.
 
@@ -75,15 +75,15 @@ SyntraFlow handles ingestion, layout-aware OCR extraction, keyframe/ASR audio al
 ---
 
 ## 4. Database Writing & KG Population
-- [ ] **Relational DB Operations (PostgreSQL):**
+- [x] **Relational DB Operations (PostgreSQL):**
   - Write document metadata, aligned video segments, and chunk payloads to Postgres database schemas.
   - Use `syntraflow_` prefix for all tables (`syntraflow_documents`, `syntraflow_chunks`, `syntraflow_video_segments`).
-- [ ] **Vector Indexing (Qdrant):**
+- [x] **Vector Indexing (Qdrant):**
   - Generate embeddings for each text block or aligned keyframe segment using the configured embedding model (default: jina-clip-v2).
   - Index embeddings inside the `syntraflow_chunks_v1` collection.
   - **Vector dimension:** Determined by the active embedding model (default: 1024 for jina-clip-v2). See `requirements/models.md` §5.
   - Batch upserts: process in batches of 100 vectors per upsert call.
-- [ ] **Knowledge Graph Population (Neo4j):**
+- [x] **Knowledge Graph Population (Neo4j):**
   - Run an LLM extraction pass over text chunks to extract Entities (People, Orgs, Locations), Relationships, and factual Claims.
   - **LLM for Extraction:** Use the configured completion model (default: Gemini 3.5 Flash via LiteLLM).
   - **Entity Types:** Person, Organization, Location, Concept, Event, Product.
@@ -102,19 +102,19 @@ SyntraFlow handles ingestion, layout-aware OCR extraction, keyframe/ASR audio al
 ## 5. Model Context Protocol (MCP) Specifications
 Expose standard retriever capabilities as tools via a FastMCP server:
 
-### [ ] Transport
-- [ ] Use **SSE (Server-Sent Events)** transport for MCP server (compatible with web clients and LangGraph).
-- [ ] Alternative: **streamable-HTTP** for simpler integrations.
+### [x] Transport
+- [x] Use **SSE (Server-Sent Events)** transport for MCP server (compatible with web clients and LangGraph).
+- [x] Alternative: **streamable-HTTP** for simpler integrations.
 
-### [ ] Tools
-- [ ] **`retrieve_documents(query: str, strategy: str, limit: int) -> str`**
+### [x] Tools
+- [x] **`retrieve_documents(query: str, strategy: str, limit: int) -> str`**
   - Performs hybrid retrieval. Calls Vector Similarity Search on Qdrant, Cypher query traversal on Neo4j, merges results using Reciprocal Rank Fusion (RRF), and returns ranked texts.
   - `strategy` parameter: `vector`, `graph`, or `hybrid` (default from `RAG_STRATEGY` setting).
-- [ ] **`retrieve_video_segments(query: str, limit: int) -> str`**
+- [x] **`retrieve_video_segments(query: str, limit: int) -> str`**
   - Performs semantic searches against video timeline blocks in Qdrant and returns aligned transcripts and visual descriptions.
-- [ ] **`query_database(table: str, filters: dict, columns: list) -> str`**
+- [x] **`query_database(table: str, filters: dict, columns: list) -> str`**
   - Parameterized database helper. Must block access if table does not start with `syntraflow_` and prevent SQL injections via parameterized queries only.
-- [ ] **`query_graph(cypher_query: str) -> str`**
+- [x] **`query_graph(cypher_query: str) -> str`**
   - Read-only parameterized Cypher traversal. Reject Cypher commands containing forbidden write keywords (`CREATE`, `MERGE`, `DELETE`, `SET`, `REMOVE`, `DROP`).
 
 ---
