@@ -18,7 +18,7 @@ logger = logging.getLogger("common.config")
 class AppSettings(BaseSettings):
     """Application-level settings."""
 
-    APP_NAME: str = Field(default="akshat-ai-platform", alias="APP_NAME")
+    APP_NAME: str = Field(default="contained-ai-platform", alias="APP_NAME")
     APP_ENV: str = Field(default="development", alias="APP_ENV")
     APP_HOST: str = Field(default="0.0.0.0", alias="APP_HOST")
     APP_PORT: int = Field(default=8000, alias="APP_PORT")
@@ -87,7 +87,7 @@ class ObservabilitySettings(BaseSettings):
 
     LOG_LEVEL: str = Field(default="INFO", alias="LOG_LEVEL")
     OTEL_SERVICE_NAME: str = Field(
-        default="akshat-platform", alias="OTEL_SERVICE_NAME"
+        default="contained-platform", alias="OTEL_SERVICE_NAME"
     )
     OTEL_EXPORTER_OTLP_ENDPOINT: str = Field(
         default="http://localhost:4317", alias="OTEL_EXPORTER_OTLP_ENDPOINT"
@@ -95,7 +95,7 @@ class ObservabilitySettings(BaseSettings):
     LANGSMITH_TRACING: bool = Field(default=False, alias="LANGSMITH_TRACING")
     LANGSMITH_API_KEY: Optional[str] = Field(default=None, alias="LANGSMITH_API_KEY")
     LANGSMITH_PROJECT: str = Field(
-        default="akshat-platform", alias="LANGSMITH_PROJECT"
+        default="contained-platform", alias="LANGSMITH_PROJECT"
     )
     LANGSMITH_ENDPOINT: str = Field(
         default="https://api.smith.langchain.com", alias="LANGSMITH_ENDPOINT"

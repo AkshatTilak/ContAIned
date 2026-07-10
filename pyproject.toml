@@ -1,5 +1,5 @@
 [project]
-name = "akshat-ai-platform"
+name = "contained-ai-platform"
 version = "0.1.0"
 description = "Monorepo for SyntraFlow, GuardRoute, and EvalOps"
 authors = [{name = "Akshat Tilak"}]

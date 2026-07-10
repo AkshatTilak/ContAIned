@@ -1,6 +1,6 @@
 # AI Developer Agent: Monorepo Guidelines & Coding Standards
 
-This document outlines the strict guidelines, coding practices, system design patterns, folder structures, and testing rules that AI developer agents must follow when implementing, extending, or refactoring code across the unified **Akshat AI Platform Monorepo** (comprising **SyntraFlow**, **GuardRoute**, and **EvalOps**).
+This document outlines the strict guidelines, coding practices, system design patterns, folder structures, and testing rules that AI developer agents must follow when implementing, extending, or refactoring code across the unified **ContAIned AI Platform Monorepo** (comprising **SyntraFlow**, **GuardRoute**, and **EvalOps**).
 
 ---
 

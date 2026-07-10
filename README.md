@@ -1,4 +1,4 @@
-# Akshat AI Platform Monorepo
+# ContAIned AI Platform Monorepo
 
 This repository is a monorepo containing multiple AI/ML project submodules and shared infrastructure. It is modeled after standard enterprise plug-and-play AI monorepos.
 

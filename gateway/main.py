@@ -22,7 +22,7 @@ logger = get_logger("gateway")
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="API Gateway for the akshat-ai-platform monorepo",
+    description="API Gateway for the contained-ai-platform monorepo",
     version="0.1.0",
     lifespan=lifespan,
 )

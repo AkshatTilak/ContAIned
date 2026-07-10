@@ -27,7 +27,7 @@ This document details the system-level architectures, environment configurations
 Create and maintain a central `.env` file at the monorepo root containing the following parameters:
 
 ### [ ] Server & Environment Setup
-- [ ] `APP_NAME="Akshat AI Platform"` (Display name)
+- [ ] `APP_NAME="ContAIned AI Platform"` (Display name)
 - [ ] `APP_ENV="development"` (development/production/testing)
 - [ ] `APP_HOST="0.0.0.0"`
 - [ ] `APP_PORT=8000` (Gateway port)
@@ -77,11 +77,11 @@ Create and maintain a central `.env` file at the monorepo root containing the fo
 - [ ] `CORS_ORIGINS=["http://localhost:3000","http://localhost:5173"]` (CORS allowlist)
 
 ### [ ] Observability & Tracing
-- [ ] `OTEL_SERVICE_NAME="akshat-platform"`
+- [ ] `OTEL_SERVICE_NAME="contained-platform"`
 - [ ] `OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"` (Jaeger or OTEL Collector)
 - [ ] `LANGSMITH_TRACING=false` (Toggle LangSmith LLM tracing)
 - [ ] `LANGSMITH_API_KEY=""`
-- [ ] `LANGSMITH_PROJECT="akshat-platform"`
+- [ ] `LANGSMITH_PROJECT="contained-platform"`
 
 ---
 

@@ -1,6 +1,6 @@
 # Standard Operating Procedure: How to Select and Implement Tasks (`work_on_task.md`)
 
-This document outlines the strict protocol and guidelines for developers and AI agents when selecting, executing, integrating, and documenting tasks within the Akshat AI Platform Monorepo.
+This document outlines the strict protocol and guidelines for developers and AI agents when selecting, executing, integrating, and documenting tasks within the ContAIned AI Platform Monorepo.
 
 ---
 

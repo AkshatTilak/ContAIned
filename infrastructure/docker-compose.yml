@@ -5,13 +5,13 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: akshat_platform
-      POSTGRES_USER: akshat
+      POSTGRES_DB: contained_platform
+      POSTGRES_USER: contained
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     ports: ["5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U akshat -d akshat_platform"]
+      test: ["CMD-SHELL", "pg_isready -U contained -d contained_platform"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -110,7 +110,7 @@ services:
     env_file: ../.env
     environment:
       INFERENCE_SERVER_URL: http://inference:8010
-      DATABASE_URL: postgresql+asyncpg://akshat:${POSTGRES_PASSWORD:-changeme}@postgres:5432/akshat_platform
+      DATABASE_URL: postgresql+asyncpg://contained:${POSTGRES_PASSWORD:-changeme}@postgres:5432/contained_platform
       QDRANT_URL: http://qdrant:6333
       NEO4J_URL: bolt://neo4j:7687
       REDIS_URL: redis://redis:6379
@@ -195,7 +195,7 @@ services:
     environment:
       GATEWAY_URL: http://gateway:8000
       INFERENCE_SERVER_URL: http://inference:8010
-      DATABASE_URL: postgresql+asyncpg://akshat:${POSTGRES_PASSWORD:-changeme}@postgres:5432/akshat_platform
+      DATABASE_URL: postgresql+asyncpg://contained:${POSTGRES_PASSWORD:-changeme}@postgres:5432/contained_platform
       QDRANT_URL: http://qdrant:6333
       NEO4J_URL: bolt://neo4j:7687
     depends_on: [gateway, inference, neo4j]

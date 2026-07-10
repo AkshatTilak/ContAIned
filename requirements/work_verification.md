@@ -1,6 +1,6 @@
 # Standard Operating Procedure: How to Verify and Audit Completed Tasks (`work_verification.md`)
 
-This document defines the official verification, audit, and quality assurance protocol for developers and AI agents to check completed tasks in the Akshat AI Platform Monorepo. Use this process to discover redundancies, check for specification discrepancies, and feedback learnings into the system.
+This document defines the official verification, audit, and quality assurance protocol for developers and AI agents to check completed tasks in the ContAIned AI Platform Monorepo. Use this process to discover redundancies, check for specification discrepancies, and feedback learnings into the system.
 
 ---
 

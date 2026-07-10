@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
 app = FastAPI(
     title="Inference Server",
-    description="GPU model serving for akshat-ai-platform",
+    description="GPU model serving for contained-ai-platform",
     version="0.1.0",
     lifespan=lifespan,
 )

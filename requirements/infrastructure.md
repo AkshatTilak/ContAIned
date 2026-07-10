@@ -52,7 +52,7 @@ deploy:
 - [x] Image: `postgres:16`
 - [x] Port: 5432
 - [x] Volume: `pgdata:/var/lib/postgresql/data`
-- [x] Healthcheck: `pg_isready -U akshat -d akshat_platform`
+- [x] Healthcheck: `pg_isready -U contained -d contained_platform`
 - [x] Environment: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
 
 #### Qdrant
@@ -88,7 +88,7 @@ deploy:
 - [x] Build from `Dockerfile.gateway`
 - [x] Port: 8000
 - [x] Depends on: postgres (healthy), qdrant (started), neo4j (healthy), redis (healthy)
-- [x] Environment overrides for container networking (e.g., `DATABASE_URL=postgresql+asyncpg://akshat:changeme@postgres:5432/akshat_platform`)
+- [x] Environment overrides for container networking (e.g., `DATABASE_URL=postgresql+asyncpg://contained:changeme@postgres:5432/contained_platform`)
 - [x] Command: `uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload`
 
 #### Inference
