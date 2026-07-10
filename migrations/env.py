@@ -12,6 +12,7 @@ from common.config.settings import settings
 # Import submodule models so they register their tables on the shared Base.metadata
 import projects.syntraflow.src.database.models  # noqa: F401
 import projects.evalops.src.database.models  # noqa: F401
+import projects.guardroute.src.database.models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
