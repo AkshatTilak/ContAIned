@@ -121,12 +121,12 @@ Expose standard retriever capabilities as tools via a FastMCP server:
 
 ## 6. Document Deletion & Cleanup
 
-### [ ] Deletion API
-- [ ] `DELETE /api/syntraflow/documents/{doc_id}` — Cascade delete:
-  1. Remove vectors from Qdrant by document ID filter.
-  2. Remove graph nodes/edges from Neo4j by document reference.
-  3. Remove rows from Postgres (`syntraflow_documents`, `syntraflow_chunks`, `syntraflow_video_segments`, `syntraflow_jobs`).
-  4. Return confirmation with counts of deleted items.
+### [x] Deletion API
+- [x] `DELETE /api/syntraflow/documents/{doc_id}` — Cascade delete:
+  - [x] Remove vectors from Qdrant by document ID filter.
+  - [x] Remove graph nodes/edges from Neo4j by document reference.
+  - [x] Remove rows from Postgres (`syntraflow_documents`, `syntraflow_chunks`, `syntraflow_video_segments`, `syntraflow_jobs`).
+  - [x] Return confirmation with counts of deleted items.
 
 ---
 
