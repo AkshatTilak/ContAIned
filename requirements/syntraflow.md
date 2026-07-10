@@ -40,16 +40,16 @@ SyntraFlow handles ingestion, layout-aware OCR extraction, keyframe/ASR audio al
 
 ## 3. File Upload & Processing
 
-### [ ] File Size & Format Limits
-- [ ] Maximum upload size:
+### [x] File Size & Format Limits
+- [x] Maximum upload size:
   - Documents: 100 MB (PDF, DOCX, PPTX, images)
   - Videos: 500 MB (MP4, MOV, WebM, MKV)
   - Audio: 200 MB (WAV, MP3, FLAC)
-- [ ] Supported formats:
+- [x] Supported formats:
   - Documents: `.pdf`, `.png`, `.jpg`, `.jpeg`, `.tiff`, `.bmp`, `.docx`, `.pptx`
   - Video: `.mp4`, `.mov`, `.webm`, `.mkv`
   - Audio: `.wav`, `.mp3`, `.flac`, `.ogg`
-- [ ] Enforce limits via FastAPI `UploadFile` size constraints on the gateway.
+- [x] Enforce limits via FastAPI `UploadFile` size constraints on the gateway.
 
 ### [x] Duplicate Document Detection
 - [x] Compute SHA-256 hash of file content on upload.
