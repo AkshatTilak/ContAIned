@@ -5,11 +5,11 @@ SyntraFlow handles ingestion, layout-aware OCR extraction, keyframe/ASR audio al
 ---
 
 ## 1. Document Ingestion Requirements
-- [ ] **Configurable OCR Engine (via Model Registry):**
+- [x] **Configurable OCR Engine (via Model Registry):**
   - **Local Mode:** Load the configured local OCR model (default: GLM-OCR) into the inference server VRAM on request. Extract raw document structures, cells, and layouts. Optionally pass markup to an LLM (Gemini Flash) to convert to layout-preserving Markdown JSON.
   - **API Mode:** Pass document images directly to the configured cloud OCR model (default: Gemini 3.5 Flash API) in a single vision-aware completion pass to output layout-preserving Markdown and tabular JSON. Runs at zero local VRAM cost.
   - See `requirements/models.md` §3 for all OCR model options.
-- [ ] **Layout-Aware Chunking Engine:**
+- [x] **Layout-Aware Chunking Engine:**
   - Split documents by logical layout boundaries (headers, paragraphs, sections) instead of arbitrary token lengths.
   - Maintain parent-child mappings for headers to conserve contextual hierarchies.
   - Configurable parameters:

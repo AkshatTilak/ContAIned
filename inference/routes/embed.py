@@ -25,7 +25,9 @@ async def perform_embedding(req: EmbedRequest) -> dict:
     if not req.texts and not req.images:
         raise HTTPException(status_code=400, detail="Must provide 'texts' or 'images'")
 
-    model = await vram.ensure_loaded("jina-clip-v2")
+    from common.models.registry import get_active_model
+    model_spec = await get_active_model("embedding")
+    model = await vram.ensure_loaded(model_spec.model_id)
     embeddings = []
 
     if req.texts:

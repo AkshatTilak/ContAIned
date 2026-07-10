@@ -17,7 +17,9 @@ class ClassifyRequest(BaseModel):
 
 @router.post("/classify")
 async def perform_classification(req: ClassifyRequest) -> dict:
-    """Lazy-loads Arch-Router-1.5B GGUF and categorizes complexity and routing list."""
-    model = await vram.ensure_loaded("arch-router-1.5b")
+    """Lazy-loads the active task classifier model and categorizes complexity and routing list."""
+    from common.models.registry import get_active_model
+    model_spec = await get_active_model("classifier")
+    model = await vram.ensure_loaded(model_spec.model_id)
     result = await model.classify_prompt(req.prompt)
     return result

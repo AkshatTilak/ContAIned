@@ -5,21 +5,21 @@ The Inference Server runs GPU-bound deep learning workloads behind a single API 
 ---
 
 ## 1. VRAM Manager & Budgeting Requirements
-- [ ] **On-Demand Lazy Loading:**
+- [x] **On-Demand Lazy Loading:**
   - Keep model weights unloaded from VRAM until an incoming router request targets a specific endpoint.
   - Automatically load the target model at request time and update its last-used timestamp.
   - Auto-download model weights from HuggingFace Hub on first use if not cached (see `requirements/models.md` §2).
-- [ ] **LRU Eviction Scheduler:**
+- [x] **LRU Eviction Scheduler:**
   - Maintain a configurable VRAM memory budget (default: 20 GB, via `VRAM_BUDGET_MB` env var).
   - If loading a model would exceed this limit, evict the Least Recently Used (LRU) model from memory before loading the new model.
-- [ ] **Idle Cleanup Daemon:**
+- [x] **Idle Cleanup Daemon:**
   - Run a background task that checks model status every 60 seconds.
   - If a model remains inactive for more than `CLASSIFIER_IDLE_TIMEOUT` seconds (default: 300), unload it from VRAM.
-- [ ] **Device Auto-Detection:**
+- [x] **Device Auto-Detection:**
   - Read `DEVICE` setting (`auto`, `cuda`, `cpu`).
   - If `auto`: detect CUDA availability; fall back to CPU.
   - If `cpu`: load all models on CPU (degraded performance, useful for dev environments without GPU).
-- [ ] **Model Registry Integration:**
+- [x] **Model Registry Integration:**
   - On startup, read enabled local models from the Model Registry.
   - Register loader functions only for models marked as `is_enabled=True` and `mode='local'`.
   - Support hot-reload: if registry changes, re-register model loaders without restarting.
