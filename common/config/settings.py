@@ -30,6 +30,7 @@ class AppSettings(BaseSettings):
     AUTH_ENABLED: bool = Field(default=False, alias="AUTH_ENABLED")
     MAX_UPLOAD_SIZE: int = Field(default=524288000, alias="MAX_UPLOAD_SIZE")  # 500 MB
     MAX_JSON_SIZE: int = Field(default=1048576, alias="MAX_JSON_SIZE")  # 1 MB
+    TOXICITY_THRESHOLD: float = Field(default=0.1, alias="TOXICITY_THRESHOLD")
 
 
 class DatabaseSettings(BaseSettings):
