@@ -64,6 +64,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         except Exception as e:
             logger.warning("Neo4j verification failed (continuing in degraded state): %s", e)
 
+        try:
+            from common.clients.qdrant import VectorClient
+            logger.info("Verifying Qdrant connection...")
+            qdrant_client = VectorClient()
+            await qdrant_client.verify_connection()
+        except Exception as e:
+            logger.warning("Qdrant verification failed (continuing in degraded state): %s", e)
+
+        try:
+            import asyncio
+            from confluent_kafka.admin import AdminClient
+            logger.info("Verifying Kafka connection...")
+            conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 2000}
+            admin_client = AdminClient(conf)
+            await asyncio.to_thread(admin_client.list_topics, timeout=2.0)
+            logger.info("Kafka connection verified successfully.")
+        except Exception as e:
+            logger.warning("Kafka verification failed (continuing in degraded state): %s", e)
+
     # 2. Initialize and seed Model Registry
     try:
         from common.models.registry import init_model_registry

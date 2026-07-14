@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from common.config.settings import settings
-from common.observability.logger import get_logger
+from common.observability.logger import get_logger, log_security_event
 from common.clients.postgres import get_sessionmaker
 from common.models.database import APIKeyModel
 from sqlalchemy import select
@@ -28,6 +28,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Ke
         return
 
     if not x_api_key:
+        log_security_event("AUTH_FAILURE", {"reason": "Missing X-API-Key header"})
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized: Missing X-API-Key header"
@@ -42,6 +43,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Ke
         )
         db_key = result.scalar_one_or_none()
         if not db_key:
+            log_security_event("AUTH_FAILURE", {"reason": "Invalid or inactive X-API-Key", "provided_key": x_api_key})
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unauthorized: Invalid X-API-Key"

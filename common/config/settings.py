@@ -155,7 +155,16 @@ class Settings(
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":
         # 1. Fail-fast / check required settings.
-        # DATABASE_URL is required and validated by Pydantic schema validation.
+        # Enforce that DATABASE_URL is an asyncpg URL
+        if not self.DATABASE_URL.startswith("postgresql+asyncpg://"):
+            raise ValueError(
+                f"DATABASE_URL must start with 'postgresql+asyncpg://' for async database operations. "
+                f"Got: '{self.DATABASE_URL}'"
+            )
+
+        # Enforce QDRANT_API_KEY in production if specified
+        if self.APP_ENV == "production" and not self.QDRANT_API_KEY:
+            raise ValueError("QDRANT_API_KEY is required in production environment.")
 
         # 2. Log warnings for optional but recommended settings.
         recommended_vars = {

@@ -8,13 +8,13 @@ Lightweight FastAPI server (CPU-only) that:
 Run: uvicorn gateway.main:app --host 0.0.0.0 --port 8000
 """
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 import json
 
 from common.config.settings import settings
-from common.observability.logger import get_logger, RequestIdMiddleware
+from common.observability.logger import get_logger, RequestIdMiddleware, RequestAuditMiddleware, log_security_event
 from common.observability.limiter import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
@@ -22,6 +22,20 @@ from slowapi.middleware import SlowAPIMiddleware
 from gateway.api import router as api_router
 from gateway.api.health import router as health_router
 from gateway.core.setup import lifespan
+
+
+async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    client_ip = request.client.host if request.client else "unknown"
+    log_security_event(
+        "RATE_LIMIT_VIOLATION",
+        {
+            "client_ip": client_ip,
+            "path": request.url.path,
+            "method": request.method,
+            "limit": str(exc.detail),
+        }
+    )
+    return _rate_limit_exceeded_handler(request, exc)
 
 logger = get_logger("gateway")
 
@@ -80,7 +94,7 @@ app = FastAPI(
 
 # Limiter settings
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
 
 # Middleware
 app.add_middleware(SlowAPIMiddleware)
@@ -89,6 +103,7 @@ app.add_middleware(
     max_upload_size=settings.MAX_UPLOAD_SIZE,
     max_json_size=settings.MAX_JSON_SIZE,
 )
+app.add_middleware(RequestAuditMiddleware)
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(
     CORSMiddleware,

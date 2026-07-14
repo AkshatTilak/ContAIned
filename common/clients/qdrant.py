@@ -19,6 +19,13 @@ class VectorClient:
 
     def __init__(self) -> None:
         """Initializes both QdrantClient and AsyncQdrantClient using settings."""
+        if not settings.QDRANT_API_KEY:
+            if settings.APP_ENV == "production":
+                logger.error("QDRANT_API_KEY is not configured in production environment.")
+                raise ValueError("Missing QDRANT_API_KEY in production")
+            else:
+                logger.warning("QDRANT_API_KEY is not configured. Running without Vector DB authentication.")
+
         try:
             self._client = QdrantClient(
                 url=settings.QDRANT_URL,
@@ -120,3 +127,25 @@ class VectorClient:
         except Exception as e:
             logger.warning("Failed to retrieve embedding vector dimension from registry: %s", e)
         return 1024
+
+    async def verify_connection(self, max_retries: int = 5, backoff_factor: float = 2.0) -> None:
+        """Verify Qdrant connection with exponential backoff on startup."""
+        import asyncio
+        retries = 0
+        delay = 1.0
+        while retries < max_retries:
+            try:
+                await self._async_client.get_collections()
+                logger.info("Qdrant connection verified successfully.")
+                return
+            except Exception as e:
+                retries += 1
+                if retries >= max_retries:
+                    logger.error("Failed to connect to Qdrant after %d attempts: %s", max_retries, e)
+                    raise ConnectionError("Qdrant is unreachable") from e
+                logger.warning(
+                    "Qdrant connection attempt %d failed. Retrying in %.2f seconds... Error: %s",
+                    retries, delay, e
+                )
+                await asyncio.sleep(delay)
+                delay *= backoff_factor

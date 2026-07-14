@@ -9,7 +9,8 @@ import logging
 import sys
 import uuid
 import re
-from typing import Optional
+import time
+from typing import Optional, Dict, Any
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -138,3 +139,61 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
 # Pre-configured platform logger
 platform_logger = get_logger("platform")
+
+
+class RequestAuditMiddleware(BaseHTTPMiddleware):
+    """ASGI middleware to audit all incoming requests, logging metadata and latency."""
+
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        
+        # Determine if we should log request bodies
+        log_bodies = getattr(settings, "LOG_BODIES", False)
+        is_dev = settings.APP_ENV == "development"
+        
+        body_log = None
+        if is_dev and log_bodies:
+            try:
+                body_bytes = await request.body()
+                body_log = scrub_sensitive_data(body_bytes.decode("utf-8", errors="ignore"))
+                # Re-set body for downstream consumers
+                async def receive():
+                    return {"type": "http.request", "body": body_bytes, "more_body": False}
+                request._receive = receive
+            except Exception:
+                body_log = "[Error reading request body]"
+
+        response = None
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            process_time = (time.time() - start_time) * 1000.0  # in ms
+            status_code = response.status_code if response else 500
+            
+            # Log the request details
+            client_host = request.client.host if request.client else "unknown"
+            log_msg = f"{request.method} {request.url.path} from {client_host} -> {status_code} (Latency: {process_time:.2f}ms)"
+            if body_log:
+                log_msg += f" | Body: {body_log}"
+            
+            audit_logger = get_logger("audit")
+            if status_code >= 500:
+                audit_logger.error(log_msg)
+            elif status_code >= 400:
+                audit_logger.warning(log_msg)
+            else:
+                audit_logger.info(log_msg)
+
+
+def log_security_event(event_type: str, details: Dict[str, Any]) -> None:
+    """Log a security or compliance event with structured details."""
+    sec_logger = get_logger("security")
+    # Redact sensitive values inside details dict
+    scrubbed_details = {}
+    for k, v in details.items():
+        if isinstance(v, str):
+            scrubbed_details[k] = scrub_sensitive_data(v)
+        else:
+            scrubbed_details[k] = v
+    sec_logger.warning("SECURITY_EVENT | Type: %s | Details: %s", event_type, json.dumps(scrubbed_details))
