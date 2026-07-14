@@ -125,6 +125,25 @@ class VRAMManager:
             # Evict models if needed to fit within budget
             await self._evict_to_fit(needed_mb)
 
+            # Pre-download from HuggingFace Hub if it's a hub identifier
+            try:
+                from inference.core.downloader import download_model_from_hub
+                # Map standard identifiers to actual repo IDs if needed
+                repo_id_map = {
+                    "baidu-ocr": "THUDM/GLM-OCR",  # map mock ID to default local HF model
+                    "sensevoice-small": "FunAudioLLM/SenseVoiceSmall",
+                    "jina-clip-v2": "jinaai/jina-clip-v2",
+                    "arch-router-1.5b": "Arch-Router-1.5B",
+                }
+                download_target = repo_id_map.get(name.lower(), name)
+                
+                # Check if it looks like a HuggingFace repository (contains '/' or is a known ID)
+                if "/" in download_target or download_target in repo_id_map.values():
+                    logger.info("Pre-download check for model '%s' (as '%s')", name, download_target)
+                    await asyncio.to_thread(download_model_from_hub, download_target)
+            except Exception as download_err:
+                logger.warning("Pre-download check failed for '%s': %s. Attempting to proceed with loading.", name, download_err)
+
             # Load the model
             logger.info("Loading model: %s (~%d MB)", name, needed_mb)
             start = time.time()
