@@ -7,3 +7,6 @@
 [submodule "projects/evalops"]
 	path = projects/evalops
 	url = https://github.com/AkshatTilak/evalops
+[submodule "agent_buildable_base"]
+	path = agent_buildable_base
+	url = https://github.com/AkshatTilak/agent_buildable_base.git
