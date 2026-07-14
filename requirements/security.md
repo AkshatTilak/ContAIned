@@ -6,33 +6,33 @@ This document details API security, data protection, LLM safety guardrails, and 
 
 ## 1. API Security
 
-### [ ] Authentication Middleware
-- [ ] Implement API key validation middleware on the gateway.
-- [ ] API keys passed via `X-API-Key` header.
-- [ ] Toggle via `AUTH_ENABLED=false` (default for local dev) / `AUTH_ENABLED=true` (production).
-- [ ] When disabled, all requests are allowed without a key.
-- [ ] When enabled, reject requests without a valid key with `401 Unauthorized`.
-- [ ] Store valid API keys in PostgreSQL (`api_keys` table) or environment variable for simplicity.
+### [x] Authentication Middleware
+- [x] Implement API key validation middleware on the gateway.
+- [x] API keys passed via `X-API-Key` header.
+- [x] Toggle via `AUTH_ENABLED=false` (default for local dev) / `AUTH_ENABLED=true` (production).
+- [x] When disabled, all requests are allowed without a key.
+- [x] When enabled, reject requests without a valid key with `401 Unauthorized`.
+- [x] Store valid API keys in PostgreSQL (`api_keys` table) or environment variable for simplicity.
 
-### [ ] Rate Limiting
-- [ ] Apply rate limiting on the gateway using `slowapi` or `fastapi-limiter`.
-- [ ] Default limits:
+### [x] Rate Limiting
+- [x] Apply rate limiting on the gateway using `slowapi` or `fastapi-limiter`.
+- [x] Default limits:
   - General endpoints: 100 requests/minute per IP.
   - Inference-proxied endpoints: 30 requests/minute per IP.
   - File upload endpoints: 10 requests/minute per IP.
-- [ ] Return `429 Too Many Requests` with `Retry-After` header.
-- [ ] Store rate limit state in Redis for distributed deployments.
+- [x] Return `429 Too Many Requests` with `Retry-After` header.
+- [x] Store rate limit state in Redis for distributed deployments.
 
-### [ ] CORS Configuration
-- [ ] Replace the current `allow_origins=["*"]` with a configurable allowlist.
-- [ ] Default: `["http://localhost:3000", "http://localhost:5173"]` (development frontends).
-- [ ] Read from `CORS_ORIGINS` environment variable.
-- [ ] Production should restrict to the actual frontend domain.
+### [x] CORS Configuration
+- [x] Replace the current `allow_origins=["*"]` with a configurable allowlist.
+- [x] Default: `["http://localhost:3000", "http://localhost:5173"]` (development frontends).
+- [x] Read from `CORS_ORIGINS` environment variable.
+- [x] Production should restrict to the actual frontend domain.
 
-### [ ] Request Validation
-- [ ] Enforce maximum request body size (default: 100 MB for file uploads, 1 MB for JSON payloads).
-- [ ] Validate `Content-Type` headers on upload endpoints.
-- [ ] Sanitize filename inputs to prevent path traversal.
+### [x] Request Validation
+- [x] Enforce maximum request body size (default: 100 MB for file uploads, 1 MB for JSON payloads).
+- [x] Validate `Content-Type` headers on upload endpoints.
+- [x] Sanitize filename inputs to prevent path traversal.
 
 ---
 
@@ -90,22 +90,22 @@ This document details API security, data protection, LLM safety guardrails, and 
 
 ## 4. Code Execution Sandbox (GuardRoute Coding Agent)
 
-### [ ] Sandbox Implementation
-- [ ] Use `RestrictedPython` as the initial sandbox approach (lightweight, pip-installable).
-- [ ] `RestrictedPython` compiles Python code with AST-level restrictions:
+### [x] Sandbox Implementation
+- [x] Use `RestrictedPython` as the initial sandbox approach (lightweight, pip-installable).
+- [x] `RestrictedPython` compiles Python code with AST-level restrictions:
   - Block: file I/O (`open()`, `os.path`, `pathlib`), subprocess, network access, `__import__`.
   - Allow: math, string operations, list comprehensions, basic data structures.
-- [ ] Set execution timeout (default: 10 seconds) to prevent infinite loops.
-- [ ] Set memory limit to prevent memory bombs.
+- [x] Set execution timeout (default: 10 seconds) to prevent infinite loops.
+- [x] Set memory limit to prevent memory bombs.
 
-### [ ] Future Upgrade Path
-- [ ] For stronger isolation (if needed): migrate to container-based sandboxing using `docker-py` to spawn ephemeral containers for code execution.
-- [ ] Alternative: WASM-based sandbox using `pyodide` for browser-compatible execution.
+### [x] Future Upgrade Path
+- [x] For stronger isolation (if needed): migrate to container-based sandboxing using `docker-py` to spawn ephemeral containers for code execution.
+- [x] Alternative: WASM-based sandbox using `pyodide` for browser-compatible execution.
 
-### [ ] Sandbox Output Capture
-- [ ] Capture `stdout` and `stderr` from sandboxed execution.
-- [ ] Return output as structured result in the `SubAgentResult` schema.
-- [ ] Truncate output to a maximum length (default: 10,000 characters).
+### [x] Sandbox Output Capture
+- [x] Capture `stdout` and `stderr` from sandboxed execution.
+- [x] Return output as structured result in the `SubAgentResult` schema.
+- [x] Truncate output to a maximum length (default: 10,000 characters).
 
 ---
 

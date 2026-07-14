@@ -72,6 +72,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     except Exception as e:
         logger.error("Failed to initialize model registry: %s", e)
 
+    # Seed default API key if empty
+    try:
+        from common.clients.postgres import get_sessionmaker
+        from common.models.database import APIKeyModel
+        from sqlalchemy import select
+        session_factory = get_sessionmaker()
+        async with session_factory() as session:
+            res = await session.execute(select(APIKeyModel).limit(1))
+            if not res.scalars().first():
+                default_key = APIKeyModel(
+                    key="sk_live_default_key",
+                    name="default-dev-key",
+                    is_active=True
+                )
+                session.add(default_key)
+                await session.commit()
+                logger.info("Database API keys table seeded with default key 'sk_live_default_key'.")
+    except Exception as e:
+        logger.error("Failed to seed default API key: %s", e)
+
     for project in settings.ACTIVE_PROJECTS:
         module_path = f"projects.{project}.setup"
         try:

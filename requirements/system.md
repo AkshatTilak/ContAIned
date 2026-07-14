@@ -26,62 +26,62 @@ This document details the system-level architectures, environment configurations
 ## 2. Environment Configuration Specifications
 Create and maintain a central `.env` file at the monorepo root containing the following parameters:
 
-### [ ] Server & Environment Setup
-- [ ] `APP_NAME="ContAIned AI Platform"` (Display name)
-- [ ] `APP_ENV="development"` (development/production/testing)
-- [ ] `APP_HOST="0.0.0.0"`
-- [ ] `APP_PORT=8000` (Gateway port)
-- [ ] `INFERENCE_SERVER_URL="http://localhost:8010"` (Inference server URL)
-- [ ] `INFERENCE_SERVER_PORT=8010` (Explicit inference port)
-- [ ] `ACTIVE_PROJECTS=["syntraflow", "guardroute", "evalops"]` (JSON list of active modules)
-- [ ] `LOG_LEVEL="INFO"` (Log verbosity: DEBUG, INFO, WARNING, ERROR)
+### [x] Server & Environment Setup
+- [x] `APP_NAME="ContAIned AI Platform"` (Display name)
+- [x] `APP_ENV="development"` (development/production/testing)
+- [x] `APP_HOST="0.0.0.0"`
+- [x] `APP_PORT=8000` (Gateway port)
+- [x] `INFERENCE_SERVER_URL="http://localhost:8010"` (Inference server URL)
+- [x] `INFERENCE_SERVER_PORT=8010` (Explicit inference port)
+- [x] `ACTIVE_PROJECTS=["syntraflow", "guardroute", "evalops"]` (JSON list of active modules)
+- [x] `LOG_LEVEL="INFO"` (Log verbosity: DEBUG, INFO, WARNING, ERROR)
 
-### [ ] External AI Provider APIs
-- [ ] `GOOGLE_API_KEY="your-gemini-key"` (Primary completion model — Gemini)
-- [ ] `OPENROUTER_API_KEY="your-openrouter-key"` (Aggregator fallback tier)
-- [ ] `GROQ_API_KEY="your-groq-key"` (Fast inference fallback — Groq LPU)
-- [ ] `CEREBRAS_API_KEY="your-cerebras-key"` (High-volume fallback — Cerebras)
-- [ ] `OPENAI_API_KEY="your-openai-key"` (Used by DeepEval QA tests)
+### [x] External AI Provider APIs
+- [x] `GOOGLE_API_KEY="your-gemini-key"` (Primary completion model — Gemini)
+- [x] `OPENROUTER_API_KEY="your-openrouter-key"` (Aggregator fallback tier)
+- [x] `GROQ_API_KEY="your-groq-key"` (Fast inference fallback — Groq LPU)
+- [x] `CEREBRAS_API_KEY="your-cerebras-key"` (High-volume fallback — Cerebras)
+- [x] `OPENAI_API_KEY="your-openai-key"` (Used by DeepEval QA tests)
 
-### [ ] Storage Connections
-- [ ] `DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/contained"` (Async SQL — must use `asyncpg` driver)
-- [ ] `QDRANT_URL="http://localhost:6333"` (Vector Store URL)
-- [ ] `QDRANT_API_KEY=""` (Optional security token)
-- [ ] `NEO4J_URL="bolt://localhost:7687"` (Graph Database URL)
-- [ ] `NEO4J_USER="neo4j"`
-- [ ] `NEO4J_PASSWORD="password"`
-- [ ] `REDIS_URL="redis://localhost:6379"` (Cache, sessions, lightweight pub/sub)
+### [x] Storage Connections
+- [x] `DATABASE_URL="postgresql+asyncpg://postgres:postgres@localhost:5432/contained"` (Async SQL — must use `asyncpg` driver)
+- [x] `QDRANT_URL="http://localhost:6333"` (Vector Store URL)
+- [x] `QDRANT_API_KEY=""` (Optional security token)
+- [x] `NEO4J_URL="bolt://localhost:7687"` (Graph Database URL)
+- [x] `NEO4J_USER="neo4j"`
+- [x] `NEO4J_PASSWORD="password"`
+- [x] `REDIS_URL="redis://localhost:6379"` (Cache, sessions, lightweight pub/sub)
 
-### [ ] Model Selection Overrides
-- [ ] `OCR_MODEL="glm"` (Active OCR model — see `requirements/models.md` for options)
-- [ ] `ASR_MODEL="sensevoice"` (Active ASR model)
-- [ ] `EMBEDDING_MODEL="jina"` (Active embedding model)
-- [ ] `CLASSIFIER_MODEL="arch"` (Active task classifier model)
-- [ ] `COMPLETION_MODEL="gemini"` (Active LLM completion provider)
-- [ ] `OCR_PROVIDER="api"` (Legacy compat: `local` for local OCR or `api` for cloud OCR)
+### [x] Model Selection Overrides
+- [x] `OCR_MODEL="glm"` (Active OCR model — see `requirements/models.md` for options)
+- [x] `ASR_MODEL="sensevoice"` (Active ASR model)
+- [x] `EMBEDDING_MODEL="jina"` (Active embedding model)
+- [x] `CLASSIFIER_MODEL="arch"` (Active task classifier model)
+- [x] `COMPLETION_MODEL="gemini"` (Active LLM completion provider)
+- [x] `OCR_PROVIDER="api"` (Legacy compat: `local` for local OCR or `api` for cloud OCR)
 
-### [ ] Inference Server Configurations
-- [ ] `VRAM_BUDGET_MB=20000` (Maximum VRAM budget in MB — adjust for your GPU)
-- [ ] `CLASSIFIER_IDLE_TIMEOUT=300` (Model VRAM eviction timeout in seconds)
-- [ ] `DEVICE="auto"` (Device selection: `auto`, `cuda`, `cpu`)
+### [x] Inference Server Configurations
+- [x] `VRAM_BUDGET_MB=20000` (Maximum VRAM budget in MB — adjust for your GPU)
+- [x] `CLASSIFIER_IDLE_TIMEOUT=300` (Model VRAM eviction timeout in seconds)
+- [x] `DEVICE="auto"` (Device selection: `auto`, `cuda`, `cpu`)
 
-### [ ] HuggingFace Hub
-- [ ] `HF_HOME="~/.cache/huggingface/hub"` (Model weight cache directory)
-- [ ] `HF_HUB_ENABLE_HF_TRANSFER=1` (Faster downloads)
-- [ ] `HF_HUB_OFFLINE=0` (Set to 1 for air-gapped deployments)
-- [ ] `HF_TOKEN=""` (Token for gated model access)
-- [ ] `MODEL_CACHE_DIR="./models"` (Custom cache for GGUF and non-HF files)
+### [x] HuggingFace Hub
+- [x] `HF_HOME="~/.cache/huggingface/hub"` (Model weight cache directory)
+- [x] `HF_HUB_ENABLE_HF_TRANSFER=1` (Faster downloads)
+- [x] `HF_HUB_OFFLINE=0` (Set to 1 for air-gapped deployments)
+- [x] `HF_TOKEN=""` (Token for gated model access)
+- [x] `MODEL_CACHE_DIR="./models"` (Custom cache for GGUF and non-HF files)
 
-### [ ] Security
-- [ ] `AUTH_ENABLED=false` (Toggle API key authentication)
-- [ ] `CORS_ORIGINS=["http://localhost:3000","http://localhost:5173"]` (CORS allowlist)
+### [x] Security
+- [x] `AUTH_ENABLED=false` (Toggle API key authentication)
+- [x] `CORS_ORIGINS=["http://localhost:3000","http://localhost:5173"]` (CORS allowlist)
 
-### [ ] Observability & Tracing
-- [ ] `OTEL_SERVICE_NAME="contained-platform"`
-- [ ] `OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"` (Jaeger or OTEL Collector)
-- [ ] `LANGSMITH_TRACING=false` (Toggle LangSmith LLM tracing)
-- [ ] `LANGSMITH_API_KEY=""`
-- [ ] `LANGSMITH_PROJECT="contained-platform"`
+### [x] Observability & Tracing
+- [x] `OTEL_SERVICE_NAME="contained-platform"`
+- [x] `OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"` (Jaeger or OTEL Collector)
+- [x] `LANGSMITH_TRACING=false` (Toggle LangSmith LLM tracing)
+- [x] `LANGSMITH_API_KEY=""`
+- [x] `LANGSMITH_PROJECT="contained-platform"`
 
 ---
 
