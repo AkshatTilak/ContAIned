@@ -1,0 +1,39 @@
+[
+  {
+    "prompt": "Hello there, how are you today?",
+    "expected_complexity": "simple",
+    "expected_agents": []
+  },
+  {
+    "prompt": "Find and retrieve document chunks relating to Q3 shipping logs.",
+    "expected_complexity": "medium",
+    "expected_agents": [
+      "retrieval"
+    ]
+  },
+  {
+    "prompt": "Write a python script that connects to Neo4j and queries all user logs.",
+    "expected_complexity": "complex",
+    "expected_agents": [
+      "retrieval",
+      "coding",
+      "web_search"
+    ]
+  },
+  {
+    "prompt": "Calculate the average commodity index for Copper using python.",
+    "expected_complexity": "complex",
+    "expected_agents": [
+      "retrieval",
+      "coding",
+      "web_search"
+    ]
+  },
+  {
+    "prompt": "Search the web for crude oil spot rates.",
+    "expected_complexity": "medium",
+    "expected_agents": [
+      "retrieval"
+    ]
+  }
+]

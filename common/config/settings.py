@@ -32,6 +32,8 @@ class AppSettings(BaseSettings):
     MAX_JSON_SIZE: int = Field(default=1048576, alias="MAX_JSON_SIZE")  # 1 MB
     TOXICITY_THRESHOLD: float = Field(default=0.1, alias="TOXICITY_THRESHOLD")
     TIMEOUT_GRACEFUL_SHUTDOWN: int = Field(default=15, alias="TIMEOUT_GRACEFUL_SHUTDOWN")
+    DEEPEVAL_MODEL: str = Field(default="gemini/gemini-3.5-flash", alias="DEEPEVAL_MODEL")
+    EVALOPS_CONSUMER_ENABLED: bool = Field(default=False, alias="EVALOPS_CONSUMER_ENABLED")
 
 
 class DatabaseSettings(BaseSettings):

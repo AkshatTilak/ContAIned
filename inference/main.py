@@ -43,6 +43,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     logger.info("Inference server shut down")
 
 
+from common.observability.tracing import setup_tracing
+setup_tracing("inference")
+
 app = FastAPI(
     title="Inference Server",
     description="GPU model serving for contained-ai-platform",

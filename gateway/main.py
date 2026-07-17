@@ -89,6 +89,10 @@ from common.clients.inference import InferenceServerError
 from fastapi.responses import JSONResponse
 
 
+from common.observability.tracing import setup_tracing
+setup_tracing("gateway")
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="API Gateway for the contained-ai-platform monorepo",
