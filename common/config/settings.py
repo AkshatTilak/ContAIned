@@ -31,6 +31,7 @@ class AppSettings(BaseSettings):
     MAX_UPLOAD_SIZE: int = Field(default=524288000, alias="MAX_UPLOAD_SIZE")  # 500 MB
     MAX_JSON_SIZE: int = Field(default=1048576, alias="MAX_JSON_SIZE")  # 1 MB
     TOXICITY_THRESHOLD: float = Field(default=0.1, alias="TOXICITY_THRESHOLD")
+    TIMEOUT_GRACEFUL_SHUTDOWN: int = Field(default=15, alias="TIMEOUT_GRACEFUL_SHUTDOWN")
 
 
 class DatabaseSettings(BaseSettings):

@@ -1,27 +1,37 @@
-# Gateway Dockerfile — lightweight CPU-only image
-FROM python:3.11-slim
+# --- Builder Stage ---
+FROM python:3.11.9-slim AS builder
 
 WORKDIR /app
 
-# Install system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir poetry==2.0.1
+
+COPY pyproject.toml poetry.lock* ./
+
+# Configure poetry to install to a local virtualenv
+RUN poetry config virtualenvs.in-project true \
+    && poetry install --no-interaction --no-ansi --no-root \
+    --extras "syntraflow" --extras "guardroute" --extras "evalops"
+
+# --- Final Runner Stage ---
+FROM python:3.11.9-slim AS runner
+
+WORKDIR /app
+
+# Install runtime system deps (ffmpeg)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN pip install --no-cache-dir poetry>=2.0.0
+# Create a non-root user and group
+RUN groupadd -g 10001 appgroup && \
+    useradd -u 10001 -g appgroup -d /app -s /bin/bash appuser
 
-# Copy dependency files
-COPY pyproject.toml poetry.lock* ./
-
-# Install base + project deps (no GPU packages)
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi \
-    --extras "syntraflow" --extras "guardroute" --extras "evalops" \
-    || poetry install --no-interaction --no-ansi
-
-# Copy source code
+# Copy virtualenv and application files from builder
+COPY --from=builder /app/.venv /app/.venv
 COPY common/ common/
 COPY gateway/ gateway/
 COPY projects/ projects/
@@ -29,6 +39,15 @@ COPY inference/__init__.py inference/__init__.py
 COPY alembic.ini alembic.ini
 COPY migrations/ migrations/
 COPY .env.example .env.example
+
+# Set path to use virtualenv binaries
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
+
+# Change ownership of app files to non-root user
+RUN chown -R appuser:appgroup /app
+
+USER appuser
 
 EXPOSE 8000
 

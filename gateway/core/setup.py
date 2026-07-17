@@ -157,3 +157,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         await close_neo4j()
     except Exception as e:
         logger.error("Failed to close Neo4j connection on shutdown: %s", e)
+
+    try:
+        from common.clients.postgres import close_postgres
+        await close_postgres()
+    except Exception as e:
+        logger.error("Failed to close Postgres engine on shutdown: %s", e)

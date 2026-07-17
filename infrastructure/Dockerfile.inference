@@ -1,36 +1,54 @@
-# Inference Server Dockerfile — GPU image with CUDA
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+# --- Builder Stage ---
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3-pip python3.11-dev \
+    build-essential git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir poetry==2.0.1
+
+COPY pyproject.toml poetry.lock* ./
+
+# Configure poetry to install to a local virtualenv
+RUN poetry config virtualenvs.in-project true \
+    && poetry install --no-interaction --no-ansi --no-root --extras "inference"
+
+# --- Final Runner Stage ---
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runner
 
 ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
 
-# Install Python and system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 python3.11-venv python3-pip \
-    build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python 3.11 as default
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
-    && update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+# Create a non-root user and group
+RUN groupadd -g 10001 appgroup && \
+    useradd -u 10001 -g appgroup -d /app -s /bin/bash appuser
 
-# Install Poetry
-RUN pip install --no-cache-dir poetry>=2.0.0
-
-# Copy dependency files
-COPY pyproject.toml poetry.lock* ./
-
-# Install base + inference deps (includes torch, llama-cpp-python, transformers)
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --extras "inference" \
-    || poetry install --no-interaction --no-ansi
-
-# Copy source code
+# Copy virtualenv and application files from builder
+COPY --from=builder /app/.venv /app/.venv
 COPY common/ common/
 COPY inference/ inference/
 
-# Model weights directory (mount at runtime)
-RUN mkdir -p /app/models
+# Create models cache directory and assign ownership
+RUN mkdir -p /app/models && \
+    chown -R appuser:appgroup /app/models
+
+# Set path to use virtualenv binaries
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
+
+# Change ownership of app files to non-root user
+RUN chown -R appuser:appgroup /app
+
+USER appuser
 
 EXPOSE 8010
 

@@ -85,6 +85,10 @@ class RequestSizeLimitMiddleware:
         await self.app(scope, receive, send)
 
 
+from common.clients.inference import InferenceServerError
+from fastapi.responses import JSONResponse
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="API Gateway for the contained-ai-platform monorepo",
@@ -95,6 +99,15 @@ app = FastAPI(
 # Limiter settings
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
+
+
+@app.exception_handler(InferenceServerError)
+async def inference_server_error_handler(request: Request, exc: InferenceServerError):
+    logger.error("Inference server error: %s", exc)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content={"detail": f"Inference server is unavailable: {str(exc)}"},
+    )
 
 # Middleware
 app.add_middleware(SlowAPIMiddleware)
@@ -135,4 +148,5 @@ if __name__ == "__main__":
         host=settings.APP_HOST,
         port=settings.APP_PORT,
         reload=settings.APP_ENV == "development",
+        timeout_graceful_shutdown=settings.TIMEOUT_GRACEFUL_SHUTDOWN,
     )

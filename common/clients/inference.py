@@ -17,6 +17,11 @@ from common.observability.logger import get_logger
 logger = get_logger("inference-client")
 
 
+class InferenceServerError(RuntimeError):
+    """Exception raised when the inference server is degraded or unreachable."""
+    pass
+
+
 class InferenceClient:
     """Async HTTP client for the inference server.
 
@@ -59,7 +64,7 @@ class InferenceClient:
             now = time.time()
             if now - self._last_failure_time < self._degraded_cooldown:
                 logger.error("Circuit breaker: inference server is degraded. Request blocked.")
-                raise RuntimeError("Inference server is degraded due to consecutive failures")
+                raise InferenceServerError("Inference server is degraded due to consecutive failures")
             else:
                 logger.info("Circuit breaker: cooldown elapsed, attempting recovery request.")
 
@@ -116,7 +121,7 @@ class InferenceClient:
                     )
 
                 logger.error("Inference request failed: %s", e)
-                raise RuntimeError("Inference server request failed") from e
+                raise InferenceServerError("Inference server request failed") from e
 
     async def health(self) -> dict[str, Any]:
         """Check inference server health and loaded models."""

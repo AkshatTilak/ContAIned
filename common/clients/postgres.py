@@ -87,3 +87,13 @@ async def verify_connection_with_retry(max_retries: int = 5, backoff_factor: flo
             )
             await asyncio.sleep(delay)
             delay *= backoff_factor
+
+
+async def close_postgres() -> None:
+    """Close the global database engine connection."""
+    global _engine
+    if _engine is not None:
+        await _engine.dispose()
+        _engine = None
+        logger.info("Database engine connection closed.")
+

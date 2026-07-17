@@ -35,6 +35,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     
     yield
     await vram.stop_cleanup_loop()
+    try:
+        from common.clients.postgres import close_postgres
+        await close_postgres()
+    except Exception as e:
+        logger.error("Failed to close Postgres engine on shutdown: %s", e)
     logger.info("Inference server shut down")
 
 

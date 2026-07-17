@@ -151,3 +151,40 @@ This starts:
 - Neo4j (graph database for GraphRAG)
 - gateway (port 8000)
 - inference server (port 8010, GPU-accelerated)
+
+---
+
+## Local Native Development Workflow (Selective Startup)
+
+To get hot-reloading (`--reload`) and faster development iterations, you can run only the required backing database/infrastructure services in Docker while running the Gateway and Inference Server natively on your host machine.
+
+### 1. Start Infrastructure Services in Docker
+Launch only PostgreSQL, Qdrant, Redis, and Kafka in the background:
+```bash
+docker compose -f infrastructure/docker-compose.yml up postgres qdrant redis kafka zookeeper kafka-setup -d
+```
+
+### 2. Configure Local Environment
+Ensure your local `.env` has settings pointing to `localhost` ports (the default configurations in `.env.example`).
+If you need to test the gateway's graceful degradation behavior, you can selectively stop any backing service (e.g. `docker compose -f infrastructure/docker-compose.yml stop redis`).
+
+### 3. Run API Gateway Natively
+Install local virtual environment dependencies with the correct extras:
+```bash
+poetry install --extras "syntraflow" --extras "guardroute" --extras "evalops"
+```
+Run the gateway server with hot reload enabled (`APP_ENV=development` handles this automatically, or pass `--reload` directly):
+```bash
+poetry run uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 4. Run Inference Server Natively
+Install inference dependencies:
+```bash
+poetry install --extras "inference"
+```
+Run the inference server natively:
+```bash
+poetry run uvicorn inference.main:app --host 0.0.0.0 --port 8010 --reload
+```
+
