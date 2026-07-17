@@ -89,6 +89,18 @@ async def completion_with_fallback(
     if messages is None:
         messages = []
 
+    # Enforce HTTPS on all outbound API bases for external providers
+    import os
+    for provider in ["GEMINI", "OPENROUTER", "GROQ", "CEREBRAS", "OPENAI"]:
+        base_env = os.environ.get(f"{provider}_API_BASE")
+        if base_env and not base_env.startswith("https://"):
+            raise ValueError(f"Outbound API base for {provider} must use HTTPS, got: {base_env}")
+    
+    # Check if a custom api_base is passed in kwargs
+    api_base_arg = kwargs.get("api_base")
+    if api_base_arg and not api_base_arg.startswith("https://"):
+        raise ValueError(f"Outbound API base must use HTTPS, got: {api_base_arg}")
+
     # 1. Resolve fallback chain dynamically from model registry if not provided
     if fallbacks is None:
         try:
@@ -187,6 +199,7 @@ async def completion_with_fallback(
                 model=cand_model,
                 messages=truncated_messages,
                 api_key=api_key,
+                timeout=60.0,  # Enforce strict LLM timeout of 60 seconds
                 **kwargs,
             )
 

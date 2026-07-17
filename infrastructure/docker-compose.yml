@@ -17,6 +17,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - contained_net
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -27,6 +29,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - contained_net
 
   neo4j:
     image: neo4j:5.20.0
@@ -43,6 +47,8 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    networks:
+      - contained_net
 
   redis:
     image: redis:7-alpine
@@ -54,6 +60,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - contained_net
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
@@ -67,6 +75,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - contained_net
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -88,6 +98,8 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    networks:
+      - contained_net
 
   kafka-setup:
     image: confluentinc/cp-kafka:7.6.0
@@ -100,6 +112,8 @@ services:
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic syntraflow-ingestion-jobs --partitions 1 --replication-factor 1
       kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic guardroute-traces --partitions 1 --replication-factor 1
       "
+    networks:
+      - contained_net
 
   # ──────────────────────────────────────────────
   # Backend 1: API Gateway (CPU-only, lightweight)
@@ -127,6 +141,8 @@ services:
       redis:
         condition: service_healthy
     command: uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - contained_net
 
   # ──────────────────────────────────────────────
   # Backend 2: Inference Server (GPU)
@@ -147,22 +163,28 @@ services:
               count: 1
               capabilities: [gpu]
     command: uvicorn inference.main:app --host 0.0.0.0 --port 8010
+    networks:
+      - contained_net
 
   # ──────────────────────────────────────────────
   # Observability
   # ──────────────────────────────────────────────
   otel-collector:
     image: otel/opentelemetry-collector:latest
-    ports: ["4317:4317", "4318:4318"]
+    # ports: ["4317:4317", "4318:4318"] # Communicates via internal Docker network only
     profiles: ["observability"]
+    networks:
+      - contained_net
 
   jaeger:
     image: jaegertracing/all-in-one:latest
     ports:
       - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC
-      - "4318:4318"     # OTLP HTTP
+      # - "4317:4317"     # OTLP gRPC
+      # - "4318:4318"     # OTLP HTTP
     profiles: ["observability"]
+    networks:
+      - contained_net
 
   # ──────────────────────────────────────────────
   # Admin tools
@@ -174,6 +196,8 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@local.dev
       PGADMIN_DEFAULT_PASSWORD: admin
     profiles: ["admin"]
+    networks:
+      - contained_net
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -185,6 +209,8 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+    networks:
+      - contained_net
 
   # ──────────────────────────────────────────────
   # Test Runner (on-demand)
@@ -203,6 +229,12 @@ services:
     depends_on: [gateway, inference, neo4j]
     profiles: ["test"]
     command: pytest projects/evalops/ -v
+    networks:
+      - contained_net
+
+networks:
+  contained_net:
+    driver: bridge
 
 volumes:
   pgdata:
