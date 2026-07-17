@@ -52,6 +52,9 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Ke
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_api_key)])
 
+from gateway.api.models import router as models_router
+router.include_router(models_router)
+
 # Dynamically load project API routers
 # Make changes in .env ACTIVE_PROJECTS to register/deregister projects.
 for project in settings.ACTIVE_PROJECTS:
