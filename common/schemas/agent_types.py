@@ -55,3 +55,49 @@ class ClassificationResult(BaseModel):
         description="List of subagent names needed for this task"
     )
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+from datetime import datetime
+
+
+class AgentCreate(BaseModel):
+    """Schema for creating a new Agent Definition."""
+
+    name: str = Field(..., min_length=1, max_length=100, description="Unique display name of the agent")
+    role: str = Field(..., min_length=1, max_length=100, description="Agent domain role")
+    system_prompt: str = Field(..., min_length=1, description="System prompt instructions")
+    model_id: str = Field(..., description="Target model ID from Model Registry")
+    tools: list[str] = Field(default_factory=list, description="Enabled tool names")
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
+    max_tokens: int = Field(default=2048, gt=0, description="Max response tokens")
+
+
+class AgentUpdate(BaseModel):
+    """Schema for updating an existing Agent Definition."""
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    role: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    system_prompt: Optional[str] = Field(default=None, min_length=1)
+    model_id: Optional[str] = Field(default=None)
+    tools: Optional[list[str]] = Field(default=None)
+    temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(default=None, gt=0)
+
+
+class AgentResponse(BaseModel):
+    """Schema for Agent Definition API responses."""
+
+    id: str
+    name: str
+    role: str
+    system_prompt: str
+    model_id: str
+    tools: list[str]
+    temperature: float
+    max_tokens: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
