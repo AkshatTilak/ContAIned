@@ -93,6 +93,8 @@ from common.observability.tracing import setup_tracing
 setup_tracing("gateway")
 
 
+from common.observability import register_exception_handlers, TraceIdMiddleware
+
 app = FastAPI(
     title=settings.APP_NAME,
     description="API Gateway for the contained-ai-platform monorepo",
@@ -103,6 +105,7 @@ app = FastAPI(
 # Limiter settings
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
+register_exception_handlers(app)
 
 
 @app.exception_handler(InferenceServerError)
@@ -110,8 +113,15 @@ async def inference_server_error_handler(request: Request, exc: InferenceServerE
     logger.error("Inference server error: %s", exc)
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={"detail": f"Inference server is unavailable: {str(exc)}"},
+        content={
+            "error_code": "EXTERNAL_SERVICE_ERROR",
+            "message": f"Inference server is unavailable: {str(exc)}",
+            "details": {"service": "inference"},
+            "trace_id": getattr(request.state, "trace_id", None),
+        },
     )
+
+app.add_middleware(TraceIdMiddleware)
 
 # Middleware
 app.add_middleware(SlowAPIMiddleware)

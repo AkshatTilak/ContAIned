@@ -17,6 +17,15 @@ from common.observability.logger import get_logger
 logger = get_logger("inference-client")
 
 
+from common.schemas.inference_contracts import (
+    EmbeddingsRequest,
+    EmbeddingsResponse,
+    OCRResponse,
+    TranscriptionResponse,
+    InferenceHealthResponse,
+)
+
+
 class InferenceServerError(RuntimeError):
     """Exception raised when the inference server is degraded or unreachable."""
     pass
@@ -126,76 +135,58 @@ class InferenceClient:
     async def health(self) -> dict[str, Any]:
         """Check inference server health and loaded models."""
         resp = await self._execute_request_with_retry("GET", "/health")
-        return resp.json()
+        try:
+            validated = InferenceHealthResponse.model_validate(resp.json())
+            return validated.model_dump()
+        except Exception:
+            return resp.json()
 
     async def ocr(self, image_bytes: bytes, filename: str = "page.png") -> dict[str, Any]:
-        """Extract text, tables, and layout from an image/PDF page.
-
-        Args:
-            image_bytes: Raw image or PDF page bytes.
-            filename: Filename hint for content-type detection.
-
-        Returns:
-            Dict with keys: text, tables, layout.
-        """
+        """Extract text, tables, and layout from an image/PDF page."""
         resp = await self._execute_request_with_retry(
             "POST", "/infer/ocr", files={"image": (filename, image_bytes)}
         )
-        return resp.json()
+        try:
+            validated = OCRResponse.model_validate(resp.json())
+            return validated.model_dump()
+        except Exception:
+            return resp.json()
 
     async def embed(
         self, texts: list[str] | None = None, images: list[bytes] | None = None
     ) -> list[list[float]]:
-        """Generate embeddings for text and/or images using jina-clip-v2.
-
-        Args:
-            texts: List of text strings to embed.
-            images: List of raw image bytes to embed.
-
-        Returns:
-            List of embedding vectors.
-        """
+        """Generate embeddings for text and/or images using jina-clip-v2."""
         payload: dict[str, Any] = {}
         if texts:
-            payload["texts"] = texts
-        # Images sent as base64 in JSON for simplicity
+            req_model = EmbeddingsRequest(texts=texts)
+            payload["texts"] = req_model.texts
         if images:
             import base64
             payload["images"] = [base64.b64encode(img).decode() for img in images]
             
         resp = await self._execute_request_with_retry("POST", "/infer/embed", json=payload)
-        return resp.json()["embeddings"]
+        res_json = resp.json()
+        if "embeddings" in res_json:
+            return res_json["embeddings"]
+        try:
+            validated = EmbeddingsResponse.model_validate(res_json)
+            return validated.embeddings
+        except Exception:
+            return res_json.get("embeddings", [])
 
     async def transcribe(self, audio_bytes: bytes, filename: str = "audio.wav") -> dict[str, Any]:
-        """Transcribe audio file bytes to text segments.
-
-        Args:
-            audio_bytes: Raw audio file bytes.
-            filename: Filename hint for format detection.
-
-        Returns:
-            Dict with keys:
-                text: Full transcribed text string.
-                segments: List of segment dicts with start, end, text, confidence.
-                emotion: Detected speaker emotion (if supported by ASR model, else null).
-                audio_events: List of detected events (if supported by ASR model, else null).
-                language: Detected language code.
-        """
+        """Transcribe audio file bytes to text segments."""
         resp = await self._execute_request_with_retry(
             "POST", "/infer/transcribe", files={"audio": (filename, audio_bytes)}
         )
-        return resp.json()
+        try:
+            validated = TranscriptionResponse.model_validate(resp.json())
+            return validated.model_dump()
+        except Exception:
+            return resp.json()
 
     async def classify(self, prompt: str) -> dict[str, Any]:
-        """Classify task complexity and required agents using Arch-Router.
-
-        Args:
-            prompt: User prompt to classify.
-
-        Returns:
-            Dict with keys: complexity (simple/medium/complex),
-            required_agents (list of agent names).
-        """
+        """Classify task complexity and required agents using Arch-Router."""
         resp = await self._execute_request_with_retry(
             "POST", "/infer/classify", json={"prompt": prompt}
         )
