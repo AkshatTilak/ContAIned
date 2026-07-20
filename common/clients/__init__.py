@@ -5,7 +5,7 @@ from common.clients.qdrant import VectorClient
 from common.clients.inference import InferenceClient, InferenceServerError
 from common.clients.litellm import completion_with_fallback
 from common.clients.neo4j import get_neo4j_driver, get_neo4j_session, execute_read_query, verify_neo4j_connection
-from common.clients.redis import get_redis_client, close_redis, verify_redis_connection
+from common.clients.redis import get_redis_client, close_redis, verify_redis_connection, publish_event, subscribe_channel
 
 __all__ = [
     "get_engine",
@@ -24,5 +24,7 @@ __all__ = [
     "get_redis_client",
     "close_redis",
     "verify_redis_connection",
+    "publish_event",
+    "subscribe_channel",
 ]
 

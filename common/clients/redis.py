@@ -42,6 +42,10 @@ async def close_redis() -> None:
         logger.info("Redis async client connection closed.")
 
 
+import json
+from typing import Callable, Any
+
+
 async def verify_redis_connection(max_retries: int = 5, backoff_factor: float = 2.0) -> None:
     """Verify Redis connection with exponential backoff on startup."""
     client = get_redis_client()
@@ -63,3 +67,41 @@ async def verify_redis_connection(max_retries: int = 5, backoff_factor: float = 
             )
             await asyncio.sleep(delay)
             delay *= backoff_factor
+
+
+async def publish_event(channel: str, message: dict[str, Any]) -> int:
+    """Publish a JSON payload to a Redis Pub/Sub channel."""
+    try:
+        client = get_redis_client()
+        payload = json.dumps(message)
+        recipients = await client.publish(channel, payload)
+        logger.info("Published Redis event to channel '%s' (%d subscriber(s) received)", channel, recipients)
+        return recipients
+    except Exception as e:
+        logger.warning("Failed to publish Redis event to channel '%s': %s", channel, e)
+        return 0
+
+
+async def subscribe_channel(channel: str, callback: Callable[[dict[str, Any]], Any]) -> None:
+    """Subscribe to a Redis channel and invoke callback on incoming messages."""
+    try:
+        client = get_redis_client()
+        pubsub = client.pubsub()
+        await pubsub.subscribe(channel)
+        logger.info("Subscribed to Redis channel '%s'", channel)
+
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                try:
+                    data = json.loads(message["data"])
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(data)
+                    else:
+                        callback(data)
+                except Exception as cb_err:
+                    logger.error("Callback failed for Redis channel '%s': %s", channel, cb_err)
+    except asyncio.CancelledError:
+        logger.info("Redis subscription to channel '%s' cancelled.", channel)
+    except Exception as e:
+        logger.error("Redis pubsub listener for channel '%s' encountered error: %s", channel, e)
+
