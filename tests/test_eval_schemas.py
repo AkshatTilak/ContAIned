@@ -4,13 +4,14 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from common.clients.postgres import get_sessionmaker
+from common.clients.postgres import get_sessionmaker, close_postgres
 from common.models.database import AgentDefinition, EvalTestSuite, EvalTestCase, EvalRunHistory
 
 
 @pytest.mark.asyncio
 async def test_eval_attribution_schema_crud():
     """Verify CRUD operations and foreign key cascades on Eval attribution models."""
+    await close_postgres()
     SessionLocal = get_sessionmaker()
 
     async with SessionLocal() as db:
