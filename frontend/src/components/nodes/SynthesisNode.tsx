@@ -6,7 +6,7 @@ export const SynthesisNode = memo(({ data }: any) => {
   const label = data?.label || "Gather & Synthesis";
 
   return (
-    <div className="px-4 py-3 rounded-xl bg-[#181a21] border border-cyan-500/40 shadow-xl min-w-[220px] select-none space-y-2">
+    <div className="px-4 py-3 rounded-xl bg-[var(--bg-surface-alt)] border border-cyan-500/40 shadow-xl min-w-[220px] select-none space-y-2">
       <Handle type="target" position={Position.Top} className="!bg-cyan-400 !w-3 !h-3" />
       
       <div className="flex items-center justify-between gap-2">

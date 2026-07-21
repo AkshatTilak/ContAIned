@@ -57,13 +57,13 @@ export const IngestionPanel: React.FC = () => {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Upload Zone */}
-      <div className="p-6 rounded-xl bg-[#15171e] border border-[#26282d] text-[#ffffff] text-center">
+      <div className="p-6 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] text-white text-center">
         <h2 className="text-base font-semibold text-white mb-2">SyntraFlow Multi-Modal Document & Video Ingestion</h2>
         <p className="text-xs text-zinc-400 mb-6">
           Upload PDF, DOCX, TXT, Images, or MP4 files to execute parsing, OCR, transcription, and vector embedding.
         </p>
 
-        <div className="border-2 border-dashed border-[#2d3039] rounded-xl p-8 hover:border-emerald-500/50 transition-colors bg-[#181a21]">
+        <div className="border-2 border-dashed border-[var(--border-hover)] rounded-xl p-8 hover:border-emerald-500/50 transition-colors bg-[var(--bg-surface-alt)]">
           <input
             type="file"
             id="file-upload"
@@ -104,10 +104,10 @@ export const IngestionPanel: React.FC = () => {
       </div>
 
       {/* Advanced Ingestion Settings Accordion */}
-      <div className="rounded-xl bg-[#15171e] border border-[#26282d] overflow-hidden">
+      <div className="rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] overflow-hidden">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full flex items-center justify-between p-4 bg-[#181a21] text-sm font-semibold text-white border-b border-[#26282d]"
+          className="w-full flex items-center justify-between p-4 bg-[var(--bg-surface-alt)] text-sm font-semibold text-white border-b border-[var(--border-default)]"
         >
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-emerald-400" />
@@ -126,7 +126,7 @@ export const IngestionPanel: React.FC = () => {
               <select
                 value={chunkStrategy}
                 onChange={(e) => setChunkStrategy(e.target.value as any)}
-                className="w-full px-3 py-2 rounded-lg bg-[#121316] border border-[#2d3039] text-sm text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-hover)] text-sm text-white focus:outline-none focus:border-emerald-500"
               >
                 <option value="RecursiveCharacterChunking">Recursive Character Chunking (Recommended)</option>
                 <option value="FixedSizeChunking">Fixed Size Chunking</option>
@@ -134,43 +134,31 @@ export const IngestionPanel: React.FC = () => {
               </select>
             </div>
 
-            {/* Sliders Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-zinc-300">
-                  <span>Chunk Size (tokens/chars)</span>
-                  <span className="font-bold text-emerald-400">{chunkSize}</span>
-                </div>
+            {/* Chunk Size & Overlap */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-medium text-zinc-400 block mb-1">Target Chunk Size (Tokens)</label>
                 <input
-                  type="range"
-                  min="128"
-                  max="4096"
-                  step="64"
+                  type="number"
                   value={chunkSize}
                   onChange={(e) => setChunkSize(Number(e.target.value))}
-                  className="w-full accent-emerald-500"
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-hover)] text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-zinc-300">
-                  <span>Chunk Overlap</span>
-                  <span className="font-bold text-emerald-400">{chunkOverlap}</span>
-                </div>
+              <div>
+                <label className="text-xs font-medium text-zinc-400 block mb-1">Chunk Overlap (Tokens)</label>
                 <input
-                  type="range"
-                  min="0"
-                  max="512"
-                  step="16"
+                  type="number"
                   value={chunkOverlap}
                   onChange={(e) => setChunkOverlap(Number(e.target.value))}
-                  className="w-full accent-emerald-500"
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-hover)] text-sm text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
 
             {/* Pre & Post Processors Toggles */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-[#26282d]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-[var(--border-default)]">
               {/* Pre Processors */}
               <div className="space-y-3">
                 <span className="text-xs font-medium text-zinc-300 uppercase tracking-wider block">Pre-Processors</span>
@@ -221,12 +209,12 @@ export const IngestionPanel: React.FC = () => {
 
       {/* Ingestion Results Output */}
       {ingestResult && (
-        <div className="p-5 rounded-xl bg-[#15171e] border border-[#26282d] space-y-3">
+        <div className="p-5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
             <span>Ingestion Pipeline Summary</span>
           </div>
-          <div className="bg-[#121316] p-4 rounded-lg text-xs font-mono text-zinc-300 space-y-1">
+          <div className="bg-[var(--bg-input)] p-4 rounded-lg text-xs font-mono text-zinc-300 space-y-1">
             <div>Document ID: {ingestResult.document_id || "doc_84920"}</div>
             <div>Chunks Generated: {ingestResult.chunks_count || 14}</div>
             <div>Embeddings Created: {ingestResult.embeddings_count || 14}</div>

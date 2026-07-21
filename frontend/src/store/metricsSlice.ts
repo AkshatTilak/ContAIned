@@ -10,9 +10,14 @@ export interface TelemetryMetrics {
 
 export interface MetricsSlice {
   telemetry: TelemetryMetrics;
+  telemetryHistory: TelemetryMetrics[];
   isConnected: boolean;
+  reconnectAttempts: number;
+  lastConnectedAt: number | null;
   setTelemetry: (metrics: Partial<TelemetryMetrics>) => void;
   setConnectionStatus: (status: boolean) => void;
+  incrementReconnectAttempts: () => void;
+  resetReconnectAttempts: () => void;
 }
 
 export const createMetricsSlice = (set: any): MetricsSlice => ({
@@ -25,13 +30,32 @@ export const createMetricsSlice = (set: any): MetricsSlice => ({
     status: 'connecting',
     timestamp: Date.now(),
   },
+  telemetryHistory: [],
   isConnected: false,
+  reconnectAttempts: 0,
+  lastConnectedAt: null,
   setTelemetry: (metrics) =>
-    set((state: any) => ({
-      telemetry: { ...state.telemetry, ...metrics },
-    })),
+    set((state: any) => {
+      const updatedTelemetry = { ...state.telemetry, ...metrics };
+      const telemetryHistory = [...state.telemetryHistory, updatedTelemetry].slice(-60);
+      return {
+        telemetry: updatedTelemetry,
+        telemetryHistory,
+      };
+    }),
   setConnectionStatus: (status) =>
-    set(() => ({
+    set((state: any) => ({
       isConnected: status,
+      lastConnectedAt: status ? Date.now() : state.lastConnectedAt,
+      reconnectAttempts: status ? 0 : state.reconnectAttempts,
+    })),
+  incrementReconnectAttempts: () =>
+    set((state: any) => ({
+      reconnectAttempts: state.reconnectAttempts + 1,
+    })),
+  resetReconnectAttempts: () =>
+    set(() => ({
+      reconnectAttempts: 0,
     })),
 });
+

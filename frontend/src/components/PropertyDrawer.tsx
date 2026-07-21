@@ -77,15 +77,15 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
   };
 
   return (
-    <div className="w-80 bg-[#15171e] border-l border-[#26282d] p-5 flex flex-col justify-between shadow-2xl overflow-y-auto select-none">
+    <div className="w-80 bg-[var(--bg-surface)] border-l border-[var(--border-default)] p-5 flex flex-col justify-between shadow-2xl overflow-y-auto select-none">
       <div className="space-y-6">
         {/* Drawer Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#26282d]">
+        <div className="flex items-center justify-between pb-4 border-b border-[var(--border-default)]">
           <div className="flex items-center gap-2 overflow-hidden">
             <Sliders className="w-4 h-4 text-emerald-400 flex-shrink-0" />
             <h3 className="text-sm font-semibold text-white truncate capitalize">{nodeType} Settings</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[#22252c] transition-colors flex-shrink-0">
+          <button onClick={onClose} className="p-1 rounded text-zinc-400 hover:text-white hover:bg-[var(--bg-elevated)] transition-colors flex-shrink-0">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -98,7 +98,7 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
               type="text"
               readOnly
               value={node.id}
-              className="w-full px-3 py-2 rounded bg-[#121316] border border-[#26282d] text-zinc-300 font-mono truncate"
+              className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-zinc-300 font-mono truncate"
             />
           </div>
 
@@ -111,7 +111,7 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
                 setLabel(e.target.value);
                 onUpdateNodeData(node.id, { ...node.data, label: e.target.value });
               }}
-              className="w-full px-3 py-2 rounded bg-[#121316] border border-[#26282d] text-white focus:outline-none focus:border-emerald-500"
+              className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
 
@@ -125,7 +125,7 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
                     setModelId(e.target.value);
                     onUpdateNodeData(node.id, { ...node.data, model_id: e.target.value });
                   }}
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#26282d] text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-emerald-500"
                 >
                   {availableModels.map((m) => (
                     <option key={m} value={m}>{m}</option>
@@ -143,7 +143,7 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
                     onUpdateNodeData(node.id, { ...node.data, system_prompt: e.target.value });
                   }}
                   placeholder="Override default prompt for this node..."
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#26282d] text-white focus:outline-none focus:border-emerald-500 resize-none font-mono text-xs leading-relaxed"
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-emerald-500 resize-none font-mono text-xs leading-relaxed"
                 />
               </div>
 
@@ -158,7 +158,7 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
                       className={`w-full flex items-center justify-between px-3 py-2 rounded border text-left text-[11px] transition-colors ${
                         selectedTools.includes(t.id)
                           ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                          : "bg-[#121316] border-[#26282d] text-zinc-400"
+                          : "bg-[var(--bg-input)] border-[var(--border-default)] text-zinc-400"
                       }`}
                     >
                       <span className="truncate">{t.label}</span>

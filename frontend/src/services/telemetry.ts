@@ -6,11 +6,16 @@ const STORAGE_KEY = "contained-settings";
 function getGatewayUrls(): { wsUrl: string; sseUrl: string } {
   let baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.gatewayUrl) {
-        baseUrl = parsed.gatewayUrl;
+    const storeState = useStore.getState();
+    if (storeState?.gatewayUrl) {
+      baseUrl = storeState.gatewayUrl;
+    } else {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.gatewayUrl) {
+          baseUrl = parsed.gatewayUrl;
+        }
       }
     }
   } catch {
@@ -111,10 +116,18 @@ class TelemetryService {
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
+
+    useStore.getState().incrementReconnectAttempts();
+    const attempts = useStore.getState().reconnectAttempts || 1;
+    // Exponential backoff: 1s -> 2s -> 4s -> 8s -> 16s -> max 30s
+    const backoffMs = Math.min(30000, 1000 * Math.pow(2, attempts - 1));
+
+    console.log(`[TelemetryService] Scheduling reconnect in ${backoffMs}ms (attempt #${attempts})`);
+
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
-    }, 5000);
+    }, backoffMs);
   }
 
   public disconnect(): void {

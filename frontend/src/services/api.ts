@@ -3,6 +3,7 @@
  * Interacts with /api/* routes (System health, Ingestion, Agent Hub CRUD, Workflows, EvalOps).
  */
 
+import { useStore } from "../store/useStore";
 import type {
   SystemHealthResponse,
   ModelRegistryResponse,
@@ -12,6 +13,7 @@ import type {
   WorkflowResponse,
   WorkflowCreatePayload,
   IngestionResponse,
+  IngestionJobResponse,
   PaginatedJobsResponse,
   PaginatedDocumentsResponse,
   PaginatedChunksResponse,
@@ -24,6 +26,13 @@ const STORAGE_KEY = "contained-settings";
 
 function getClientConfig(): { baseUrl: string; apiKey: string } {
   try {
+    const storeState = useStore.getState();
+    if (storeState?.gatewayUrl) {
+      return {
+        baseUrl: storeState.gatewayUrl,
+        apiKey: storeState.apiKey || "sk_live_default_key",
+      };
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
@@ -41,27 +50,97 @@ function getClientConfig(): { baseUrl: string; apiKey: string } {
   };
 }
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  retries: number = 3,
+  timeoutMs: number = 30000
+): Promise<T> {
   const config = getClientConfig();
   const url = `${config.baseUrl}${endpoint}`;
-  const headers = {
-    "Content-Type": "application/json",
+
+  const headers: Record<string, string> = {
     "X-API-Key": config.apiKey,
-    ...(options.headers || {}),
+    ...(options.headers as Record<string, string> || {}),
   };
 
-  const response = await fetch(url, { ...options, headers });
-  if (!response.ok) {
-    let errorMsg = `HTTP Error ${response.status}: ${response.statusText}`;
-    try {
-      const errJson = await response.json();
-      errorMsg = errJson.detail || errJson.message || errorMsg;
-    } catch {
-      // ignore json parse error
-    }
-    throw new Error(errorMsg);
+  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
   }
-  return response.json();
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        let errorMsg = `HTTP Error ${response.status}: ${response.statusText}`;
+        try {
+          const errJson = await response.json();
+          errorMsg = errJson.detail || errJson.message || errorMsg;
+        } catch {
+          // ignore json parse error
+        }
+
+        // Retry on 5xx status codes only
+        if (response.status >= 500 && attempt < retries - 1) {
+          const backoff = Math.pow(2, attempt) * 1000;
+          await new Promise((res) => setTimeout(res, backoff));
+          continue;
+        }
+
+        const err = new Error(errorMsg);
+        try {
+          useStore.getState().addNotification({
+            type: "error",
+            title: `API Request Failed (${response.status})`,
+            message: errorMsg,
+          });
+        } catch {
+          // ignore if store not ready
+        }
+        throw err;
+      }
+
+      return await response.json();
+    } catch (err: any) {
+      clearTimeout(timer);
+      const isAbort = err?.name === "AbortError";
+      const errorMsg = isAbort
+        ? `Request timed out after ${timeoutMs / 1000}s`
+        : err?.message || "Network request failed";
+
+      lastError = new Error(errorMsg);
+
+      if (attempt < retries - 1 && !isAbort) {
+        const backoff = Math.pow(2, attempt) * 1000;
+        await new Promise((res) => setTimeout(res, backoff));
+      } else {
+        try {
+          useStore.getState().addNotification({
+            type: "error",
+            title: "API Error",
+            message: lastError.message,
+          });
+        } catch {
+          // ignore
+        }
+        throw lastError;
+      }
+    }
+  }
+
+  throw lastError || new Error("Request failed after retries");
 }
 
 export const api = {
@@ -90,23 +169,42 @@ export const api = {
   ingestDocument: async (formData: FormData): Promise<IngestionResponse> => {
     const config = getClientConfig();
     const url = `${config.baseUrl}/api/syntraflow/ingest`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "X-API-Key": config.apiKey },
-      body: formData,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || "Ingestion request failed");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000); // 60s for file uploads
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "X-API-Key": config.apiKey },
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        const msg = err.detail || "Ingestion request failed";
+        useStore.getState().addNotification({
+          type: "error",
+          title: "Ingestion Failed",
+          message: msg,
+        });
+        throw new Error(msg);
+      }
+      return res.json();
+    } catch (err: any) {
+      clearTimeout(timer);
+      throw err;
     }
-    return res.json();
   },
+
   getDocuments: (limit: number = 10, offset: number = 0) =>
     request<PaginatedDocumentsResponse>(`/api/syntraflow/documents?limit=${limit}&offset=${offset}`),
   getJobs: (status?: string, limit: number = 10, offset: number = 0) => {
     const statusParam = status ? `&status=${status}` : "";
     return request<PaginatedJobsResponse>(`/api/syntraflow/jobs?limit=${limit}&offset=${offset}${statusParam}`);
   },
+  getJobStatus: (jobId: string) =>
+    request<IngestionJobResponse>(`/api/syntraflow/jobs/${jobId}`),
   getDocumentChunks: (docId: string, limit: number = 20, offset: number = 0) =>
     request<PaginatedChunksResponse>(`/api/syntraflow/documents/${docId}/chunks?limit=${limit}&offset=${offset}`),
   deleteDocument: (docId: string) =>

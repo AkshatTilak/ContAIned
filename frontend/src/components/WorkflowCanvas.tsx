@@ -142,11 +142,11 @@ export const WorkflowCanvas: React.FC = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] rounded-xl border border-[#26282d] bg-[#121316] overflow-hidden select-none">
+    <div className="flex h-[calc(100vh-6rem)] rounded-xl border border-[var(--border-default)] bg-[var(--bg-input)] overflow-hidden select-none">
       {/* Canvas Area */}
       <div className="flex-1 flex flex-col">
         {/* Top Control Bar */}
-        <div className="flex items-center justify-between px-4 py-3 bg-[#15171e] border-b border-[#26282d]">
+        <div className="flex items-center justify-between px-4 py-3 bg-[var(--bg-surface)] border-b border-[var(--border-default)]">
           <div className="flex items-center gap-3">
             <input
               type="text"
@@ -160,21 +160,21 @@ export const WorkflowCanvas: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => addNode("ClassifierNode", "Classifier Router")}
-              className="px-2.5 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
+              className="px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
             >
               <Plus className="w-3.5 h-3.5 text-emerald-400" /> + Classifier
             </button>
 
             <button
               onClick={() => addNode("AgentNode", "Subagent Node")}
-              className="px-2.5 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
+              className="px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
             >
               <Plus className="w-3.5 h-3.5 text-amber-400" /> + Agent
             </button>
 
             <button
               onClick={() => addNode("RetrievalNode", "Hybrid Search")}
-              className="px-2.5 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
+              className="px-2.5 py-1.5 rounded bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
             >
               <Plus className="w-3.5 h-3.5 text-indigo-400" /> + Retrieval
             </button>
@@ -200,8 +200,8 @@ export const WorkflowCanvas: React.FC = () => {
             onNodeClick={handleNodeClick}
             fitView
           >
-            <Background color="#26282d" gap={16} />
-            <Controls className="!bg-[#181a21] !border-[#26282d] !fill-zinc-300" />
+            <Background color="var(--border-default)" gap={16} />
+            <Controls className="!bg-[var(--bg-surface-alt)] !border-[var(--border-default)] !fill-zinc-300" />
           </ReactFlow>
         </div>
       </div>

@@ -9,7 +9,7 @@ export const AgentNode = memo(({ data }: any) => {
   const hasPromptOverride = Boolean(data?.system_prompt);
 
   return (
-    <div className="px-4 py-3 rounded-xl bg-[#181a21] border border-amber-500/40 shadow-xl min-w-[240px] max-w-[280px] select-none space-y-2">
+    <div className="px-4 py-3 rounded-xl bg-[var(--bg-surface-alt)] border border-amber-500/40 shadow-xl min-w-[240px] max-w-[280px] select-none space-y-2">
       <Handle type="target" position={Position.Top} className="!bg-amber-400 !w-3 !h-3" />
       
       <div className="flex items-center justify-between gap-2">
@@ -33,7 +33,7 @@ export const AgentNode = memo(({ data }: any) => {
 
       <div className="flex flex-wrap gap-1 pt-1">
         {tools.map((tool) => (
-          <span key={tool} className="px-1.5 py-0.5 rounded bg-[#121316] text-[9px] text-amber-400 border border-amber-500/20 font-mono truncate max-w-[120px]">
+          <span key={tool} className="px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[9px] text-amber-400 border border-amber-500/20 font-mono truncate max-w-[120px]">
             {tool}
           </span>
         ))}

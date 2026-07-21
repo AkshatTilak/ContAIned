@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ] as const;
 
   return (
-    <aside className="w-64 bg-[#121316] border-r border-[#26282d] flex flex-col justify-between p-4 select-none">
+    <aside className="w-64 bg-[var(--bg-input)] border-r border-[var(--border-default)] flex flex-col justify-between p-4 select-none">
       <div>
         {/* Brand Header */}
         <div className="flex items-center gap-3 px-2 py-3 mb-6">
@@ -45,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <h1 className="font-bold text-white tracking-wide text-base leading-tight">
               Cont<span className="text-emerald-400">AI</span>ned
             </h1>
-            <span className="text-xs text-zinc-400">Platform V2</span>
+            <span className="text-xs text-zinc-400">Platform V3</span>
           </div>
         </div>
 
@@ -60,8 +60,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                   isActive
-                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                    : "text-zinc-400 hover:text-zinc-200 hover:bg-[#1c1e24]"
+                    ? "bg-[var(--emerald-soft)] text-emerald-400 border border-emerald-500/20"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-[var(--bg-elevated)]"
                 }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? "text-emerald-400" : "text-zinc-400"}`} />
@@ -73,8 +73,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Connection Status & Settings */}
-      <div className="space-y-3 pt-4 border-t border-[#26282d]">
-        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#181a20] text-xs">
+      <div className="space-y-3 pt-4 border-t border-[var(--border-default)]">
+        <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-surface-alt)] text-xs">
           <div className="flex items-center gap-2">
             {isConnected ? (
               <Wifi className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
@@ -90,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <button
           onClick={onOpenConfig}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-[#1c1e24] transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-[var(--bg-elevated)] transition-colors"
         >
           <Settings className="w-4 h-4 text-zinc-400" />
           <span>Gateway Settings</span>
