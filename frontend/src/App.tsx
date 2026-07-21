@@ -1,10 +1,17 @@
 import { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { Sidebar } from "./components/Sidebar";
+import { HeaderBar } from "./components/layout/HeaderBar";
+import { PageTransition } from "./components/layout/PageTransition";
+import { CommandPalette } from "./components/layout/CommandPalette";
 import { SystemMetrics } from "./components/SystemMetrics";
 import { IngestionPanel } from "./components/IngestionPanel";
 import { WorkflowCanvas } from "./components/WorkflowCanvas";
 import { AgentHub } from "./components/AgentHub";
 import { EvalPanel } from "./components/EvalPanel";
+import { SettingsPage } from "./components/SettingsPage";
+import { NotFound } from "./components/NotFound";
 import { ErrorBoundary, ToastProvider } from "./components/shared";
 
 import { telemetryService } from "./services/telemetry";
@@ -13,25 +20,12 @@ import { useStore } from "./store/useStore";
 import type { SystemHealthResponse, ModelRegistryResponse } from "./types/api";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"system" | "syntraflow" | "guardroute" | "agent_hub" | "evalops">("system");
-  const [showConfig, setShowConfig] = useState(false);
+  const location = useLocation();
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(null);
   const [modelRegistry, setModelRegistry] = useState<ModelRegistryResponse | null>(null);
 
-  // Settings from Zustand store
   const gatewayUrl = useStore((state) => state.gatewayUrl);
-  const apiKey = useStore((state) => state.apiKey);
-  const updateSettings = useStore((state) => state.updateSettings);
-  const resetSettings = useStore((state) => state.resetSettings);
-
-  // Controlled modal inputs
-  const [inputGatewayUrl, setInputGatewayUrl] = useState(gatewayUrl);
-  const [inputApiKey, setInputApiKey] = useState(apiKey);
-
-  useEffect(() => {
-    setInputGatewayUrl(gatewayUrl);
-    setInputApiKey(apiKey);
-  }, [gatewayUrl, apiKey]);
 
   useEffect(() => {
     telemetryService.connect();
@@ -52,103 +46,102 @@ export default function App() {
     }
   };
 
-  const handleSaveConfig = () => {
-    updateSettings({ gatewayUrl: inputGatewayUrl, apiKey: inputApiKey });
-    setShowConfig(false);
-    telemetryService.disconnect();
-    telemetryService.connect();
-    fetchSystemData();
-  };
-
-  const handleResetDefaults = () => {
-    resetSettings();
-    const defaults = useStore.getState();
-    setInputGatewayUrl(defaults.gatewayUrl);
-    setInputApiKey(defaults.apiKey);
-  };
+  // Global Ctrl+K / Cmd+K listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <ToastProvider>
       <div className="flex h-screen bg-[#080809] text-[var(--text-primary)] font-sans antialiased overflow-hidden">
         {/* Sidebar Navigation */}
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          onOpenConfig={() => setShowConfig(true)}
+        <Sidebar />
+
+        {/* Main Application Container */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Top Header Bar with Breadcrumbs & Actions */}
+          <HeaderBar onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
+
+          {/* Page Viewport */}
+          <main className="flex-1 overflow-y-auto p-6 flex flex-col min-h-0">
+            <ErrorBoundary>
+              <AnimatePresence mode="wait">
+                <Routes location={location} key={location.pathname}>
+                  <Route path="/" element={<Navigate to="/system" replace />} />
+                  <Route
+                    path="/system"
+                    element={
+                      <PageTransition>
+                        <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} />
+                      </PageTransition>
+                    }
+                  />
+                  <Route
+                    path="/ingestion"
+                    element={
+                      <PageTransition>
+                        <IngestionPanel />
+                      </PageTransition>
+                    }
+                  />
+                  <Route
+                    path="/workflow"
+                    element={
+                      <PageTransition>
+                        <WorkflowCanvas />
+                      </PageTransition>
+                    }
+                  />
+                  <Route
+                    path="/agents"
+                    element={
+                      <PageTransition>
+                        <AgentHub />
+                      </PageTransition>
+                    }
+                  />
+                  <Route
+                    path="/evalops"
+                    element={
+                      <PageTransition>
+                        <EvalPanel />
+                      </PageTransition>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <PageTransition>
+                        <SettingsPage />
+                      </PageTransition>
+                    }
+                  />
+                  <Route
+                    path="*"
+                    element={
+                      <PageTransition>
+                        <NotFound />
+                      </PageTransition>
+                    }
+                  />
+                </Routes>
+              </AnimatePresence>
+            </ErrorBoundary>
+          </main>
+        </div>
+
+        {/* Global Command Palette Dialog */}
+        <CommandPalette
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
         />
-
-        {/* Main Content Area */}
-        <main className="flex-1 flex flex-col overflow-y-auto p-6">
-          <ErrorBoundary>
-            {activeTab === "system" && (
-              <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} />
-            )}
-
-            {activeTab === "syntraflow" && <IngestionPanel />}
-
-            {activeTab === "guardroute" && <WorkflowCanvas />}
-
-            {activeTab === "agent_hub" && <AgentHub />}
-
-            {activeTab === "evalops" && <EvalPanel />}
-          </ErrorBoundary>
-        </main>
-
-        {/* Config Modal */}
-        {showConfig && (
-          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 shadow-2xl space-y-4">
-              <h3 className="text-sm font-bold text-[var(--text-primary)] font-display">
-                Gateway & Environment Settings
-              </h3>
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="text-[var(--text-secondary)] block mb-1">Gateway API Base URL</label>
-                  <input
-                    type="text"
-                    value={inputGatewayUrl}
-                    onChange={(e) => setInputGatewayUrl(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[var(--text-secondary)] block mb-1">X-API-Key Authorization</label>
-                  <input
-                    type="text"
-                    value={inputApiKey}
-                    onChange={(e) => setInputApiKey(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <button
-                  type="button"
-                  onClick={handleResetDefaults}
-                  className="px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                >
-                  Reset to Defaults
-                </button>
-                <div className="flex space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowConfig(false)}
-                    className="px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-xs text-[var(--text-secondary)]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveConfig}
-                    className="px-4 py-1.5 rounded-lg bg-[var(--accent-indigo)] hover:opacity-90 text-xs font-medium text-white shadow-md"
-                  >
-                    Save & Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </ToastProvider>
   );
