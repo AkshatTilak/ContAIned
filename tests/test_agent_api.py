@@ -14,7 +14,7 @@ async def test_agent_crud_flow():
     """Test full CRUD lifecycle for Agent Definition via API."""
     mock_db = AsyncMock()
     mock_db.add = MagicMock()
-    mock_db.delete = MagicMock()
+    mock_db.delete = AsyncMock()
     
     # Store agents in-memory for mock DB queries
     agents_db = {}
