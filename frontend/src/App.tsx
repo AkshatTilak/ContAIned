@@ -8,12 +8,29 @@ import { EvalPanel } from "./components/EvalPanel";
 
 import { telemetryService } from "./services/telemetry";
 import { api } from "./services/api";
+import { useStore } from "./store/useStore";
+import { SystemHealthResponse, ModelRegistryResponse } from "./types/api";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"system" | "syntraflow" | "guardroute" | "agent_hub" | "evalops">("system");
   const [showConfig, setShowConfig] = useState(false);
-  const [systemHealth, setSystemHealth] = useState<any>(null);
-  const [modelRegistry, setModelRegistry] = useState<any>(null);
+  const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(null);
+  const [modelRegistry, setModelRegistry] = useState<ModelRegistryResponse | null>(null);
+
+  // Settings from Zustand store
+  const gatewayUrl = useStore((state) => state.gatewayUrl);
+  const apiKey = useStore((state) => state.apiKey);
+  const updateSettings = useStore((state) => state.updateSettings);
+  const resetSettings = useStore((state) => state.resetSettings);
+
+  // Controlled modal inputs
+  const [inputGatewayUrl, setInputGatewayUrl] = useState(gatewayUrl);
+  const [inputApiKey, setInputApiKey] = useState(apiKey);
+
+  useEffect(() => {
+    setInputGatewayUrl(gatewayUrl);
+    setInputApiKey(apiKey);
+  }, [gatewayUrl, apiKey]);
 
   useEffect(() => {
     telemetryService.connect();
@@ -21,7 +38,7 @@ export default function App() {
     return () => {
       telemetryService.disconnect();
     };
-  }, []);
+  }, [gatewayUrl]);
 
   const fetchSystemData = async () => {
     try {
@@ -32,6 +49,21 @@ export default function App() {
     } catch (err) {
       console.warn("Using offline fallback system data:", err);
     }
+  };
+
+  const handleSaveConfig = () => {
+    updateSettings({ gatewayUrl: inputGatewayUrl, apiKey: inputApiKey });
+    setShowConfig(false);
+    telemetryService.disconnect();
+    telemetryService.connect();
+    fetchSystemData();
+  };
+
+  const handleResetDefaults = () => {
+    resetSettings();
+    const defaults = useStore.getState();
+    setInputGatewayUrl(defaults.gatewayUrl);
+    setInputApiKey(defaults.apiKey);
   };
 
   return (
@@ -68,26 +100,45 @@ export default function App() {
                 <label className="text-zinc-400 block mb-1">Gateway API Base URL</label>
                 <input
                   type="text"
-                  defaultValue="http://localhost:8000"
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white"
+                  value={inputGatewayUrl}
+                  onChange={(e) => setInputGatewayUrl(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
               <div>
                 <label className="text-zinc-400 block mb-1">X-API-Key Authorization</label>
                 <input
                   type="text"
-                  defaultValue="sk_live_default_key"
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white"
+                  value={inputApiKey}
+                  onChange={(e) => setInputApiKey(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
             </div>
-            <div className="flex justify-end pt-2">
+            <div className="flex justify-between items-center pt-2">
               <button
-                onClick={() => setShowConfig(false)}
-                className="px-4 py-2 rounded bg-emerald-500 hover:bg-emerald-600 text-xs font-medium text-white"
+                type="button"
+                onClick={handleResetDefaults}
+                className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-400 hover:text-white"
               >
-                Save & Close
+                Reset to Defaults
               </button>
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConfig(false)}
+                  className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveConfig}
+                  className="px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-xs font-medium text-white"
+                >
+                  Save & Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

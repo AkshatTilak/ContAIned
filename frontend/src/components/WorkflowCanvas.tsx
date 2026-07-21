@@ -7,6 +7,9 @@ import {
   useEdgesState,
   addEdge,
   type NodeTypes,
+  type Node,
+  type Edge,
+  type Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Save, Plus } from "lucide-react";
@@ -71,7 +74,7 @@ export const WorkflowCanvas: React.FC = () => {
     SynthesisNode,
   }), []);
 
-  const onConnect = (params: any) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: "#10b981", strokeWidth: 2 } }, eds));
+  const onConnect = (params: Connection) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: "#10b981", strokeWidth: 2 } }, eds));
 
   const formatGraphJson = (currentNodes = nodes, currentEdges = edges) => ({
     nodes: currentNodes.map((n) => ({
@@ -88,7 +91,7 @@ export const WorkflowCanvas: React.FC = () => {
     })),
   });
 
-  const handleNodeClick = (_: any, node: any) => {
+  const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
     setActiveWorkflow({
       id: "wf_current",
@@ -98,7 +101,7 @@ export const WorkflowCanvas: React.FC = () => {
     });
   };
 
-  const handleUpdateNodeData = (nodeId: string, newData: any) => {
+  const handleUpdateNodeData = (nodeId: string, newData: Record<string, any>) => {
     setNodes((nds) =>
       nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...newData } } : n))
     );
@@ -122,8 +125,9 @@ export const WorkflowCanvas: React.FC = () => {
       await api.activateWorkflow(saved.id);
       setStatusMsg(`Workflow '${saved.name}' activated successfully!`);
       setTimeout(() => setStatusMsg(null), 4000);
-    } catch (err: any) {
-      setStatusMsg(`Failed to save: ${err.message}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error occurred";
+      setStatusMsg(`Failed to save: ${msg}`);
     }
   };
 

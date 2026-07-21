@@ -32,6 +32,8 @@ class AppSettings(BaseSettings):
     MAX_JSON_SIZE: int = Field(default=1048576, alias="MAX_JSON_SIZE")  # 1 MB
     TOXICITY_THRESHOLD: float = Field(default=0.1, alias="TOXICITY_THRESHOLD")
     TIMEOUT_GRACEFUL_SHUTDOWN: int = Field(default=15, alias="TIMEOUT_GRACEFUL_SHUTDOWN")
+    PLATFORM_VERSION: str = Field(default="3.0.0", alias="PLATFORM_VERSION")
+    MAX_RAM_MB: int = Field(default=16384, alias="MAX_RAM_MB")
     DEEPEVAL_MODEL: str = Field(default="gemini/gemini-3.5-flash", alias="DEEPEVAL_MODEL")
     EVALOPS_CONSUMER_ENABLED: bool = Field(default=False, alias="EVALOPS_CONSUMER_ENABLED")
 
@@ -83,7 +85,7 @@ class InferenceSettings(BaseSettings):
     CLASSIFIER_IDLE_TIMEOUT: int = Field(
         default=300, alias="CLASSIFIER_IDLE_TIMEOUT"
     )
-    VRAM_BUDGET_MB: int = Field(default=20000, alias="VRAM_BUDGET_MB")
+    VRAM_BUDGET_MB: int = Field(default=8000, alias="VRAM_BUDGET_MB")
     HF_HOME: str = Field(default="~/.cache/huggingface/hub", alias="HF_HOME")
     DEVICE: str = Field(default="auto", alias="DEVICE")
 
@@ -252,6 +254,14 @@ class Settings(
     @property
     def vram_budget_mb(self) -> int:
         return self.VRAM_BUDGET_MB
+
+    @property
+    def platform_version(self) -> str:
+        return self.PLATFORM_VERSION
+
+    @property
+    def max_ram_mb(self) -> int:
+        return self.MAX_RAM_MB
 
 
 settings = Settings()

@@ -11,10 +11,11 @@ import {
   AlertCircle
 } from "lucide-react";
 import { useStore } from "../store/useStore";
+import { SystemHealthResponse, ModelRegistryResponse } from "../types/api";
 
 interface SystemMetricsProps {
-  systemHealth: any;
-  modelRegistry: any;
+  systemHealth: SystemHealthResponse | null;
+  modelRegistry: ModelRegistryResponse | null;
 }
 
 export const SystemMetrics: React.FC<SystemMetricsProps> = ({

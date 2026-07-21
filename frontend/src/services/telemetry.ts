@@ -1,25 +1,51 @@
 import { useStore } from '../store/useStore';
+import { SystemTelemetryMessage } from '../types/telemetry';
+
+const STORAGE_KEY = "contained-settings";
+
+function getGatewayUrls(): { wsUrl: string; sseUrl: string } {
+  let baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.gatewayUrl) {
+        baseUrl = parsed.gatewayUrl;
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  // Parse URL
+  try {
+    const parsedUrl = new URL(baseUrl);
+    const wsProtocol = parsedUrl.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${wsProtocol}//${parsedUrl.host}/api/telemetry/ws`;
+    const sseUrl = `${parsedUrl.protocol}//${parsedUrl.host}/api/telemetry/stream`;
+    return { wsUrl, sseUrl };
+  } catch {
+    return {
+      wsUrl: "ws://localhost:8000/api/telemetry/ws",
+      sseUrl: "http://localhost:8000/api/telemetry/stream",
+    };
+  }
+}
 
 class TelemetryService {
   private socket: WebSocket | null = null;
   private sse: EventSource | null = null;
-  private reconnectTimer: any = null;
-  private url: string;
-
-  constructor() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname || 'localhost';
-    const port = '8000';
-    this.url = `${protocol}//${host}:${port}/api/telemetry/ws`;
-  }
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   public connect(): void {
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
       return;
     }
 
+    const { wsUrl } = getGatewayUrls();
+
     try {
-      this.socket = new WebSocket(this.url);
+      this.socket = new WebSocket(wsUrl);
 
       this.socket.onopen = () => {
         console.log('[TelemetryService] Connected to Gateway WebSocket');
@@ -32,7 +58,7 @@ class TelemetryService {
 
       this.socket.onmessage = (event: MessageEvent) => {
         try {
-          const data = JSON.parse(event.data);
+          const data: SystemTelemetryMessage = JSON.parse(event.data);
           useStore.getState().setTelemetry(data);
         } catch (err) {
           console.error('[TelemetryService] Failed to parse message', err);
@@ -57,7 +83,7 @@ class TelemetryService {
 
   private connectSSE(): void {
     if (this.sse) return;
-    const sseUrl = `http://${window.location.hostname || 'localhost'}:8000/api/telemetry/stream`;
+    const { sseUrl } = getGatewayUrls();
     try {
       this.sse = new EventSource(sseUrl);
       this.sse.onopen = () => {
@@ -65,7 +91,7 @@ class TelemetryService {
       };
       this.sse.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
+          const data: SystemTelemetryMessage = JSON.parse(event.data);
           useStore.getState().setTelemetry(data);
         } catch (err) {
           console.error('[TelemetryService] Failed to parse SSE data', err);

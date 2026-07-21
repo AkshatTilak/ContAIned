@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { UploadCloud, ChevronDown, ChevronUp, Sliders, CheckSquare, Square, CheckCircle2 } from "lucide-react";
-import { api } from "../services/api";
+import { IngestionResponse } from "../types/api";
 
 export const IngestionPanel: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
-  const [ingestResult, setIngestResult] = useState<any>(null);
+  const [ingestResult, setIngestResult] = useState<IngestionResponse | null>(null);
 
   // Advanced Ingestion Options
   const [showAdvanced, setShowAdvanced] = useState(true);
@@ -45,8 +45,9 @@ export const IngestionPanel: React.FC = () => {
       const res = await api.ingestDocument(formData);
       setIngestResult(res);
       setUploadStatus("Ingestion complete!");
-    } catch (err: any) {
-      setUploadStatus(`Ingestion failed: ${err.message}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error occurred";
+      setUploadStatus(`Ingestion failed: ${msg}`);
     } finally {
       setIsUploading(false);
     }
@@ -55,7 +56,7 @@ export const IngestionPanel: React.FC = () => {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Upload Zone */}
-      <div className="p-6 rounded-xl bg-[#15171e] border border-[#26282d] text-center">
+      <div className="p-6 rounded-xl bg-[#15171e] border border-[#26282d] text-[#ffffff] text-center">
         <h2 className="text-base font-semibold text-white mb-2">SyntraFlow Multi-Modal Document & Video Ingestion</h2>
         <p className="text-xs text-zinc-400 mb-6">
           Upload PDF, DOCX, TXT, Images, or MP4 files to execute parsing, OCR, transcription, and vector embedding.
@@ -123,7 +124,7 @@ export const IngestionPanel: React.FC = () => {
               </label>
               <select
                 value={chunkStrategy}
-                onChange={(e: any) => setChunkStrategy(e.target.value)}
+                onChange={(e) => setChunkStrategy(e.target.value as any)}
                 className="w-full px-3 py-2 rounded-lg bg-[#121316] border border-[#2d3039] text-sm text-white focus:outline-none focus:border-emerald-500"
               >
                 <option value="RecursiveCharacterChunking">Recursive Character Chunking (Recommended)</option>

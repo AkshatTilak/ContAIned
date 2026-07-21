@@ -64,11 +64,12 @@ export const EvalPanel: React.FC = () => {
     setStatusMsg("Prompting LiteLLM generator for synthetic test cases...");
     try {
       const res = await api.generateSyntheticCases(agentId, 3);
-      setStatusMsg(`Generated ${res.test_cases_count || 3} synthetic test cases successfully!`);
+      setStatusMsg(`Generated ${res.cases?.length || 3} synthetic test cases successfully!`);
       setTimeout(() => setStatusMsg(null), 4000);
       fetchTestCases();
-    } catch (err: any) {
-      setStatusMsg(`Synthetic generation failed: ${err.message}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error occurred";
+      setStatusMsg(`Synthetic generation failed: ${msg}`);
     } finally {
       setIsGenerating(false);
     }
@@ -79,10 +80,11 @@ export const EvalPanel: React.FC = () => {
     setStatusMsg("Publishing evaluation trigger event to Kafka topic 'agent-eval-trigger'...");
     try {
       const res = await api.triggerEvalRun(agentId);
-      setStatusMsg(`Eval run started! Task ID: ${res.task_id || "eval_98412"}`);
+      setStatusMsg(`Eval run started! Task ID: ${res.id || "eval_98412"}`);
       setTimeout(() => setStatusMsg(null), 4000);
-    } catch (err: any) {
-      setStatusMsg(`Eval run failed: ${err.message}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error occurred";
+      setStatusMsg(`Eval run failed: ${msg}`);
     } finally {
       setIsRunningEval(false);
     }

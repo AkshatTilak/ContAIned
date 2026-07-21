@@ -98,7 +98,7 @@ from common.observability import register_exception_handlers, TraceIdMiddleware
 app = FastAPI(
     title=settings.APP_NAME,
     description="API Gateway for the contained-ai-platform monorepo",
-    version="0.1.0",
+    version=settings.PLATFORM_VERSION,
     lifespan=lifespan,
 )
 

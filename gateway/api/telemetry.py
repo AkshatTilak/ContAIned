@@ -21,26 +21,81 @@ logger = logging.getLogger("gateway.api.telemetry")
 TELEMETRY_CHANNEL = "telemetry-system-health"
 
 
+async def _get_gpu_metrics() -> tuple[int, int, bool]:
+    """Retrieves GPU VRAM metrics via PyTorch or nvidia-smi fallback."""
+    try:
+        import torch
+        if torch.cuda.is_available():
+            vram_used = int(torch.cuda.memory_allocated() / (1024 * 1024))
+            vram_total = int(torch.cuda.get_device_properties(0).total_memory / (1024 * 1024))
+            return vram_used, vram_total, True
+    except Exception:
+        pass
+
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split("\n")
+            if lines and "," in lines[0]:
+                used, total = lines[0].split(",")
+                return int(used.strip()), int(total.strip()), True
+    except Exception:
+        pass
+
+    return 0, getattr(settings, "VRAM_BUDGET_MB", 8000), False
+
+
 async def collect_system_metrics() -> dict:
-    """Collects system health, CPU, memory, and VRAM telemetry."""
+    """Collects system health, CPU, memory, disk, GPU VRAM, active agent, and job metrics."""
     try:
         import psutil
         cpu_percent = psutil.cpu_percent(interval=None)
         mem = psutil.virtual_memory()
         mem_percent = mem.percent
+        disk_percent = psutil.disk_usage("/").percent
     except Exception:
-        cpu_percent = 15.4
-        mem_percent = 42.1
+        cpu_percent = 0.0
+        mem_percent = 0.0
+        disk_percent = 0.0
+
+    vram_used, vram_total, gpu_available = await _get_gpu_metrics()
+
+    active_agents = 0
+    active_jobs_count = 0
+
+    try:
+        from common.clients.postgres import get_sessionmaker
+        from sqlalchemy import text
+        session_factory = get_sessionmaker()
+        async with session_factory() as session:
+            agents_res = await session.execute(text("SELECT COUNT(*) FROM agent_definitions"))
+            active_agents = agents_res.scalar() or 0
+
+            jobs_res = await session.execute(
+                text("SELECT COUNT(*) FROM syntraflow_jobs WHERE status = 'processing'")
+            )
+            active_jobs_count = jobs_res.scalar() or 0
+    except Exception as e:
+        logger.debug(f"Telemetry database count query skipped: {e}")
 
     return {
         "event": "telemetry_update",
         "timestamp": time.time(),
         "cpu_usage_percent": cpu_percent,
         "memory_usage_percent": mem_percent,
-        "vram_usage_mb": 4096,
-        "vram_total_mb": 16384,
-        "active_agents": 2,
-        "status": "healthy"
+        "disk_usage_percent": disk_percent,
+        "vram_usage_mb": vram_used,
+        "vram_total_mb": vram_total,
+        "gpu_available": gpu_available,
+        "active_agents": active_agents,
+        "active_jobs_count": active_jobs_count,
+        "status": "healthy",
     }
 
 
