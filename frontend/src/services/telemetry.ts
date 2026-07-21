@@ -10,7 +10,7 @@ class TelemetryService {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname || 'localhost';
     const port = '8000';
-    self.url = `${protocol}//${host}:${port}/api/telemetry/ws`;
+    this.url = `${protocol}//${host}:${port}/api/telemetry/ws`;
   }
 
   public connect(): void {
