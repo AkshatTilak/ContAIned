@@ -1,9 +1,10 @@
 services:
   # ──────────────────────────────────────────────
-  # Infrastructure
+  # Infrastructure: Core Databases (~1.3GB RAM total)
   # ──────────────────────────────────────────────
   postgres:
     image: postgres:16
+    profiles: ["core"]
     environment:
       POSTGRES_DB: contained_platform
       POSTGRES_USER: contained
@@ -17,11 +18,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    restart: unless-stopped
     networks:
       - contained_net
 
   qdrant:
     image: qdrant/qdrant:latest
+    profiles: ["core"]
     ports: ["6333:6333"]
     volumes: ["qdrant_data:/qdrant/storage"]
     healthcheck:
@@ -29,11 +36,39 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    restart: unless-stopped
     networks:
       - contained_net
 
+  redis:
+    image: redis:7-alpine
+    profiles: ["core"]
+    command: redis-server --appendonly yes
+    ports: ["6379:6379"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    restart: unless-stopped
+    networks:
+      - contained_net
+
+  # ──────────────────────────────────────────────
+  # Infrastructure: Graph Database (~768MB RAM)
+  # ──────────────────────────────────────────────
   neo4j:
     image: neo4j:5.20.0
+    profiles: ["graph"]
     ports:
       - "7474:7474" # HTTP port
       - "7687:7687" # Bolt port
@@ -47,24 +82,20 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+    restart: unless-stopped
     networks:
       - contained_net
 
-  redis:
-    image: redis:7-alpine
-    command: redis-server --appendonly yes
-    ports: ["6379:6379"]
-    volumes: ["redis_data:/data"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - contained_net
-
+  # ──────────────────────────────────────────────
+  # Infrastructure: Messaging & Queue (~768MB RAM)
+  # ──────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
+    profiles: ["messaging"]
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -75,11 +106,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    restart: unless-stopped
     networks:
       - contained_net
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
+    profiles: ["messaging"]
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -98,11 +135,17 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    restart: unless-stopped
     networks:
       - contained_net
 
   kafka-setup:
     image: confluentinc/cp-kafka:7.6.0
+    profiles: ["messaging"]
     depends_on:
       kafka:
         condition: service_healthy
@@ -116,12 +159,13 @@ services:
       - contained_net
 
   # ──────────────────────────────────────────────
-  # Backend 1: API Gateway (CPU-only, lightweight)
+  # Application Services: Gateway (~512MB RAM)
   # ──────────────────────────────────────────────
   gateway:
     build:
       context: ..
       dockerfile: infrastructure/Dockerfile.gateway
+    profiles: ["app"]
     ports: ["8000:8000"]
     env_file: ../.env
     environment:
@@ -136,33 +180,35 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
-      neo4j:
-        condition: service_healthy
       redis:
         condition: service_healthy
     command: uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    restart: unless-stopped
     networks:
       - contained_net
 
   # ──────────────────────────────────────────────
-  # Backend 2: Inference Server (GPU)
+  # Application Services: Inference Server (~2048MB RAM)
   # ──────────────────────────────────────────────
   inference:
     build:
       context: ..
       dockerfile: infrastructure/Dockerfile.inference
-    # ports: ["8010:8010"]
+    profiles: ["app"]
+    ports: ["8010:8010"]
     env_file: ../.env
     volumes:
       - ../models:/app/models
+    command: uvicorn inference.main:app --host 0.0.0.0 --port 8010
     deploy:
       resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    command: uvicorn inference.main:app --host 0.0.0.0 --port 8010
+        limits:
+          memory: 2048m
+    restart: unless-stopped
     networks:
       - contained_net
 
@@ -171,8 +217,12 @@ services:
   # ──────────────────────────────────────────────
   otel-collector:
     image: otel/opentelemetry-collector:latest
-    # ports: ["4317:4317", "4318:4318"] # Communicates via internal Docker network only
     profiles: ["observability"]
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    restart: unless-stopped
     networks:
       - contained_net
 
@@ -180,9 +230,12 @@ services:
     image: jaegertracing/all-in-one:latest
     ports:
       - "16686:16686"   # Jaeger UI
-      # - "4317:4317"     # OTLP gRPC
-      # - "4318:4318"     # OTLP HTTP
     profiles: ["observability"]
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    restart: unless-stopped
     networks:
       - contained_net
 
@@ -196,6 +249,11 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@local.dev
       PGADMIN_DEFAULT_PASSWORD: admin
     profiles: ["admin"]
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    restart: unless-stopped
     networks:
       - contained_net
 
@@ -209,6 +267,11 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+    restart: unless-stopped
     networks:
       - contained_net
 
@@ -226,9 +289,13 @@ services:
       DATABASE_URL: postgresql+asyncpg://contained:${POSTGRES_PASSWORD:-changeme}@postgres:5432/contained_platform
       QDRANT_URL: http://qdrant:6333
       NEO4J_URL: bolt://neo4j:7687
-    depends_on: [gateway, inference, neo4j]
+    depends_on: [gateway, inference]
     profiles: ["test"]
     command: pytest projects/evalops/ -v
+    deploy:
+      resources:
+        limits:
+          memory: 512m
     networks:
       - contained_net
 

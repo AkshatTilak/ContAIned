@@ -1,0 +1,25 @@
+services:
+  gateway:
+    volumes:
+      - ../gateway:/app/gateway
+      - ../common:/app/common
+      - ../projects:/app/projects
+    environment:
+      LOG_LEVEL: DEBUG
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  inference:
+    volumes:
+      - ../inference:/app/inference
+      - ../common:/app/common
+    environment:
+      LOG_LEVEL: DEBUG
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -135,16 +135,19 @@ async def reload_registry() -> dict:
 @app.get("/health")
 async def health_check() -> dict:
     """Inference server health — reports loaded models and VRAM usage."""
+    gpu_available = False
     device = settings.DEVICE
-    if device == "auto":
-        try:
-            import torch
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        except ImportError:
-            device = "cpu"
+    try:
+        import torch
+        gpu_available = torch.cuda.is_available()
+        if device == "auto":
+            device = "cuda" if gpu_available else "cpu"
+    except ImportError:
+        device = "cpu"
 
     return {
         "status": "healthy",
+        "gpu_available": gpu_available,
         "loaded_models": vram.list_loaded(),
         "vram_used_mb": vram.used_mb,
         "vram_budget_mb": vram._budget_mb,
