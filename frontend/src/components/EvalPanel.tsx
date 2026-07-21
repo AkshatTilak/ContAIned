@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Play, Sparkles, Plus, Trash2 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { api } from "../services/api";
+import { StatusBadge, ErrorBanner } from "./shared";
 
 interface TestCase {
   id: string;
@@ -22,6 +23,7 @@ export const EvalPanel: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRunningEval, setIsRunningEval] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Test Cases Management State
   const [testCases, setTestCases] = useState<TestCase[]>([
@@ -52,16 +54,24 @@ export const EvalPanel: React.FC = () => {
     try {
       const cases = await api.getEvalTestCases(agentId);
       if (Array.isArray(cases) && cases.length > 0) {
-        setTestCases(cases);
+        setTestCases(
+          cases.map((tc) => ({
+            id: tc.id,
+            query: tc.query,
+            expected_output: tc.expected_output,
+            context: tc.context || "",
+          }))
+        );
       }
-    } catch {
-      // ignore offline fallback
+    } catch (err: any) {
+      // Offline fallback is active with default test cases
     }
   };
 
   const handleGenerateSynthetic = async () => {
     setIsGenerating(true);
     setStatusMsg("Prompting LiteLLM generator for synthetic test cases...");
+    setErrorMessage(null);
     try {
       const res = await api.generateSyntheticCases(agentId, 3);
       setStatusMsg(`Generated ${res.cases?.length || 3} synthetic test cases successfully!`);
@@ -69,7 +79,7 @@ export const EvalPanel: React.FC = () => {
       fetchTestCases();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
-      setStatusMsg(`Synthetic generation failed: ${msg}`);
+      setErrorMessage(`Synthetic generation failed: ${msg}`);
     } finally {
       setIsGenerating(false);
     }
@@ -78,13 +88,14 @@ export const EvalPanel: React.FC = () => {
   const handleRunEval = async () => {
     setIsRunningEval(true);
     setStatusMsg("Publishing evaluation trigger event to Kafka topic 'agent-eval-trigger'...");
+    setErrorMessage(null);
     try {
       const res = await api.triggerEvalRun(agentId);
       setStatusMsg(`Eval run started! Task ID: ${res.id || "eval_98412"}`);
       setTimeout(() => setStatusMsg(null), 4000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error occurred";
-      setStatusMsg(`Eval run failed: ${msg}`);
+      setErrorMessage(`Eval run failed: ${msg}`);
     } finally {
       setIsRunningEval(false);
     }
@@ -115,17 +126,25 @@ export const EvalPanel: React.FC = () => {
   return (
     <div className="space-y-6 select-none">
       {/* Top Banner & Control Bar */}
-      <div className="p-5 rounded-xl bg-[#15171e] border border-[#26282d] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div
+        className="p-5 rounded-xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+        style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}
+      >
         <div>
-          <h2 className="text-base font-bold text-white">EvalOps Agent Evaluation & Benchmark Center</h2>
-          <p className="text-xs text-zinc-400">Automated RAGAS & DeepEval synthetic testing, Kafka worker consumer, and history.</p>
+          <h2 className="text-base font-bold text-[var(--text-primary)] font-display">
+            EvalOps Agent Evaluation & Benchmark Center
+          </h2>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Automated RAGAS & DeepEval synthetic testing, Kafka worker consumer, and history.
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={handleGenerateSynthetic}
             disabled={isGenerating}
-            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-medium text-xs text-white flex items-center gap-1.5 shadow-lg shadow-indigo-600/20 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg font-medium text-xs text-white flex items-center gap-1.5 shadow-md disabled:opacity-50 transition-all"
+            style={{ backgroundColor: 'var(--accent-indigo)' }}
           >
             <Sparkles className="w-3.5 h-3.5" />
             {isGenerating ? "Generating..." : "Generate Synthetic Tests"}
@@ -134,7 +153,8 @@ export const EvalPanel: React.FC = () => {
           <button
             onClick={handleRunEval}
             disabled={isRunningEval}
-            className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 font-medium text-xs text-white flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 rounded-lg font-medium text-xs text-white flex items-center gap-1.5 shadow-md disabled:opacity-50 transition-all"
+            style={{ backgroundColor: 'var(--accent-emerald)' }}
           >
             <Play className="w-3.5 h-3.5" />
             {isRunningEval ? "Evaluating..." : "Run Kafka Benchmark"}
@@ -143,16 +163,28 @@ export const EvalPanel: React.FC = () => {
       </div>
 
       {statusMsg && (
-        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-400">
+        <div className="p-3 rounded-lg bg-[var(--emerald-soft)] border border-[rgba(16,185,129,0.3)] text-xs font-medium text-[var(--accent-emerald)]">
           {statusMsg}
         </div>
       )}
 
+      {errorMessage && (
+        <ErrorBanner
+          title="EvalOps Exception"
+          message={errorMessage}
+        />
+      )}
+
       {/* Metric Charts */}
-      <div className="p-5 rounded-xl bg-[#15171e] border border-[#26282d] space-y-4">
+      <div
+        className="p-5 rounded-xl border space-y-4"
+        style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}
+      >
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-white uppercase tracking-wider">Evaluation Score Progression (RAGAS / DeepEval)</h3>
-          <span className="text-xs text-emerald-400 font-mono">Latest Faithfulness: 96%</span>
+          <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider font-display">
+            Evaluation Score Progression (RAGAS / DeepEval)
+          </h3>
+          <StatusBadge variant="success" label="Faithfulness: 96%" size="sm" />
         </div>
 
         <div className="h-64 w-full">
@@ -160,75 +192,89 @@ export const EvalPanel: React.FC = () => {
             <AreaChart data={sampleChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="faithfulnessGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--accent-emerald)" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="var(--accent-emerald)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="relevanceGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--accent-indigo)" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="var(--accent-indigo)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#26282d" />
-              <XAxis dataKey="run" stroke="#71717a" fontSize={11} />
-              <YAxis domain={[0.5, 1.0]} stroke="#71717a" fontSize={11} />
-              <Tooltip contentStyle={{ backgroundColor: "#181a21", borderColor: "#26282d", fontSize: "12px", color: "#fff" }} />
-              <Area type="monotone" dataKey="faithfulness" stroke="#10b981" fillOpacity={1} fill="url(#faithfulnessGrad)" name="Faithfulness" />
-              <Area type="monotone" dataKey="relevance" stroke="#6366f1" fillOpacity={1} fill="url(#relevanceGrad)" name="Answer Relevance" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+              <XAxis dataKey="run" stroke="var(--text-muted)" fontSize={11} />
+              <YAxis domain={[0.5, 1.0]} stroke="var(--text-muted)" fontSize={11} />
+              <Tooltip contentStyle={{ backgroundColor: "var(--bg-surface-alt)", borderColor: "var(--border-default)", fontSize: "12px", color: "var(--text-primary)" }} />
+              <Area type="monotone" dataKey="faithfulness" stroke="var(--accent-emerald)" fillOpacity={1} fill="url(#faithfulnessGrad)" name="Faithfulness" />
+              <Area type="monotone" dataKey="relevance" stroke="var(--accent-indigo)" fillOpacity={1} fill="url(#relevanceGrad)" name="Answer Relevance" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Attributed Test Cases Table */}
-      <div className="p-5 rounded-xl bg-[#15171e] border border-[#26282d] space-y-4">
+      <div
+        className="p-5 rounded-xl border space-y-4"
+        style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-default)' }}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xs font-semibold text-white uppercase tracking-wider">Agent-Attributed Test Cases ({testCases.length})</h3>
-            <p className="text-[11px] text-zinc-400">Ground truth questions, contexts, and reference outputs for evaluations.</p>
+            <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider font-display">
+              Agent-Attributed Test Cases ({testCases.length})
+            </h3>
+            <p className="text-[11px] text-[var(--text-secondary)]">
+              Ground truth questions, contexts, and reference outputs for evaluations.
+            </p>
           </div>
 
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="px-3 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-xs font-medium text-[var(--text-primary)] flex items-center gap-1 transition-colors border border-[var(--border-default)]"
           >
-            <Plus className="w-3.5 h-3.5 text-emerald-400" /> Add Test Query
+            <Plus className="w-3.5 h-3.5 text-[var(--accent-emerald)]" /> Add Test Query
           </button>
         </div>
 
         {showAddForm && (
-          <form onSubmit={handleAddTestCase} className="p-4 rounded-lg bg-[#181a21] border border-[#26282d] space-y-3 text-xs">
+          <form
+            onSubmit={handleAddTestCase}
+            className="p-4 rounded-lg border space-y-3 text-xs"
+            style={{ backgroundColor: 'var(--bg-surface-alt)', borderColor: 'var(--border-default)' }}
+          >
             <div>
-              <label className="text-zinc-300 font-medium block mb-1">User Query Prompt</label>
+              <label className="text-[var(--text-secondary)] font-medium block mb-1">User Query Prompt</label>
               <input
                 type="text"
                 required
                 value={newQuery}
                 onChange={(e) => setNewQuery(e.target.value)}
                 placeholder="e.g. What is the max token limit of Arch-Router?"
-                className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+                className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
+                style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-default)' }}
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="text-zinc-300 font-medium block mb-1">Expected Output (Ground Truth)</label>
+                <label className="text-[var(--text-secondary)] font-medium block mb-1">Expected Output (Ground Truth)</label>
                 <input
                   type="text"
                   value={newExpected}
                   onChange={(e) => setNewExpected(e.target.value)}
                   placeholder="Expected answer..."
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-default)' }}
                 />
               </div>
 
               <div>
-                <label className="text-zinc-300 font-medium block mb-1">Context String</label>
+                <label className="text-[var(--text-secondary)] font-medium block mb-1">Context String</label>
                 <input
                   type="text"
                   value={newContext}
                   onChange={(e) => setNewContext(e.target.value)}
                   placeholder="Reference documentation..."
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
+                  style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-default)' }}
                 />
               </div>
             </div>
@@ -237,13 +283,13 @@ export const EvalPanel: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
-                className="px-3 py-1.5 rounded bg-[#1f2128] text-zinc-400 font-medium"
+                className="px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] text-[var(--text-muted)] font-medium"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 font-medium text-white shadow-lg shadow-emerald-500/20"
+                className="px-4 py-1.5 rounded-lg bg-[var(--accent-emerald)] text-white font-medium shadow-md"
               >
                 Save Test Case
               </button>
@@ -252,30 +298,33 @@ export const EvalPanel: React.FC = () => {
         )}
 
         {/* Table */}
-        <div className="overflow-x-auto border border-[#22252c] rounded-lg">
+        <div className="overflow-x-auto border rounded-lg" style={{ borderColor: 'var(--border-subtle)' }}>
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-[#181a21] border-b border-[#26282d] text-zinc-400">
+              <tr
+                className="border-b text-[var(--text-muted)] font-display"
+                style={{ backgroundColor: 'var(--bg-surface-alt)', borderColor: 'var(--border-subtle)' }}
+              >
                 <th className="p-3 font-medium">ID</th>
                 <th className="p-3 font-medium">Query Prompt</th>
                 <th className="p-3 font-medium">Expected Output</th>
                 <th className="p-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#22252c] text-zinc-300 bg-[#121316]">
+            <tbody className="divide-y text-[var(--text-primary)]" style={{ backgroundColor: 'var(--bg-input)', borderColor: 'var(--border-subtle)' }}>
               {testCases.map((tc) => (
-                <tr key={tc.id} className="hover:bg-[#181a21] transition-colors">
-                  <td className="p-3 font-mono text-emerald-400 flex-shrink-0">{tc.id}</td>
-                  <td className="p-3 max-w-xs truncate font-medium text-white" title={tc.query}>
+                <tr key={tc.id} className="hover:bg-[var(--bg-elevated)] transition-colors">
+                  <td className="p-3 font-mono text-[var(--accent-emerald)] flex-shrink-0">{tc.id}</td>
+                  <td className="p-3 max-w-xs truncate font-medium text-[var(--text-primary)]" title={tc.query}>
                     {tc.query}
                   </td>
-                  <td className="p-3 max-w-xs truncate text-zinc-400" title={tc.expected_output}>
+                  <td className="p-3 max-w-xs truncate text-[var(--text-secondary)]" title={tc.expected_output}>
                     {tc.expected_output}
                   </td>
                   <td className="p-3 text-right">
                     <button
                       onClick={() => handleDeleteCase(tc.id)}
-                      className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-[#22252c] transition-colors"
+                      className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--rose-soft)] transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -289,3 +338,5 @@ export const EvalPanel: React.FC = () => {
     </div>
   );
 };
+
+export default EvalPanel;

@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Users, Cpu, Trash2, Edit2, Check, X } from "lucide-react";
+import { Plus, Cpu, Trash2, Edit2, Check, X, Users } from "lucide-react";
 import { api } from "../services/api";
 import { useStore, type Agent } from "../store/useStore";
+import { LoadingSkeleton, EmptyState, ConfirmModal, StatusBadge, ErrorBanner } from "./shared";
 
 export const AgentHub: React.FC = () => {
   const agents = useStore((state) => state.agents);
   const setAgents = useStore((state) => state.setAgents);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+
+  // Deletion confirm state
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteTargetName, setDeleteTargetName] = useState<string>("");
 
   // Form states
   const [name, setName] = useState("");
@@ -39,11 +45,13 @@ export const AgentHub: React.FC = () => {
 
   const fetchAgents = async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const data = await api.getAgents();
       setAgents(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load agents:", err);
+      setErrorMessage(err.message || "Failed to communicate with Agent API server.");
     } finally {
       setIsLoading(false);
     }
@@ -92,17 +100,23 @@ export const AgentHub: React.FC = () => {
       setShowModal(false);
       fetchAgents();
     } catch (err: any) {
-      alert(`Failed to save agent: ${err.message}`);
+      setErrorMessage(`Failed to save agent: ${err.message}`);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this agent?")) return;
+  const requestDelete = (agent: Agent) => {
+    setDeleteTargetId(agent.id);
+    setDeleteTargetName(agent.name);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return;
     try {
-      await api.deleteAgent(id);
+      await api.deleteAgent(deleteTargetId);
+      setDeleteTargetId(null);
       fetchAgents();
     } catch (err: any) {
-      alert(`Failed to delete agent: ${err.message}`);
+      setErrorMessage(`Failed to delete agent: ${err.message}`);
     }
   };
 
@@ -117,118 +131,200 @@ export const AgentHub: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-bold text-white">Agent Hub & Custom Subagent Registry</h2>
-          <p className="text-xs text-zinc-400">Manage custom agent personalities, tool authorizations, and system prompts.</p>
+          <h2 className="text-base font-bold text-[var(--text-primary)] font-display">
+            Agent Hub & Custom Subagent Registry
+          </h2>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Manage custom agent personalities, tool authorizations, and system prompts.
+          </p>
         </div>
 
         <button
           onClick={handleOpenCreate}
-          className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 font-medium text-xs text-white flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-colors"
+          className="px-4 py-2 rounded-lg font-medium text-xs text-white flex items-center gap-1.5 shadow-lg transition-all"
+          style={{
+            backgroundColor: 'var(--accent-indigo)',
+            boxShadow: '0 4px 14px var(--accent-indigo-glow)',
+          }}
         >
           <Plus className="w-4 h-4" /> Create Custom Agent
         </button>
       </div>
 
-      {/* Grid */}
+      {errorMessage && (
+        <ErrorBanner
+          title="Agent Hub Error"
+          message={errorMessage}
+          onRetry={fetchAgents}
+        />
+      )}
+
+      {/* Grid / Skeletons / Empty State */}
       {isLoading ? (
-        <div className="text-xs text-zinc-400 py-12 text-center">Loading registered agents...</div>
-      ) : agents.length === 0 ? (
-        <div className="p-8 rounded-xl bg-[#15171e] border border-[#26282d] text-center space-y-3">
-          <Users className="w-8 h-8 text-zinc-500 mx-auto" />
-          <div className="text-sm font-medium text-white">No Custom Agents Found</div>
-          <p className="text-xs text-zinc-400">Click "Create Custom Agent" to register your first subagent.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <LoadingSkeleton variant="card" count={3} />
         </div>
+      ) : agents.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No Custom Agents Found"
+          description="Register your first subagent personality to automate workflows across ContAIned."
+          actionLabel="Create Custom Agent"
+          onAction={handleOpenCreate}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {agents.map((agent) => (
-            <div key={agent.id} className="p-5 rounded-xl bg-[#15171e] border border-[#26282d] flex flex-col justify-between space-y-4 hover:border-emerald-500/30 transition-colors">
+            <div
+              key={agent.id}
+              className="p-5 rounded-xl border flex flex-col justify-between space-y-4 transition-all duration-200"
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                borderColor: 'var(--border-default)',
+              }}
+            >
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-sm font-bold text-white">{agent.name}</h3>
-                    <span className="text-xs text-emerald-400 font-mono">{agent.role}</span>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">{agent.name}</h3>
+                    <StatusBadge variant="info" label={agent.role} size="sm" className="mt-1" />
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => handleOpenEdit(agent)} className="p-1 text-zinc-400 hover:text-white rounded">
+                    <button
+                      onClick={() => handleOpenEdit(agent)}
+                      className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] rounded-md transition-colors"
+                      title="Edit Agent"
+                    >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleDelete(agent.id)} className="p-1 text-zinc-400 hover:text-red-400 rounded">
+                    <button
+                      onClick={() => requestDelete(agent)}
+                      className="p-1.5 text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--rose-soft)] rounded-md transition-colors"
+                      title="Delete Agent"
+                    >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
-                <p className="text-xs text-zinc-300 line-clamp-2 bg-[#121316] p-2 rounded border border-[#22252c] font-mono">
+                <p
+                  className="text-xs line-clamp-2 p-2.5 rounded-lg border font-mono leading-relaxed"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
                   {agent.system_prompt}
                 </p>
 
                 <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-zinc-400">
-                    <Cpu className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Model: <strong className="text-zinc-200">{agent.model_id}</strong></span>
+                  <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                    <Cpu className="w-3.5 h-3.5 text-[var(--accent-amber)]" />
+                    <span>
+                      Model: <strong className="text-[var(--text-primary)]">{agent.model_id}</strong>
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {agent.tools?.map((tool) => (
-                      <span key={tool} className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 font-mono">
-                        {tool}
-                      </span>
+                      <StatusBadge key={tool} variant="neutral" label={tool} dot={false} size="sm" />
                     ))}
                   </div>
                 </div>
               </div>
 
-              <div className="text-[10px] text-zinc-500 pt-3 border-t border-[#22252c]">
-                Temp: {agent.temperature} | Max Tokens: {agent.max_tokens || 2048}
+              <div
+                className="text-[10px] pt-3 border-t flex justify-between items-center"
+                style={{
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <span>Temperature: {agent.temperature}</span>
+                <span>Max Tokens: {agent.max_tokens || 2048}</span>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Dialog Modal */}
+      {/* Confirm Deletion Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTargetId)}
+        title="Delete Custom Agent?"
+        message={`Are you sure you want to delete "${deleteTargetName}"? This action cannot be undone and any running workflows referencing this agent will fall back to default router.`}
+        confirmLabel="Delete Agent"
+        cancelLabel="Cancel"
+        isDanger={true}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTargetId(null)}
+      />
+
+      {/* Edit/Create Agent Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-[#15171e] border border-[#26282d] rounded-xl p-6 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-[#26282d]">
-              <h3 className="text-sm font-bold text-white">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div
+            className="w-full max-w-lg border rounded-2xl p-6 shadow-2xl space-y-5"
+            style={{
+              backgroundColor: 'var(--bg-surface)',
+              borderColor: 'var(--border-default)',
+            }}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] font-display">
                 {editingAgent ? "Edit Agent Definition" : "Register New Subagent"}
               </h3>
-              <button onClick={() => setShowModal(false)} className="text-zinc-400 hover:text-white">
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleSave} className="space-y-4 text-xs">
               <div>
-                <label className="text-zinc-300 font-medium block mb-1">Agent Name</label>
+                <label className="text-[var(--text-secondary)] font-medium block mb-1">Agent Name</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Code Reviewer Subagent"
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    borderColor: 'var(--border-default)',
+                  }}
                 />
               </div>
 
               <div>
-                <label className="text-zinc-300 font-medium block mb-1">Role / Specialization</label>
+                <label className="text-[var(--text-secondary)] font-medium block mb-1">Role / Specialization</label>
                 <input
                   type="text"
                   required
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   placeholder="e.g. Senior Security Auditor"
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    borderColor: 'var(--border-default)',
+                  }}
                 />
               </div>
 
               <div>
-                <label className="text-zinc-300 font-medium block mb-1">LLM Model ID</label>
+                <label className="text-[var(--text-secondary)] font-medium block mb-1">LLM Model ID</label>
                 <select
                   value={modelId}
                   onChange={(e) => setModelId(e.target.value)}
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    borderColor: 'var(--border-default)',
+                  }}
                 >
                   {availableModels.map((m) => (
                     <option key={m} value={m}>{m}</option>
@@ -237,28 +333,32 @@ export const AgentHub: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-zinc-300 font-medium block mb-1">System Prompt</label>
+                <label className="text-[var(--text-secondary)] font-medium block mb-1">System Prompt</label>
                 <textarea
                   rows={4}
                   required
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500 resize-none font-mono"
+                  className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none resize-none font-mono"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    borderColor: 'var(--border-default)',
+                  }}
                 />
               </div>
 
               <div>
-                <label className="text-zinc-300 font-medium block mb-1">Tool Authorizations</label>
+                <label className="text-[var(--text-secondary)] font-medium block mb-1">Tool Authorizations</label>
                 <div className="space-y-1.5">
                   {availableTools.map((t) => (
                     <button
                       type="button"
                       key={t.id}
                       onClick={() => toggleTool(t.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded border text-left transition-colors ${
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-left transition-colors ${
                         selectedTools.includes(t.id)
-                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                          : "bg-[#121316] border-[#2d3039] text-zinc-400"
+                          ? "bg-[var(--indigo-soft)] border-[var(--accent-indigo)] text-[var(--accent-indigo)]"
+                          : "bg-[var(--bg-input)] border-[var(--border-default)] text-[var(--text-muted)]"
                       }`}
                     >
                       <span>{t.label}</span>
@@ -269,9 +369,9 @@ export const AgentHub: React.FC = () => {
               </div>
 
               <div>
-                <div className="flex items-center justify-between text-zinc-300 mb-1">
+                <div className="flex items-center justify-between text-[var(--text-secondary)] mb-1">
                   <span>Temperature</span>
-                  <span className="font-mono text-emerald-400">{temperature}</span>
+                  <span className="font-mono text-[var(--accent-indigo)]">{temperature}</span>
                 </div>
                 <input
                   type="range"
@@ -280,21 +380,21 @@ export const AgentHub: React.FC = () => {
                   step="0.05"
                   value={temperature}
                   onChange={(e) => setTemperature(Number(e.target.value))}
-                  className="w-full accent-emerald-500"
+                  className="w-full accent-[var(--accent-indigo)]"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#26282d]">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-subtle)]">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded bg-[#1f2128] hover:bg-[#282b34] text-zinc-300 font-medium"
+                  className="px-4 py-2 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-[var(--text-secondary)] font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded bg-emerald-500 hover:bg-emerald-600 text-white font-medium shadow-lg shadow-emerald-500/20"
+                  className="px-4 py-2 rounded-lg bg-[var(--accent-indigo)] hover:opacity-90 text-white font-medium shadow-md"
                 >
                   Save Agent
                 </button>
@@ -306,3 +406,5 @@ export const AgentHub: React.FC = () => {
     </div>
   );
 };
+
+export default AgentHub;

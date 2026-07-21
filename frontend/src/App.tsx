@@ -5,11 +5,12 @@ import { IngestionPanel } from "./components/IngestionPanel";
 import { WorkflowCanvas } from "./components/WorkflowCanvas";
 import { AgentHub } from "./components/AgentHub";
 import { EvalPanel } from "./components/EvalPanel";
+import { ErrorBoundary, ToastProvider } from "./components/shared";
 
 import { telemetryService } from "./services/telemetry";
 import { api } from "./services/api";
 import { useStore } from "./store/useStore";
-import { SystemHealthResponse, ModelRegistryResponse } from "./types/api";
+import type { SystemHealthResponse, ModelRegistryResponse } from "./types/api";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"system" | "syntraflow" | "guardroute" | "agent_hub" | "evalops">("system");
@@ -67,82 +68,88 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-[#0d0e12] text-zinc-100 font-sans antialiased overflow-hidden">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenConfig={() => setShowConfig(true)}
-      />
+    <ToastProvider>
+      <div className="flex h-screen bg-[#080809] text-[var(--text-primary)] font-sans antialiased overflow-hidden">
+        {/* Sidebar Navigation */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onOpenConfig={() => setShowConfig(true)}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-y-auto p-6">
-        {activeTab === "system" && (
-          <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} />
-        )}
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col overflow-y-auto p-6">
+          <ErrorBoundary>
+            {activeTab === "system" && (
+              <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} />
+            )}
 
-        {activeTab === "syntraflow" && <IngestionPanel />}
+            {activeTab === "syntraflow" && <IngestionPanel />}
 
-        {activeTab === "guardroute" && <WorkflowCanvas />}
+            {activeTab === "guardroute" && <WorkflowCanvas />}
 
-        {activeTab === "agent_hub" && <AgentHub />}
+            {activeTab === "agent_hub" && <AgentHub />}
 
-        {activeTab === "evalops" && <EvalPanel />}
-      </main>
+            {activeTab === "evalops" && <EvalPanel />}
+          </ErrorBoundary>
+        </main>
 
-      {/* Config Modal */}
-      {showConfig && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#15171e] border border-[#26282d] rounded-xl p-6 shadow-2xl space-y-4">
-            <h3 className="text-sm font-bold text-white">Gateway & Environment Settings</h3>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="text-zinc-400 block mb-1">Gateway API Base URL</label>
-                <input
-                  type="text"
-                  value={inputGatewayUrl}
-                  onChange={(e) => setInputGatewayUrl(e.target.value)}
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
-                />
+        {/* Config Modal */}
+        {showConfig && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 shadow-2xl space-y-4">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] font-display">
+                Gateway & Environment Settings
+              </h3>
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="text-[var(--text-secondary)] block mb-1">Gateway API Base URL</label>
+                  <input
+                    type="text"
+                    value={inputGatewayUrl}
+                    onChange={(e) => setInputGatewayUrl(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[var(--text-secondary)] block mb-1">X-API-Key Authorization</label>
+                  <input
+                    type="text"
+                    value={inputApiKey}
+                    onChange={(e) => setInputApiKey(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-[var(--text-primary)] focus:outline-none"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-zinc-400 block mb-1">X-API-Key Authorization</label>
-                <input
-                  type="text"
-                  value={inputApiKey}
-                  onChange={(e) => setInputApiKey(e.target.value)}
-                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-            <div className="flex justify-between items-center pt-2">
-              <button
-                type="button"
-                onClick={handleResetDefaults}
-                className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-400 hover:text-white"
-              >
-                Reset to Defaults
-              </button>
-              <div className="flex space-x-2">
+              <div className="flex justify-between items-center pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowConfig(false)}
-                  className="px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-xs text-zinc-300"
+                  onClick={handleResetDefaults}
+                  className="px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 >
-                  Cancel
+                  Reset to Defaults
                 </button>
-                <button
-                  type="button"
-                  onClick={handleSaveConfig}
-                  className="px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-xs font-medium text-white"
-                >
-                  Save & Close
-                </button>
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfig(false)}
+                    className="px-3 py-1.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-xs text-[var(--text-secondary)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveConfig}
+                    className="px-4 py-1.5 rounded-lg bg-[var(--accent-indigo)] hover:opacity-90 text-xs font-medium text-white shadow-md"
+                  >
+                    Save & Close
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </ToastProvider>
   );
 }

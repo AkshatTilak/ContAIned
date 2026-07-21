@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { UploadCloud, ChevronDown, ChevronUp, Sliders, CheckSquare, Square, CheckCircle2 } from "lucide-react";
-import { IngestionResponse } from "../types/api";
+import { api } from "../services/api";
+import type { IngestionResponse } from "../types/api";
 
 export const IngestionPanel: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

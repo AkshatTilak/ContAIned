@@ -82,6 +82,7 @@ export interface WorkflowResponse {
 export interface WorkflowCreatePayload {
   name: string;
   graph_json: Record<string, any>;
+  is_active?: boolean;
 }
 
 export interface IngestionResponse {
@@ -91,6 +92,8 @@ export interface IngestionResponse {
   filename?: string;
   message?: string;
   skipped?: boolean;
+  chunks_count?: number;
+  embeddings_count?: number;
 }
 
 export interface IngestionJobResponse {

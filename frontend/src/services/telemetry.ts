@@ -1,5 +1,5 @@
 import { useStore } from '../store/useStore';
-import { SystemTelemetryMessage } from '../types/telemetry';
+import type { SystemTelemetryMessage } from '../types/telemetry';
 
 const STORAGE_KEY = "contained-settings";
 

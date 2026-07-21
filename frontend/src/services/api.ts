@@ -3,7 +3,7 @@
  * Interacts with /api/* routes (System health, Ingestion, Agent Hub CRUD, Workflows, EvalOps).
  */
 
-import {
+import type {
   SystemHealthResponse,
   ModelRegistryResponse,
   AgentResponse,
