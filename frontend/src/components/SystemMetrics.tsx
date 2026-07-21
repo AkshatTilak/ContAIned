@@ -122,7 +122,14 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
         )}
       </div>
 
-      {isDegraded && (
+      {systemHealth.status === "offline" && (
+        <ErrorBanner
+          title="Backend Gateway Offline"
+          message="Could not connect to gateway server at http://localhost:8000. Start the gateway using 'poetry run uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload' or start backend container services."
+        />
+      )}
+
+      {isDegraded && systemHealth.status !== "offline" && (
         <ErrorBanner
           title="Telemetry Alert"
           message={`Telemetry report status is currently '${telemetry.status}'. Metrics may be delayed.`}

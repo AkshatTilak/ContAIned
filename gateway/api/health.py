@@ -11,88 +11,119 @@ from common.config.settings import settings
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health")
-async def health_check() -> dict:
-    """System health check — reports active projects, connection status grid, and inference metrics."""
-    import time
-    latencies = {}
+import asyncio
+import time
+from fastapi import APIRouter
 
-    # 1. Postgres Database connection check
-    db_status = "connected"
+from common.clients.inference import InferenceClient
+from common.config.settings import settings
+
+router = APIRouter(tags=["health"])
+
+
+async def _check_db():
     start_t = time.perf_counter()
     try:
         from common.clients.postgres import get_sessionmaker
         from sqlalchemy import text
         session_factory = get_sessionmaker()
         async with session_factory() as session:
-            await session.execute(text("SELECT 1"))
-        latencies["database"] = round((time.perf_counter() - start_t) * 1000, 2)
+            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=1.0)
+        return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
-        db_status = "unreachable"
-        latencies["database"] = -1
+        return "unreachable", -1
 
-    # 2. Redis connection check
-    redis_status = "connected"
+
+async def _check_redis():
     start_t = time.perf_counter()
     try:
         from common.clients.redis import verify_redis_connection
-        await verify_redis_connection()
-        latencies["redis"] = round((time.perf_counter() - start_t) * 1000, 2)
+        await asyncio.wait_for(verify_redis_connection(), timeout=1.0)
+        return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
-        redis_status = "unreachable"
-        latencies["redis"] = -1
+        return "unreachable", -1
 
-    # 3. Neo4j connection check
-    neo4j_status = "connected"
+
+async def _check_neo4j():
     start_t = time.perf_counter()
     try:
         from common.clients.neo4j import verify_neo4j_connection
-        await verify_neo4j_connection()
-        latencies["neo4j"] = round((time.perf_counter() - start_t) * 1000, 2)
+        await asyncio.wait_for(verify_neo4j_connection(), timeout=1.0)
+        return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
-        neo4j_status = "unreachable"
-        latencies["neo4j"] = -1
+        return "unreachable", -1
 
-    # 4. Qdrant connection check
-    qdrant_status = "connected"
+
+async def _check_qdrant():
     start_t = time.perf_counter()
     try:
         from common.clients.qdrant import VectorClient
         qdrant_client = VectorClient()
-        await qdrant_client.verify_connection()
-        latencies["qdrant"] = round((time.perf_counter() - start_t) * 1000, 2)
+        await asyncio.wait_for(qdrant_client.verify_connection(), timeout=1.0)
+        return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
-        qdrant_status = "unreachable"
-        latencies["qdrant"] = -1
+        return "unreachable", -1
 
-    # 5. Kafka connection check
-    kafka_status = "connected"
+
+async def _check_kafka():
     start_t = time.perf_counter()
     try:
-        import asyncio
         from confluent_kafka.admin import AdminClient
         conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 1000}
         admin_client = AdminClient(conf)
-        await asyncio.to_thread(admin_client.list_topics, timeout=1.0)
-        latencies["kafka"] = round((time.perf_counter() - start_t) * 1000, 2)
+        await asyncio.wait_for(asyncio.to_thread(admin_client.list_topics, timeout=1.0), timeout=1.0)
+        return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
-        kafka_status = "unreachable"
-        latencies["kafka"] = -1
+        return "unreachable", -1
 
-    # 6. Inference Server detailed check
-    inference_status = "unknown"
-    inference_details = {}
+
+async def _check_inference():
     start_t = time.perf_counter()
     try:
         client = InferenceClient(base_url=settings.INFERENCE_SERVER_URL)
-        health = await client.health()
-        inference_status = health.get("status", "connected")
-        inference_details = health
+        health = await asyncio.wait_for(client.health(), timeout=1.0)
+        status_val = health.get("status", "connected")
         await client.close()
-        latencies["inference_server"] = round((time.perf_counter() - start_t) * 1000, 2)
+        return status_val, round((time.perf_counter() - start_t) * 1000, 2), health
     except Exception:
-        inference_status = "unreachable"
-        latencies["inference_server"] = -1
+        return "unreachable", -1, {}
+
+
+@router.get("/health")
+async def health_check() -> dict:
+    """System health check — reports active projects, connection status grid, and inference metrics concurrently."""
+    results = await asyncio.gather(
+        _check_db(),
+        _check_redis(),
+        _check_neo4j(),
+        _check_qdrant(),
+        _check_kafka(),
+        _check_inference(),
+        return_exceptions=True,
+    )
+
+    db_res = results[0] if isinstance(results[0], tuple) else ("unreachable", -1)
+    redis_res = results[1] if isinstance(results[1], tuple) else ("unreachable", -1)
+    neo4j_res = results[2] if isinstance(results[2], tuple) else ("unreachable", -1)
+    qdrant_res = results[3] if isinstance(results[3], tuple) else ("unreachable", -1)
+    kafka_res = results[4] if isinstance(results[4], tuple) else ("unreachable", -1)
+    inf_res = results[5] if isinstance(results[5], tuple) else ("unreachable", -1, {})
+
+    db_status, db_lat = db_res
+    redis_status, redis_lat = redis_res
+    neo4j_status, neo4j_lat = neo4j_res
+    qdrant_status, qdrant_lat = qdrant_res
+    kafka_status, kafka_lat = kafka_res
+    inf_status, inf_lat, inf_details = inf_res
+
+    latencies = {
+        "database": db_lat,
+        "redis": redis_lat,
+        "neo4j": neo4j_lat,
+        "qdrant": qdrant_lat,
+        "kafka": kafka_lat,
+        "inference_server": inf_lat,
+    }
 
     return {
         "status": "healthy",
@@ -101,7 +132,7 @@ async def health_check() -> dict:
         "active_projects": settings.ACTIVE_PROJECTS,
         "services": {
             "gateway": "connected",
-            "inference_server": inference_status,
+            "inference_server": inf_status,
             "database": db_status,
             "redis": redis_status,
             "neo4j": neo4j_status,
@@ -109,6 +140,6 @@ async def health_check() -> dict:
             "kafka": kafka_status,
         },
         "latencies_ms": latencies,
-        "inference_details": inference_details,
+        "inference_details": inf_details,
     }
 

@@ -19,6 +19,22 @@ import { api } from "./services/api";
 import { useStore } from "./store/useStore";
 import type { SystemHealthResponse, ModelRegistryResponse } from "./types/api";
 
+const FALLBACK_SYSTEM_HEALTH: SystemHealthResponse = {
+  status: "offline",
+  platform_version: "v3.0.0",
+  environment: "offline-mode",
+  active_projects: ["syntraflow", "guardroute", "evalops"],
+  services: {
+    gateway: "offline",
+    inference_server: "offline",
+    database: "offline",
+    redis: "offline",
+    neo4j: "offline",
+    qdrant: "offline",
+    kafka: "offline",
+  },
+};
+
 export default function App() {
   const location = useLocation();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -39,10 +55,17 @@ export default function App() {
     try {
       const health = await api.getSystemHealth();
       setSystemHealth(health);
+    } catch (err) {
+      console.warn("Using offline fallback system data:", err);
+      setSystemHealth(FALLBACK_SYSTEM_HEALTH);
+    }
+
+    try {
       const models = await api.getModels();
       setModelRegistry(models);
     } catch (err) {
-      console.warn("Using offline fallback system data:", err);
+      console.warn("Offline model registry fallback:", err);
+      setModelRegistry(null);
     }
   };
 
@@ -79,7 +102,7 @@ export default function App() {
                     path="/system"
                     element={
                       <PageTransition>
-                        <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} />
+                        <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} onRefresh={fetchSystemData} />
                       </PageTransition>
                     }
                   />
