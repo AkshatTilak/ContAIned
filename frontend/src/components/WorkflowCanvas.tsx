@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   ReactFlow,
   Controls,
@@ -6,50 +6,51 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
+  type NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Save, Plus } from "lucide-react";
 
 import { useStore } from "../store/useStore";
 import { PropertyDrawer } from "./PropertyDrawer";
+import { ClassifierNode } from "./nodes/ClassifierNode";
+import { AgentNode } from "./nodes/AgentNode";
+import { RetrievalNode } from "./nodes/RetrievalNode";
+import { SynthesisNode } from "./nodes/SynthesisNode";
 import { api } from "../services/api";
 
 const initialNodes = [
   {
     id: "classify",
-    type: "default",
-    data: { label: "Task Classifier (Router)" },
+    type: "ClassifierNode",
+    data: { label: "Task Classifier (Arch-Router)", threshold: 0.75 },
     position: { x: 250, y: 50 },
-    style: { background: "#181a21", border: "1px solid #10b981", color: "#fff", borderRadius: "8px", padding: "10px" }
   },
   {
     id: "retrieval",
-    type: "default",
-    data: { label: "SyntraFlow Hybrid Retrieval" },
+    type: "RetrievalNode",
+    data: { label: "SyntraFlow Hybrid Retrieval", top_k: 5 },
     position: { x: 100, y: 180 },
-    style: { background: "#181a21", border: "1px solid #6366f1", color: "#fff", borderRadius: "8px", padding: "10px" }
   },
   {
     id: "coding",
-    type: "default",
-    data: { label: "Coding Subagent Node" },
+    type: "AgentNode",
+    data: { label: "Coding Subagent Node", model_id: "Arch-Router-1.5B", tools: ["retrieval", "code_sandbox"] },
     position: { x: 400, y: 180 },
-    style: { background: "#181a21", border: "1px solid #f59e0b", color: "#fff", borderRadius: "8px", padding: "10px" }
   },
   {
     id: "synthesis",
-    type: "default",
+    type: "SynthesisNode",
     data: { label: "Gather & Synthesis Node" },
     position: { x: 250, y: 310 },
-    style: { background: "#181a21", border: "1px solid #06b6d4", color: "#fff", borderRadius: "8px", padding: "10px" }
   },
 ];
 
 const initialEdges = [
-  { id: "e1", source: "classify", target: "retrieval", animated: true, style: { stroke: "#10b981" } },
-  { id: "e2", source: "classify", target: "coding", animated: true, style: { stroke: "#10b981" } },
-  { id: "e3", source: "retrieval", target: "synthesis", style: { stroke: "#6366f1" } },
-  { id: "e4", source: "coding", target: "synthesis", style: { stroke: "#f59e0b" } },
+  { id: "e1", source: "classify", target: "retrieval", animated: true, style: { stroke: "#10b981", strokeWidth: 2 } },
+  { id: "e2", source: "classify", target: "coding", animated: true, style: { stroke: "#10b981", strokeWidth: 2 } },
+  { id: "e3", source: "retrieval", target: "synthesis", style: { stroke: "#6366f1", strokeWidth: 2 } },
+  { id: "e4", source: "coding", target: "synthesis", style: { stroke: "#f59e0b", strokeWidth: 2 } },
 ];
 
 export const WorkflowCanvas: React.FC = () => {
@@ -63,16 +64,23 @@ export const WorkflowCanvas: React.FC = () => {
   const setDrawerOpen = useStore((state) => state.setDrawerOpen);
   const setActiveWorkflow = useStore((state) => state.setActiveWorkflow);
 
-  const onConnect = (params: any) => setEdges((eds) => addEdge(params, eds));
+  const nodeTypes: NodeTypes = useMemo(() => ({
+    ClassifierNode,
+    AgentNode,
+    RetrievalNode,
+    SynthesisNode,
+  }), []);
 
-  const formatGraphJson = () => ({
-    nodes: nodes.map((n) => ({
+  const onConnect = (params: any) => setEdges((eds) => addEdge({ ...params, animated: true, style: { stroke: "#10b981", strokeWidth: 2 } }, eds));
+
+  const formatGraphJson = (currentNodes = nodes, currentEdges = edges) => ({
+    nodes: currentNodes.map((n) => ({
       id: n.id,
-      type: n.type || "default",
+      type: n.type || "AgentNode",
       data: n.data || {},
       position: n.position || { x: 0, y: 0 },
     })),
-    edges: edges.map((e) => ({
+    edges: currentEdges.map((e) => ({
       id: e.id,
       source: e.source,
       target: e.target,
@@ -90,9 +98,21 @@ export const WorkflowCanvas: React.FC = () => {
     });
   };
 
+  const handleUpdateNodeData = (nodeId: string, newData: any) => {
+    setNodes((nds) =>
+      nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...newData } } : n))
+    );
+    setActiveWorkflow({
+      id: "wf_current",
+      name: workflowName,
+      graph_json: formatGraphJson(),
+      is_active: true
+    });
+  };
+
   const handleSaveWorkflow = async () => {
     try {
-      setStatusMsg("Validating & saving workflow to Postgres...");
+      setStatusMsg("Validating & saving workflow topology to Postgres...");
       const graph_json = formatGraphJson();
       const saved = await api.createWorkflow({
         name: workflowName,
@@ -107,20 +127,19 @@ export const WorkflowCanvas: React.FC = () => {
     }
   };
 
-  const addNode = (_typeStr: string, label: string, border: string) => {
+  const addNode = (type: string, label: string) => {
     const newId = `node_${Date.now()}`;
     const newNode = {
       id: newId,
-      type: "default",
-      data: { label },
+      type,
+      data: { label, threshold: 0.75, top_k: 5, model_id: "Arch-Router-1.5B", tools: ["retrieval"] },
       position: { x: 200 + Math.random() * 100, y: 150 + Math.random() * 100 },
-      style: { background: "#181a21", border: `1px solid ${border}`, color: "#fff", borderRadius: "8px", padding: "10px" }
     };
     setNodes((nds) => [...nds, newNode]);
   };
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] rounded-xl border border-[#26282d] bg-[#121316] overflow-hidden">
+    <div className="flex h-[calc(100vh-6rem)] rounded-xl border border-[#26282d] bg-[#121316] overflow-hidden select-none">
       {/* Canvas Area */}
       <div className="flex-1 flex flex-col">
         {/* Top Control Bar */}
@@ -137,21 +156,29 @@ export const WorkflowCanvas: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => addNode("ClassifierNode", "New Classifier", "#10b981")}
-              className="px-2.5 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1"
+              onClick={() => addNode("ClassifierNode", "Classifier Router")}
+              className="px-2.5 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
             >
               <Plus className="w-3.5 h-3.5 text-emerald-400" /> + Classifier
             </button>
+
             <button
-              onClick={() => addNode("AgentNode", "New Agent Node", "#f59e0b")}
-              className="px-2.5 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1"
+              onClick={() => addNode("AgentNode", "Subagent Node")}
+              className="px-2.5 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
             >
               <Plus className="w-3.5 h-3.5 text-amber-400" /> + Agent
             </button>
 
             <button
+              onClick={() => addNode("RetrievalNode", "Hybrid Search")}
+              className="px-2.5 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5 text-indigo-400" /> + Retrieval
+            </button>
+
+            <button
               onClick={handleSaveWorkflow}
-              className="px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 font-medium text-xs text-white flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"
+              className="px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 font-medium text-xs text-white flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-colors"
             >
               <Save className="w-3.5 h-3.5" /> Save & Activate
             </button>
@@ -163,6 +190,7 @@ export const WorkflowCanvas: React.FC = () => {
           <ReactFlow
             nodes={nodes}
             edges={edges}
+            nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
@@ -180,6 +208,7 @@ export const WorkflowCanvas: React.FC = () => {
         <PropertyDrawer
           onClose={() => setDrawerOpen(false)}
           availableModels={["Arch-Router-1.5B", "FunAudioLLM/SenseVoiceSmall", "THUDM/GLM-OCR", "jinaai/jina-clip-v2"]}
+          onUpdateNodeData={handleUpdateNodeData}
         />
       )}
     </div>

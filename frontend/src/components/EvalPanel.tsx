@@ -1,7 +1,14 @@
-import React, { useState } from "react";
-import { Play, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Play, Sparkles, Plus, Trash2 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { api } from "../services/api";
+
+interface TestCase {
+  id: string;
+  query: string;
+  expected_output: string;
+  context: string;
+}
 
 const sampleChartData = [
   { run: "Run #1", faithfulness: 0.82, relevance: 0.88 },
@@ -16,13 +23,50 @@ export const EvalPanel: React.FC = () => {
   const [isRunningEval, setIsRunningEval] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
+  // Test Cases Management State
+  const [testCases, setTestCases] = useState<TestCase[]>([
+    {
+      id: "tc_101",
+      query: "What is the primary architectural model used by GuardRoute for task classification?",
+      expected_output: "GuardRoute uses Arch-Router-1.5B for fast intent and complexity classification.",
+      context: "GuardRoute classification documentation reference."
+    },
+    {
+      id: "tc_102",
+      query: "How does SyntraFlow chunk multi-modal documents during ingestion?",
+      expected_output: "SyntraFlow supports RecursiveCharacterChunking, FixedSizeChunking, and SemanticChunking.",
+      context: "SyntraFlow ingestion engine specs."
+    }
+  ]);
+
+  const [newQuery, setNewQuery] = useState("");
+  const [newExpected, setNewExpected] = useState("");
+  const [newContext, setNewContext] = useState("");
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  useEffect(() => {
+    fetchTestCases();
+  }, []);
+
+  const fetchTestCases = async () => {
+    try {
+      const cases = await api.getEvalTestCases(agentId);
+      if (Array.isArray(cases) && cases.length > 0) {
+        setTestCases(cases);
+      }
+    } catch {
+      // ignore offline fallback
+    }
+  };
+
   const handleGenerateSynthetic = async () => {
     setIsGenerating(true);
     setStatusMsg("Prompting LiteLLM generator for synthetic test cases...");
     try {
-      const res = await api.generateSyntheticCases(agentId, 5);
-      setStatusMsg(`Generated ${res.test_cases_count || 5} synthetic test cases successfully!`);
+      const res = await api.generateSyntheticCases(agentId, 3);
+      setStatusMsg(`Generated ${res.test_cases_count || 3} synthetic test cases successfully!`);
       setTimeout(() => setStatusMsg(null), 4000);
+      fetchTestCases();
     } catch (err: any) {
       setStatusMsg(`Synthetic generation failed: ${err.message}`);
     } finally {
@@ -44,8 +88,30 @@ export const EvalPanel: React.FC = () => {
     }
   };
 
+  const handleAddTestCase = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newQuery.trim()) return;
+
+    const newCase: TestCase = {
+      id: `tc_${Date.now()}`,
+      query: newQuery,
+      expected_output: newExpected || "Expected answer string",
+      context: newContext || "Default context"
+    };
+
+    setTestCases([newCase, ...testCases]);
+    setNewQuery("");
+    setNewExpected("");
+    setNewContext("");
+    setShowAddForm(false);
+  };
+
+  const handleDeleteCase = (id: string) => {
+    setTestCases(testCases.filter((c) => c.id !== id));
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 select-none">
       {/* Top Banner & Control Bar */}
       <div className="p-5 rounded-xl bg-[#15171e] border border-[#26282d] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -111,35 +177,109 @@ export const EvalPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Eval Runs Table */}
-      <div className="p-5 rounded-xl bg-[#15171e] border border-[#26282d] space-y-3">
-        <h3 className="text-xs font-semibold text-white uppercase tracking-wider">Evaluation History</h3>
-        <div className="overflow-x-auto">
+      {/* Attributed Test Cases Table */}
+      <div className="p-5 rounded-xl bg-[#15171e] border border-[#26282d] space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xs font-semibold text-white uppercase tracking-wider">Agent-Attributed Test Cases ({testCases.length})</h3>
+            <p className="text-[11px] text-zinc-400">Ground truth questions, contexts, and reference outputs for evaluations.</p>
+          </div>
+
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-3 py-1.5 rounded bg-[#1f2128] hover:bg-[#282b34] text-xs font-medium text-zinc-300 flex items-center gap-1 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5 text-emerald-400" /> Add Test Query
+          </button>
+        </div>
+
+        {showAddForm && (
+          <form onSubmit={handleAddTestCase} className="p-4 rounded-lg bg-[#181a21] border border-[#26282d] space-y-3 text-xs">
+            <div>
+              <label className="text-zinc-300 font-medium block mb-1">User Query Prompt</label>
+              <input
+                type="text"
+                required
+                value={newQuery}
+                onChange={(e) => setNewQuery(e.target.value)}
+                placeholder="e.g. What is the max token limit of Arch-Router?"
+                className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-zinc-300 font-medium block mb-1">Expected Output (Ground Truth)</label>
+                <input
+                  type="text"
+                  value={newExpected}
+                  onChange={(e) => setNewExpected(e.target.value)}
+                  placeholder="Expected answer..."
+                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-zinc-300 font-medium block mb-1">Context String</label>
+                <input
+                  type="text"
+                  value={newContext}
+                  onChange={(e) => setNewContext(e.target.value)}
+                  placeholder="Reference documentation..."
+                  className="w-full px-3 py-2 rounded bg-[#121316] border border-[#2d3039] text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="px-3 py-1.5 rounded bg-[#1f2128] text-zinc-400 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 font-medium text-white shadow-lg shadow-emerald-500/20"
+              >
+                Save Test Case
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Table */}
+        <div className="overflow-x-auto border border-[#22252c] rounded-lg">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-[#26282d] text-zinc-400">
-                <th className="pb-2 font-medium">Run ID</th>
-                <th className="pb-2 font-medium">Agent ID</th>
-                <th className="pb-2 font-medium">Faithfulness</th>
-                <th className="pb-2 font-medium">Relevance</th>
-                <th className="pb-2 font-medium">Status</th>
+              <tr className="bg-[#181a21] border-b border-[#26282d] text-zinc-400">
+                <th className="p-3 font-medium">ID</th>
+                <th className="p-3 font-medium">Query Prompt</th>
+                <th className="p-3 font-medium">Expected Output</th>
+                <th className="p-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#22252c] text-zinc-300">
-              <tr>
-                <td className="py-2.5 font-mono text-emerald-400">eval_run_941</td>
-                <td>Scatter-Gather Orchestrator</td>
-                <td className="font-bold text-white">0.96</td>
-                <td className="font-bold text-white">0.95</td>
-                <td><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Completed</span></td>
-              </tr>
-              <tr>
-                <td className="py-2.5 font-mono text-emerald-400">eval_run_940</td>
-                <td>Coding Subagent</td>
-                <td className="font-bold text-white">0.91</td>
-                <td className="font-bold text-white">0.94</td>
-                <td><span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Completed</span></td>
-              </tr>
+            <tbody className="divide-y divide-[#22252c] text-zinc-300 bg-[#121316]">
+              {testCases.map((tc) => (
+                <tr key={tc.id} className="hover:bg-[#181a21] transition-colors">
+                  <td className="p-3 font-mono text-emerald-400 flex-shrink-0">{tc.id}</td>
+                  <td className="p-3 max-w-xs truncate font-medium text-white" title={tc.query}>
+                    {tc.query}
+                  </td>
+                  <td className="p-3 max-w-xs truncate text-zinc-400" title={tc.expected_output}>
+                    {tc.expected_output}
+                  </td>
+                  <td className="p-3 text-right">
+                    <button
+                      onClick={() => handleDeleteCase(tc.id)}
+                      className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-[#22252c] transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
