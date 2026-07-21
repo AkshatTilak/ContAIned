@@ -137,12 +137,30 @@ poetry install --extras "inference"
 
 ---
 
+## Release Notes — Version 3 (v3) Polish & UX Overhaul
+
+V3 brings production readiness, 16GB RAM hardware optimization, and premium frontend capabilities:
+
+- **16GB RAM Docker Profiles:** Run core infrastructure (Postgres + Qdrant + Redis ~1.3GB RAM) using `--profile core`:
+  ```bash
+  docker compose -f infrastructure/docker-compose.yml --profile core up -d
+  ```
+- **React Router Navigation & Command Palette:** Deep-linkable URL routes (`/`, `/agents`, `/workflows`, `/ingestion`, `/evalops`, `/metrics`, `/settings`) with `⌘K` / `Ctrl+K` power-user menu.
+- **SyntraFlow Ingestion UX:** Drag-and-drop file upload queue, batch processing, 3-tabbed pipeline configuration (Chunking, Pre-Processing, Post-Processing), Job Tracker with real-time progress polling, and Document Library chunk viewer.
+- **Design System & Type Safety:** Authoritative CSS tokens (`index.css`), glassmorphism components, zero `any` types across the TypeScript stack.
+
+---
+
 ## Running Locally
 
-Use Docker Compose to run the full stack:
+Use Docker Compose to run the full stack or RAM-optimized profile:
 
 ```bash
-docker compose -f infrastructure/docker-compose.yml up
+# 16GB RAM Machine (Core Profile - Postgres, Qdrant, Redis ~1.3GB VRAM/RAM)
+docker compose -f infrastructure/docker-compose.yml --profile core up -d
+
+# Full Stack (Includes Neo4j, Kafka, Zookeeper)
+docker compose -f infrastructure/docker-compose.yml --profile full up -d
 ```
 
 This starts:
