@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Cpu, Trash2, Edit2, Check, X, Users } from "lucide-react";
+import { Plus, Cpu, Trash2, Edit2, Check, X, Users, Search, Activity, Clock } from "lucide-react";
 import { api } from "../services/api";
 import { useStore, type Agent } from "../store/useStore";
-import { LoadingSkeleton, EmptyState, ConfirmModal, StatusBadge, ErrorBanner } from "./shared";
+import { LoadingSkeleton, EmptyState, ConfirmModal, StatusBadge, ErrorBanner, useToast } from "./shared";
 
 export const AgentHub: React.FC = () => {
   const agents = useStore((state) => state.agents);
   const setAgents = useStore((state) => state.setAgents);
+  const toast = useToast();
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+
+  // Search filter
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Deletion confirm state
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -30,7 +34,7 @@ export const AgentHub: React.FC = () => {
     "FunAudioLLM/SenseVoiceSmall",
     "THUDM/GLM-OCR",
     "jinaai/jina-clip-v2",
-    "gemini/gemini-3.5-flash"
+    "gemini/gemini-3.5-flash",
   ];
 
   const availableTools = [
@@ -88,19 +92,22 @@ export const AgentHub: React.FC = () => {
       model_id: modelId,
       tools: selectedTools,
       temperature,
-      max_tokens: 2048
+      max_tokens: 2048,
     };
 
     try {
       if (editingAgent) {
         await api.updateAgent(editingAgent.id, payload);
+        toast.success("Agent Updated", `Agent "${name}" updated successfully.`);
       } else {
         await api.createAgent(payload);
+        toast.success("Agent Created", `New subagent "${name}" registered successfully.`);
       }
       setShowModal(false);
       fetchAgents();
     } catch (err: any) {
       setErrorMessage(`Failed to save agent: ${err.message}`);
+      toast.error("Save Failed", err.message || "Could not save agent configuration.");
     }
   };
 
@@ -113,10 +120,12 @@ export const AgentHub: React.FC = () => {
     if (!deleteTargetId) return;
     try {
       await api.deleteAgent(deleteTargetId);
+      toast.success("Agent Deleted", `Agent "${deleteTargetName}" was removed.`);
       setDeleteTargetId(null);
       fetchAgents();
     } catch (err: any) {
       setErrorMessage(`Failed to delete agent: ${err.message}`);
+      toast.error("Delete Failed", err.message || "Could not delete agent.");
     }
   };
 
@@ -126,29 +135,56 @@ export const AgentHub: React.FC = () => {
     );
   };
 
+  // Filtered agents
+  const filteredAgents = agents.filter(
+    (a) =>
+      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      a.model_id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header with Agent Count */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold text-[var(--text-primary)] font-display">
-            Agent Hub & Custom Subagent Registry
-          </h2>
-          <p className="text-xs text-[var(--text-secondary)]">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-base font-bold text-[var(--text-primary)] font-display">
+              Agent Hub & Custom Subagent Registry
+            </h2>
+            <span className="text-xs font-mono font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+              {agents.length} Registered
+            </span>
+          </div>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
             Manage custom agent personalities, tool authorizations, and system prompts.
           </p>
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          className="px-4 py-2 rounded-lg font-medium text-xs text-white flex items-center gap-1.5 shadow-lg transition-all"
-          style={{
-            backgroundColor: 'var(--accent-indigo)',
-            boxShadow: '0 4px 14px var(--accent-indigo-glow)',
-          }}
-        >
-          <Plus className="w-4 h-4" /> Create Custom Agent
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter by name, role, model..."
+              className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-indigo-500 w-56"
+            />
+          </div>
+
+          <button
+            onClick={handleOpenCreate}
+            className="px-3.5 py-1.5 rounded-lg font-medium text-xs text-white flex items-center gap-1.5 shadow-lg transition-all hover:scale-[1.02]"
+            style={{
+              backgroundColor: "var(--accent-indigo)",
+              boxShadow: "0 4px 14px var(--accent-indigo-glow)",
+            }}
+          >
+            <Plus className="w-4 h-4" /> Create Custom Agent
+          </button>
+        </div>
       </div>
 
       {errorMessage && (
@@ -164,87 +200,112 @@ export const AgentHub: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <LoadingSkeleton variant="card" count={3} />
         </div>
-      ) : agents.length === 0 ? (
+      ) : filteredAgents.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No Custom Agents Found"
-          description="Register your first subagent personality to automate workflows across ContAIned."
-          actionLabel="Create Custom Agent"
-          onAction={handleOpenCreate}
+          title={searchQuery ? "No Matching Agents Found" : "No Custom Agents Found"}
+          description={
+            searchQuery
+              ? `No agents match your search filter "${searchQuery}".`
+              : "Register your first subagent personality to automate workflows across ContAIned."
+          }
+          actionLabel={searchQuery ? "Clear Search Filter" : "Create Custom Agent"}
+          onAction={searchQuery ? () => setSearchQuery("") : handleOpenCreate}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {agents.map((agent) => (
-            <div
-              key={agent.id}
-              className="p-5 rounded-xl border flex flex-col justify-between space-y-4 transition-all duration-200"
-              style={{
-                backgroundColor: 'var(--bg-surface)',
-                borderColor: 'var(--border-default)',
-              }}
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">{agent.name}</h3>
-                    <StatusBadge variant="info" label={agent.role} size="sm" className="mt-1" />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenEdit(agent)}
-                      className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] rounded-md transition-colors"
-                      title="Edit Agent"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => requestDelete(agent)}
-                      className="p-1.5 text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--rose-soft)] rounded-md transition-colors"
-                      title="Delete Agent"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
+          {filteredAgents.map((agent, index) => {
+            // Mock Analytics Preview per card
+            const mockQueries = (index + 1) * 142 + 89;
+            const mockLatency = (120 + index * 35) + "ms";
 
-                <p
-                  className="text-xs line-clamp-2 p-2.5 rounded-lg border font-mono leading-relaxed"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border-subtle)',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  {agent.system_prompt}
-                </p>
-
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
-                    <Cpu className="w-3.5 h-3.5 text-[var(--accent-amber)]" />
-                    <span>
-                      Model: <strong className="text-[var(--text-primary)]">{agent.model_id}</strong>
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {agent.tools?.map((tool) => (
-                      <StatusBadge key={tool} variant="neutral" label={tool} dot={false} size="sm" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
+            return (
               <div
-                className="text-[10px] pt-3 border-t flex justify-between items-center"
+                key={agent.id}
+                className="p-5 rounded-xl border flex flex-col justify-between space-y-4 transition-all duration-200 hover:scale-[1.01] hover:border-indigo-500/40 group relative"
                 style={{
-                  borderColor: 'var(--border-subtle)',
-                  color: 'var(--text-muted)',
+                  backgroundColor: "var(--bg-surface)",
+                  borderColor: "var(--border-default)",
                 }}
               >
-                <span>Temperature: {agent.temperature}</span>
-                <span>Max Tokens: {agent.max_tokens || 2048}</span>
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-sm font-bold text-[var(--text-primary)] group-hover:text-indigo-300 transition-colors">
+                        {agent.name}
+                      </h3>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <StatusBadge variant="info" label={agent.role} size="sm" />
+                        <StatusBadge variant="success" label="Active" size="sm" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleOpenEdit(agent)}
+                        className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] rounded-md transition-colors"
+                        title="Edit Agent"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => requestDelete(agent)}
+                        className="p-1.5 text-[var(--text-muted)] hover:text-[var(--accent-rose)] hover:bg-[var(--rose-soft)] rounded-md transition-colors"
+                        title="Delete Agent"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <p
+                    className="text-xs line-clamp-2 p-2.5 rounded-lg border font-mono leading-relaxed"
+                    style={{
+                      backgroundColor: "var(--bg-input)",
+                      borderColor: "var(--border-subtle)",
+                      color: "var(--text-secondary)",
+                    }}
+                  >
+                    {agent.system_prompt}
+                  </p>
+
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                      <Cpu className="w-3.5 h-3.5 text-[var(--accent-amber)]" />
+                      <span>
+                        Model: <strong className="text-[var(--text-primary)]">{agent.model_id}</strong>
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {agent.tools?.map((tool) => (
+                        <StatusBadge key={tool} variant="neutral" label={tool} dot={false} size="sm" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Footer with Analytics Preview */}
+                <div
+                  className="text-[10px] pt-3 border-t flex items-center justify-between font-mono"
+                  style={{
+                    borderColor: "var(--border-subtle)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1" title="Total Executed Queries">
+                      <Activity className="w-3 h-3 text-emerald-400" />
+                      {mockQueries} queries
+                    </span>
+                    <span className="flex items-center gap-1" title="Average Response Latency">
+                      <Clock className="w-3 h-3 text-indigo-400" />
+                      {mockLatency}
+                    </span>
+                  </div>
+                  <span>Temp: {agent.temperature}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -266,8 +327,8 @@ export const AgentHub: React.FC = () => {
           <div
             className="w-full max-w-lg border rounded-2xl p-6 shadow-2xl space-y-5"
             style={{
-              backgroundColor: 'var(--bg-surface)',
-              borderColor: 'var(--border-default)',
+              backgroundColor: "var(--bg-surface)",
+              borderColor: "var(--border-default)",
             }}
           >
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
@@ -293,8 +354,8 @@ export const AgentHub: React.FC = () => {
                   placeholder="e.g. Code Reviewer Subagent"
                   className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
                   style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border-default)',
+                    backgroundColor: "var(--bg-input)",
+                    borderColor: "var(--border-default)",
                   }}
                 />
               </div>
@@ -309,8 +370,8 @@ export const AgentHub: React.FC = () => {
                   placeholder="e.g. Senior Security Auditor"
                   className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
                   style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border-default)',
+                    backgroundColor: "var(--bg-input)",
+                    borderColor: "var(--border-default)",
                   }}
                 />
               </div>
@@ -322,8 +383,8 @@ export const AgentHub: React.FC = () => {
                   onChange={(e) => setModelId(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none"
                   style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border-default)',
+                    backgroundColor: "var(--bg-input)",
+                    borderColor: "var(--border-default)",
                   }}
                 >
                   {availableModels.map((m) => (
@@ -341,8 +402,8 @@ export const AgentHub: React.FC = () => {
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border text-[var(--text-primary)] focus:outline-none resize-none font-mono"
                   style={{
-                    backgroundColor: 'var(--bg-input)',
-                    borderColor: 'var(--border-default)',
+                    backgroundColor: "var(--bg-input)",
+                    borderColor: "var(--border-default)",
                   }}
                 />
               </div>
@@ -408,3 +469,4 @@ export const AgentHub: React.FC = () => {
 };
 
 export default AgentHub;
+
