@@ -144,19 +144,19 @@ export const AgentHub: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header with Agent Count */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-10 max-w-7xl mx-auto">
+      {/* Header Controls */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[var(--border-subtle)]">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-base font-bold text-[var(--text-primary)] font-display">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-extrabold text-white font-display">
               Agent Hub & Custom Subagent Registry
             </h2>
-            <span className="text-xs font-mono font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+            <span className="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/15 px-2.5 py-0.5 rounded-full border border-indigo-500/30">
               {agents.length} Registered
             </span>
           </div>
-          <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
             Manage custom agent personalities, tool authorizations, and system prompts.
           </p>
         </div>
@@ -164,19 +164,19 @@ export const AgentHub: React.FC = () => {
         <div className="flex items-center gap-3">
           {/* Search Bar */}
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter by name, role, model..."
-              className="pl-8 pr-3 py-1.5 text-xs rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-indigo-500 w-56"
+              className="pl-9 pr-4 py-2 text-xs rounded-xl bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-indigo-500 w-64 shadow-inner"
             />
           </div>
 
           <button
             onClick={handleOpenCreate}
-            className="px-3.5 py-1.5 rounded-lg font-medium text-xs text-white flex items-center gap-1.5 shadow-lg transition-all hover:scale-[1.02]"
+            className="px-4 py-2 rounded-xl font-bold text-xs text-white flex items-center gap-2 shadow-xl transition-all hover:scale-[1.02]"
             style={{
               backgroundColor: "var(--accent-indigo)",
               boxShadow: "0 4px 14px var(--accent-indigo-glow)",
@@ -197,7 +197,7 @@ export const AgentHub: React.FC = () => {
 
       {/* Grid / Skeletons / Empty State */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <LoadingSkeleton variant="card" count={3} />
         </div>
       ) : filteredAgents.length === 0 ? (
@@ -213,7 +213,7 @@ export const AgentHub: React.FC = () => {
           onAction={searchQuery ? () => setSearchQuery("") : handleOpenCreate}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAgents.map((agent, index) => {
             // Mock Analytics Preview per card
             const mockQueries = (index + 1) * 142 + 89;
@@ -222,9 +222,8 @@ export const AgentHub: React.FC = () => {
             return (
               <div
                 key={agent.id}
-                className="p-5 rounded-xl border flex flex-col justify-between space-y-4 transition-all duration-200 hover:scale-[1.01] hover:border-indigo-500/40 group relative"
+                className="p-8 rounded-2xl border flex flex-col justify-between space-y-6 transition-all duration-200 hover:scale-[1.01] hover:border-indigo-500/50 group relative shadow-2xl bg-[#0e0e12]"
                 style={{
-                  backgroundColor: "var(--bg-surface)",
                   borderColor: "var(--border-default)",
                 }}
               >
@@ -323,27 +322,28 @@ export const AgentHub: React.FC = () => {
 
       {/* Edit/Create Agent Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-6">
           <div
-            className="w-full max-w-lg border rounded-2xl p-6 shadow-2xl space-y-5"
+            className="w-full max-w-lg border rounded-2xl shadow-2xl flex flex-col"
             style={{
               backgroundColor: "var(--bg-surface)",
               borderColor: "var(--border-default)",
+              maxHeight: "calc(100vh - 3rem)",
             }}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-[var(--border-subtle)] shrink-0">
               <h3 className="text-sm font-bold text-[var(--text-primary)] font-display">
                 {editingAgent ? "Edit Agent Definition" : "Register New Subagent"}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-lg hover:bg-[var(--bg-elevated)] transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-4 text-xs">
+            <form onSubmit={handleSave} className="space-y-5 text-xs overflow-y-auto px-6 py-4 custom-scrollbar">
               <div>
                 <label className="text-[var(--text-secondary)] font-medium block mb-1">Agent Name</label>
                 <input
@@ -445,22 +445,27 @@ export const AgentHub: React.FC = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--border-subtle)]">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-[var(--text-secondary)] font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-lg bg-[var(--accent-indigo)] hover:opacity-90 text-white font-medium shadow-md"
-                >
-                  Save Agent
-                </button>
-              </div>
             </form>
+
+            <div className="flex items-center justify-end gap-3 p-6 pt-4 border-t border-[var(--border-subtle)] shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-5 py-2.5 rounded-lg bg-[var(--bg-elevated)] hover:bg-[var(--bg-surface-alt)] text-[var(--text-secondary)] font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  const form = (e.target as HTMLElement).closest('.flex-col')?.querySelector('form');
+                  if (form) form.requestSubmit();
+                }}
+                className="px-5 py-2.5 rounded-lg bg-[var(--accent-indigo)] hover:opacity-90 text-white font-medium shadow-md transition-all"
+              >
+                Save Agent
+              </button>
+            </div>
           </div>
         </div>
       )}

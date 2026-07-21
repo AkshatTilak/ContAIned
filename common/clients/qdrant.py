@@ -26,16 +26,18 @@ class VectorClient:
             else:
                 logger.warning("QDRANT_API_KEY is not configured. Running without Vector DB authentication.")
 
+        qdrant_api_key = settings.QDRANT_API_KEY if settings.QDRANT_API_KEY else None
+
         try:
             self._client = QdrantClient(
                 url=settings.QDRANT_URL,
-                api_key=settings.QDRANT_API_KEY,
+                api_key=qdrant_api_key,
                 timeout=settings.QDRANT_TIMEOUT,
                 retries=settings.QDRANT_RETRIES,
             )
             self._async_client = AsyncQdrantClient(
                 url=settings.QDRANT_URL,
-                api_key=settings.QDRANT_API_KEY,
+                api_key=qdrant_api_key,
                 timeout=settings.QDRANT_TIMEOUT,
                 retries=settings.QDRANT_RETRIES,
             )

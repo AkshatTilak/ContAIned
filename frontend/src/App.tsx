@@ -46,8 +46,10 @@ export default function App() {
   useEffect(() => {
     telemetryService.connect();
     fetchSystemData();
+    const interval = setInterval(fetchSystemData, 5000);
     return () => {
       telemetryService.disconnect();
+      clearInterval(interval);
     };
   }, [gatewayUrl]);
 
@@ -57,7 +59,7 @@ export default function App() {
       setSystemHealth(health);
     } catch (err) {
       console.warn("Using offline fallback system data:", err);
-      setSystemHealth(FALLBACK_SYSTEM_HEALTH);
+      setSystemHealth((prev) => (prev?.status === "healthy" ? prev : FALLBACK_SYSTEM_HEALTH));
     }
 
     try {
@@ -65,7 +67,6 @@ export default function App() {
       setModelRegistry(models);
     } catch (err) {
       console.warn("Offline model registry fallback:", err);
-      setModelRegistry(null);
     }
   };
 
@@ -93,7 +94,7 @@ export default function App() {
           <HeaderBar onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
 
           {/* Page Viewport */}
-          <main className="flex-1 overflow-y-auto p-6 flex flex-col min-h-0">
+          <main className="flex-1 overflow-y-auto p-6 lg:p-10 pb-16 custom-scrollbar flex flex-col min-h-0">
             <ErrorBoundary>
               <AnimatePresence mode="wait">
                 <Routes location={location} key={location.pathname}>

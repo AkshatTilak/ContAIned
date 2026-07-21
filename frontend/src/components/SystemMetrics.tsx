@@ -58,15 +58,7 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
   const vramPercent = (telemetry.vram_usage_mb / (telemetry.vram_total_mb || 1)) * 100;
   const vramColors = getThresholdColor(vramPercent);
 
-  // Mock ping latencies for microservices
-  const mockLatencies: Record<string, string> = {
-    "Gateway Server": "4ms",
-    "Inference Engine": "18ms",
-    "PostgreSQL Database": "2ms",
-    "Redis Cache & PubSub": "1ms",
-    "Apache Kafka": "8ms",
-    "Qdrant Vector DB": "6ms",
-  };
+
 
   const services = [
     { name: "Gateway Server", status: systemHealth?.services?.gateway || "connected", icon: Server },
@@ -99,9 +91,9 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
     : Array.from({ length: 10 }, (_, i) => ({ idx: i, cpu: 10, mem: 20, vram: 15 }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10 max-w-7xl mx-auto">
       {/* Header Bar with Refresh & Timestamp */}
-      <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
+      <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)]">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-bold text-white uppercase tracking-wider font-display">
             Live Telemetry Overview
@@ -114,10 +106,10 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] text-zinc-300 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] text-zinc-300 transition-colors shadow-sm"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
+            <span>Refresh Telemetry</span>
           </button>
         )}
       </div>
@@ -137,29 +129,29 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
       )}
 
       {/* Real-time Telemetry Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* CPU Usage Card */}
         <div
-          className="p-5 rounded-xl border space-y-3 transition-all relative overflow-hidden group"
-          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
+          className="p-8 rounded-2xl border space-y-5 transition-all relative overflow-hidden group shadow-xl bg-[#0e0e12]"
+          style={{ borderColor: "var(--border-default)" }}
         >
           <div className="flex items-center justify-between text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-wider font-display">CPU Utilization</span>
-            <Cpu className={`w-4 h-4 ${cpuColors.text}`} />
+            <span className="text-xs font-bold uppercase tracking-wider font-display">CPU Utilization</span>
+            <Cpu className={`w-5 h-5 ${cpuColors.text}`} />
           </div>
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between pt-1">
             <motion.div
               key={telemetry.cpu_usage_percent}
               initial={{ scale: 0.95, opacity: 0.8 }}
               animate={{ scale: 1, opacity: 1 }}
-              className={`text-2xl font-bold font-display ${cpuColors.text}`}
+              className={`text-4xl font-extrabold font-display ${cpuColors.text}`}
             >
               {telemetry.cpu_usage_percent.toFixed(1)}%
             </motion.div>
           </div>
 
           {/* Sparkline */}
-          <div className="h-10 w-full pt-1">
+          <div className="h-12 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparklineData}>
                 <Area
@@ -167,17 +159,17 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
                   dataKey="cpu"
                   stroke={cpuColors.stroke}
                   fill={cpuColors.stroke}
-                  fillOpacity={0.15}
-                  strokeWidth={2}
+                  fillOpacity={0.2}
+                  strokeWidth={2.5}
                   isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="w-full bg-[var(--bg-elevated)] rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-[var(--bg-elevated)] rounded-full h-2 overflow-hidden">
             <div
-              className={`h-1.5 rounded-full transition-all duration-500 ${cpuColors.bg}`}
+              className={`h-2 rounded-full transition-all duration-500 ${cpuColors.bg}`}
               style={{ width: `${Math.min(telemetry.cpu_usage_percent, 100)}%` }}
             />
           </div>
@@ -185,26 +177,26 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
 
         {/* System Memory Card */}
         <div
-          className="p-5 rounded-xl border space-y-3 transition-all relative overflow-hidden group"
-          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
+          className="p-8 rounded-2xl border space-y-5 transition-all relative overflow-hidden group shadow-xl bg-[#0e0e12]"
+          style={{ borderColor: "var(--border-default)" }}
         >
           <div className="flex items-center justify-between text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-wider font-display">Memory Usage</span>
-            <Activity className={`w-4 h-4 ${memColors.text}`} />
+            <span className="text-xs font-bold uppercase tracking-wider font-display">Memory Usage</span>
+            <Activity className={`w-5 h-5 ${memColors.text}`} />
           </div>
-          <div className="flex items-baseline justify-between">
+          <div className="flex items-baseline justify-between pt-1">
             <motion.div
               key={telemetry.memory_usage_percent}
               initial={{ scale: 0.95, opacity: 0.8 }}
               animate={{ scale: 1, opacity: 1 }}
-              className={`text-2xl font-bold font-display ${memColors.text}`}
+              className={`text-4xl font-extrabold font-display ${memColors.text}`}
             >
               {telemetry.memory_usage_percent.toFixed(1)}%
             </motion.div>
           </div>
 
           {/* Sparkline */}
-          <div className="h-10 w-full pt-1">
+          <div className="h-12 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={sparklineData}>
                 <Area
@@ -212,17 +204,17 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
                   dataKey="mem"
                   stroke={memColors.stroke}
                   fill={memColors.stroke}
-                  fillOpacity={0.15}
-                  strokeWidth={2}
+                  fillOpacity={0.2}
+                  strokeWidth={2.5}
                   isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="w-full bg-[var(--bg-elevated)] rounded-full h-1.5 overflow-hidden">
+          <div className="w-full bg-[var(--bg-elevated)] rounded-full h-2 overflow-hidden">
             <div
-              className={`h-1.5 rounded-full transition-all duration-500 ${memColors.bg}`}
+              className={`h-2 rounded-full transition-all duration-500 ${memColors.bg}`}
               style={{ width: `${Math.min(telemetry.memory_usage_percent, 100)}%` }}
             />
           </div>
@@ -230,17 +222,17 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
 
         {/* VRAM Utilization Ring Gauge */}
         <div
-          className="p-5 rounded-xl border space-y-3 transition-all flex flex-col justify-between"
-          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
+          className="p-8 rounded-2xl border space-y-5 transition-all flex flex-col justify-between shadow-xl bg-[#0e0e12]"
+          style={{ borderColor: "var(--border-default)" }}
         >
           <div className="flex items-center justify-between text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-wider font-display">VRAM Gauge</span>
-            <Zap className={`w-4 h-4 ${vramColors.text}`} />
+            <span className="text-xs font-bold uppercase tracking-wider font-display">VRAM Gauge</span>
+            <Zap className={`w-5 h-5 ${vramColors.text}`} />
           </div>
-          <div className="flex items-center justify-between gap-3 my-auto">
+          <div className="flex items-center justify-between gap-4 my-auto py-2">
             {/* SVG Ring Gauge */}
-            <div className="relative w-14 h-14 shrink-0">
-              <svg className="w-14 h-14 transform -rotate-90" viewBox="0 0 36 36">
+            <div className="relative w-16 h-16 shrink-0">
+              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
                 <path
                   className="text-zinc-800"
                   strokeWidth="3.5"
@@ -258,83 +250,97 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
               </svg>
-              <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold font-mono text-white">
+              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold font-mono text-white">
                 {vramPercent.toFixed(0)}%
               </div>
             </div>
 
             <div className="text-right">
-              <div className={`text-lg font-bold font-display ${vramColors.text}`}>
+              <div className={`text-2xl font-bold font-display ${vramColors.text}`}>
                 {telemetry.vram_usage_mb} MB
               </div>
-              <div className="text-[11px] text-[var(--text-muted)] font-mono">
+              <div className="text-xs text-[var(--text-muted)] font-mono mt-1">
                 Budget: {telemetry.vram_total_mb} MB
               </div>
             </div>
           </div>
 
-          <div className="text-[10px] text-[var(--text-muted)] font-mono truncate">
+          <div className="text-xs text-[var(--text-muted)] font-mono truncate pt-2 border-t border-[var(--border-subtle)]">
             GPU Allocation: {vramPercent > 85 ? "High Demand" : "Nominal"}
           </div>
         </div>
 
         {/* Active Agents Card */}
         <div
-          className="p-5 rounded-xl border space-y-3 transition-all flex flex-col justify-between"
-          style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
+          className="p-8 rounded-2xl border space-y-5 transition-all flex flex-col justify-between shadow-xl bg-[#0e0e12]"
+          style={{ borderColor: "var(--border-default)" }}
         >
           <div className="flex items-center justify-between text-[var(--text-secondary)]">
-            <span className="text-xs font-semibold uppercase tracking-wider font-display">Active Agents</span>
-            <Server className="w-4 h-4 text-[var(--accent-cyan)]" />
+            <span className="text-xs font-bold uppercase tracking-wider font-display">Active Agents</span>
+            <Server className="w-5 h-5 text-[var(--accent-cyan)]" />
           </div>
-          <div className="my-auto">
-            <div className="text-3xl font-bold text-white font-display flex items-center gap-3">
+          <div className="my-auto py-2">
+            <div className="text-4xl font-extrabold text-white font-display flex items-center gap-3">
               {telemetry.active_agents}
               <StatusBadge variant="success" label="Active" size="sm" />
             </div>
           </div>
-          <div className="text-xs text-[var(--text-muted)]">
-            Status: <span className="text-[var(--accent-emerald)] font-medium font-mono">{telemetry.status}</span>
+          <div className="text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border-subtle)]">
+            Status: <span className="text-[var(--accent-emerald)] font-semibold font-mono">{telemetry.status}</span>
           </div>
         </div>
       </div>
 
-      {/* Microservices Health Section (Expandable Cards) */}
+      {/* Microservices Health Section */}
       <div
-        className="p-5 rounded-xl border"
-        style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
+        className="p-8 rounded-2xl border space-y-6 bg-[#0e0e12] shadow-2xl"
+        style={{ borderColor: "var(--border-default)" }}
       >
-        <h2 className="text-xs font-bold text-[var(--text-primary)] mb-4 uppercase tracking-wider font-display">
-          Platform Microservices Health & Ping Latency
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-4">
+          <h2 className="text-xs font-bold text-white uppercase tracking-wider font-display flex items-center gap-2">
+            <Server className="w-4 h-4 text-emerald-400" /> Platform Microservices Health & Ping Latency
+          </h2>
+          <span className="text-xs text-zinc-400 font-mono">6 Core Containers</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((s) => {
             const Icon = s.icon;
             const isOk = s.status === "connected" || s.status === "active";
             const isExpanded = expandedService === s.name;
-            const latency = mockLatencies[s.name] || "3ms";
+            const latencyKeyMap: Record<string, string> = {
+              "Gateway Server": "gateway",
+              "Inference Engine": "inference_server",
+              "PostgreSQL Database": "database",
+              "Redis Cache & PubSub": "redis",
+              "Apache Kafka": "kafka",
+              "Qdrant Vector DB": "qdrant",
+            };
+            const rawLat = systemHealth?.latencies_ms?.[latencyKeyMap[s.name]];
+            const latency = rawLat !== undefined && rawLat >= 0 ? `${rawLat}ms` : "N/A";
 
             return (
               <div
                 key={s.name}
                 onClick={() => setExpandedService(isExpanded ? null : s.name)}
-                className="p-3 rounded-lg border transition-all cursor-pointer hover:border-[var(--border-hover)] bg-[var(--bg-surface-alt)] border-[var(--border-subtle)]"
+                className="p-6 rounded-2xl border transition-all cursor-pointer hover:border-emerald-500/40 bg-[#13141a] border-[var(--border-subtle)] shadow-md space-y-3"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="w-4 h-4 text-[var(--text-muted)]" />
-                    <span className="text-xs font-medium text-[var(--text-primary)]">{s.name}</span>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-zinc-800/80 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-emerald-400 shrink-0" />
+                    </div>
+                    <span className="text-xs font-bold text-white break-words leading-snug">{s.name}</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <StatusBadge
                       variant={isOk ? "success" : "warning"}
                       label={isOk ? "Active" : s.status}
                       size="sm"
                     />
                     {isExpanded ? (
-                      <ChevronUp className="w-3.5 h-3.5 text-zinc-500" />
+                      <ChevronUp className="w-4 h-4 text-zinc-500" />
                     ) : (
-                      <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ChevronDown className="w-4 h-4 text-zinc-500" />
                     )}
                   </div>
                 </div>
@@ -345,10 +351,10 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="mt-2 pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[11px] font-mono text-zinc-400 overflow-hidden"
+                      className="pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs font-mono text-zinc-400 overflow-hidden"
                     >
                       <span>Ping Latency:</span>
-                      <span className="text-emerald-400 font-semibold">{latency}</span>
+                      <span className="text-emerald-400 font-bold">{latency}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -360,48 +366,45 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
 
       {/* Model Registry Overview */}
       <div
-        className="p-5 rounded-xl border"
-        style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
+        className="p-8 rounded-2xl border space-y-6 bg-[#0e0e12] shadow-2xl"
+        style={{ borderColor: "var(--border-default)" }}
       >
-        <h2 className="text-xs font-bold text-[var(--text-primary)] mb-4 uppercase tracking-wider font-display">
-          Loaded Local LLM & Multi-Modal Models
+        <h2 className="text-xs font-bold text-white uppercase tracking-wider font-display border-b border-[var(--border-subtle)] pb-4 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-indigo-400" /> Loaded Local LLM & Multi-Modal Models
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div
-            className="p-4 rounded-lg border"
-            style={{ backgroundColor: "var(--bg-surface-alt)", borderColor: "var(--border-subtle)" }}
+            className="p-6 rounded-2xl border space-y-3 bg-[#13141a] border-[var(--border-subtle)] shadow-md"
           >
-            <div className="text-xs text-[var(--text-muted)] font-medium mb-1">OCR Model</div>
-            <div className="text-sm font-bold text-[var(--text-primary)]">
+            <div className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">OCR Model</div>
+            <div className="text-base font-extrabold text-white">
               {modelRegistry?.ocr?.active?.display_name || "GLM-OCR (0.9B)"}
             </div>
-            <div className="text-xs text-[var(--accent-emerald)] mt-2 font-mono">
+            <div className="text-xs text-[var(--accent-emerald)] font-mono pt-1">
               Mode: Local PyTorch (2000 MB VRAM)
             </div>
           </div>
 
           <div
-            className="p-4 rounded-lg border"
-            style={{ backgroundColor: "var(--bg-surface-alt)", borderColor: "var(--border-subtle)" }}
+            className="p-6 rounded-2xl border space-y-3 bg-[#13141a] border-[var(--border-subtle)] shadow-md"
           >
-            <div className="text-xs text-[var(--text-muted)] font-medium mb-1">ASR Transcription</div>
-            <div className="text-sm font-bold text-[var(--text-primary)]">
+            <div className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">ASR Transcription</div>
+            <div className="text-base font-extrabold text-white">
               {modelRegistry?.asr?.active?.display_name || "SenseVoice-Small"}
             </div>
-            <div className="text-xs text-[var(--accent-emerald)] mt-2 font-mono">
+            <div className="text-xs text-[var(--accent-emerald)] font-mono pt-1">
               Mode: FunASR (250 MB VRAM)
             </div>
           </div>
 
           <div
-            className="p-4 rounded-lg border"
-            style={{ backgroundColor: "var(--bg-surface-alt)", borderColor: "var(--border-subtle)" }}
+            className="p-6 rounded-2xl border space-y-3 bg-[#13141a] border-[var(--border-subtle)] shadow-md"
           >
-            <div className="text-xs text-[var(--text-muted)] font-medium mb-1">Multi-Modal Embedding</div>
-            <div className="text-sm font-bold text-[var(--text-primary)]">
+            <div className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Multi-Modal Embedding</div>
+            <div className="text-base font-extrabold text-white">
               {modelRegistry?.embedding?.active?.display_name || "Jina Clip v2 (1024d)"}
             </div>
-            <div className="text-xs text-[var(--accent-emerald)] mt-2 font-mono">
+            <div className="text-xs text-[var(--accent-emerald)] font-mono pt-1">
               Mode: HuggingFace (1000 MB VRAM)
             </div>
           </div>

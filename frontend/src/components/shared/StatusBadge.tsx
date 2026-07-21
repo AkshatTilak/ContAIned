@@ -55,7 +55,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-medium rounded-full ${
+      className={`inline-flex items-center gap-1.5 font-medium rounded-full whitespace-nowrap ${
         isSm ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-xs'
       } ${className}`}
       style={{

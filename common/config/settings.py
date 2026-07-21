@@ -24,7 +24,7 @@ class AppSettings(BaseSettings):
     APP_PORT: int = Field(default=8000, alias="APP_PORT")
     OCR_PROVIDER: str = Field(default="local", alias="OCR_PROVIDER")  # local (Baidu) or api (Gemini)
     CORS_ORIGINS: list[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173"],
+        default=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
         alias="CORS_ORIGINS",
     )
     AUTH_ENABLED: bool = Field(default=False, alias="AUTH_ENABLED")

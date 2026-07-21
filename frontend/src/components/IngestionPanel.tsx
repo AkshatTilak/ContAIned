@@ -156,12 +156,12 @@ export const IngestionPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-10 max-w-7xl mx-auto">
       {/* Top View Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-3">
+      <div className="flex items-center gap-3 border-b border-[var(--border-default)] pb-4">
         <button
           onClick={() => setActiveMainTab("upload")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-md ${
             activeMainTab === "upload"
               ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
               : "text-zinc-400 hover:text-white bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]"
@@ -173,7 +173,7 @@ export const IngestionPanel: React.FC = () => {
 
         <button
           onClick={() => setActiveMainTab("jobs")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-md ${
             activeMainTab === "jobs"
               ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
               : "text-zinc-400 hover:text-white bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]"
@@ -185,7 +185,7 @@ export const IngestionPanel: React.FC = () => {
 
         <button
           onClick={() => setActiveMainTab("documents")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-md ${
             activeMainTab === "documents"
               ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
               : "text-zinc-400 hover:text-white bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]"
@@ -202,12 +202,12 @@ export const IngestionPanel: React.FC = () => {
       {activeMainTab === "upload" && (
         <>
           {/* Upload Zone */}
-          <div className="p-6 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-default)] text-white space-y-4">
-            <div className="text-center">
-              <h2 className="text-base font-semibold text-white mb-1">
+          <div className="p-10 rounded-2xl bg-[#0e0e12] border border-[var(--border-default)] text-white space-y-8 shadow-2xl">
+            <div className="text-center space-y-2">
+              <h2 className="text-lg font-extrabold text-white font-display">
                 SyntraFlow Multi-Modal Document & Video Ingestion
               </h2>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-zinc-400 max-w-2xl mx-auto">
                 Upload PDF, DOCX, TXT, Images, or MP4 files for parsing, OCR, chunking, and Qdrant vector storage.
               </p>
             </div>
@@ -217,10 +217,10 @@ export const IngestionPanel: React.FC = () => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+              className={`border-2 border-dashed rounded-3xl p-14 text-center transition-all ${
                 isDragging
                   ? "border-emerald-500 bg-emerald-500/10 scale-[1.01]"
-                  : "border-[var(--border-hover)] hover:border-emerald-500/50 bg-[var(--bg-surface-alt)]"
+                  : "border-[var(--border-hover)] hover:border-emerald-500/50 bg-[#13141a]"
               }`}
             >
               <input
@@ -231,15 +231,15 @@ export const IngestionPanel: React.FC = () => {
                 onChange={handleFileChange}
                 accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.mp4,.json,.csv"
               />
-              <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-                  <UploadCloud className="w-6 h-6" />
+              <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/10">
+                  <UploadCloud className="w-8 h-8" />
                 </div>
-                <div>
-                  <span className="text-sm font-medium text-white">
+                <div className="space-y-1">
+                  <span className="text-base font-bold text-white block">
                     {isDragging ? "Drop files to add to queue..." : "Click to browse or drag & drop files here"}
                   </span>
-                  <p className="text-xs text-zinc-400 mt-1">
+                  <p className="text-xs text-zinc-400">
                     Supports PDF, DOCX, TXT, Images, & MP4 (Batch selection supported, Max {MAX_FILE_SIZE_MB}MB)
                   </p>
                 </div>
@@ -363,7 +363,7 @@ export const IngestionPanel: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-5 space-y-5">
+            <div className="p-6 space-y-6">
               {/* Tab 1: Chunking Strategy */}
               {activeSettingsTab === "chunking" && (
                 <div className="space-y-5">

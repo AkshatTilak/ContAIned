@@ -138,18 +138,18 @@ export const DocumentLibrary: React.FC = () => {
       ) : (
         <>
           {/* Document Table */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-2xl border border-[var(--border-default)] bg-[#0e0e12] shadow-2xl">
             <table className="w-full text-left text-xs text-zinc-300">
-              <thead className="bg-[var(--bg-surface-alt)] border-b border-[var(--border-default)] text-zinc-400 uppercase tracking-wider text-[10px] font-semibold">
+              <thead className="bg-[#13141a] border-b border-[var(--border-default)] text-zinc-400 uppercase tracking-wider text-[10px] font-bold">
                 <tr>
-                  <th className="py-3 px-4">Document Name</th>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">File Hash</th>
-                  <th className="py-3 px-4">Ingested Date</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-5 px-6">Document Name</th>
+                  <th className="py-5 px-6">Type</th>
+                  <th className="py-5 px-6">File Hash</th>
+                  <th className="py-5 px-6">Ingested Date</th>
+                  <th className="py-5 px-6 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border-default)]">
+              <tbody className="divide-y divide-[var(--border-subtle)]">
                 {filteredDocs.map((doc) => {
                   const docName = doc.filename || "Untitled Document";
                   const ext = doc.file_type || docName.split(".").pop()?.toUpperCase() || "FILE";
@@ -158,28 +158,28 @@ export const DocumentLibrary: React.FC = () => {
                   return (
                     <tr
                       key={doc.id}
-                      className="hover:bg-[var(--bg-hover)]/40 transition-colors"
+                      className="hover:bg-zinc-800/30 transition-colors"
                     >
-                      <td className="py-3 px-4 font-medium text-white flex items-center gap-2">
+                      <td className="py-5 px-6 font-semibold text-white flex items-center gap-3">
                         <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span className="truncate max-w-xs">{docName}</span>
+                        <span className="truncate max-w-sm">{docName}</span>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
+                      <td className="py-5 px-6">
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase">
                           {ext}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-mono text-zinc-400 text-[11px]">
-                        <div className="flex items-center gap-1">
-                          <Hash className="w-3 h-3 text-zinc-600" />
+                      <td className="py-5 px-6 font-mono text-zinc-400 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <Hash className="w-3.5 h-3.5 text-zinc-500" />
                           {hashShort}...
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-zinc-400 text-[11px]">
+                      <td className="py-5 px-6 text-zinc-400 text-xs">
                         {doc.created_at ? new Date(doc.created_at).toLocaleDateString() : "N/A"}
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-5 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2.5">
                           <button
                             onClick={() => handleViewChunks(doc)}
                             className="p-1.5 rounded bg-[var(--bg-input)] hover:bg-emerald-500/20 text-zinc-300 hover:text-emerald-400 transition-colors"

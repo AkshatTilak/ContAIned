@@ -61,7 +61,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto py-4">
+    <div className="space-y-8 max-w-5xl mx-auto py-4">
       {/* Header Banner */}
       <div className="flex items-center justify-between bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 shadow-md">
         <div className="flex items-center gap-4">
@@ -164,12 +164,12 @@ export const SettingsPage: React.FC = () => {
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-3 shadow-sm">
         <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] border-b border-[var(--border-subtle)] pb-3 font-display">
           <Server className="w-4 h-4 text-zinc-400" />
-          <span>ContAI ned V3 Platform Architecture</span>
+          <span>ContAIned V4 Platform Architecture</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
           <div className="p-3 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] space-y-1">
             <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider">Version</span>
-            <span className="font-semibold text-emerald-400">3.0.0-PROD</span>
+            <span className="font-semibold text-emerald-400">4.1.0-PROD</span>
           </div>
           <div className="p-3 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] space-y-1">
             <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider">State Management</span>

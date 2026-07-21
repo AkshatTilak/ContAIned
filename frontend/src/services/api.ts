@@ -145,7 +145,7 @@ async function request<T>(
 
 export const api = {
   // System & Health
-  getSystemHealth: () => request<SystemHealthResponse>("/health"),
+  getSystemHealth: () => request<SystemHealthResponse>("/health", {}, 1, 5000),
   getModels: () => request<ModelRegistryResponse>("/api/agents/models"),
 
   // Agent Hub CRUD

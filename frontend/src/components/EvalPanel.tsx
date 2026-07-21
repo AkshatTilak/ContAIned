@@ -244,15 +244,15 @@ export const EvalPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 select-none">
+    <div className="space-y-8 select-none">
       {/* Top Banner & Agent Selector Control Bar */}
       <div
-        className="p-5 rounded-xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+        className="p-6 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-md"
         style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
       >
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-[var(--text-primary)] font-display">
+            <h2 className="text-lg font-extrabold text-[var(--text-primary)] font-display">
               EvalOps Agent Evaluation & Benchmark Center
             </h2>
           </div>
@@ -300,42 +300,38 @@ export const EvalPanel: React.FC = () => {
       </div>
 
       {errorMessage && (
-        <ErrorBanner
-          title="EvalOps Exception"
-          message={errorMessage}
-        />
+        <ErrorBanner title="EvalOps System Error" message={errorMessage} onRetry={() => setErrorMessage(null)} />
       )}
 
-      {/* Multi-Metric Chart Section */}
+      {/* Historical Metrics Chart */}
       <div
-        className="p-5 rounded-xl border space-y-4"
+        className="p-6 rounded-2xl border space-y-5 shadow-md"
         style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
       >
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider font-display">
-            Multi-Metric RAGAS & DeepEval Progression
+            Benchmark Quality Metrics Trend (DeepEval Framework)
           </h3>
-          <div className="flex items-center gap-2">
-            <StatusBadge variant="success" label="Faithfulness: 96%" size="sm" />
-            <StatusBadge variant="info" label="Relevance: 95%" size="sm" />
-          </div>
+          <span className="text-xs font-mono text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+            Avg Faithfulness: 96.2%
+          </span>
         </div>
 
-        <div className="h-64 w-full">
+        <div className="h-64 w-full pt-2">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sampleChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={sampleChartData}>
               <defs>
                 <linearGradient id="faithfulnessGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent-emerald)" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="var(--accent-emerald)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--accent-emerald)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--accent-emerald)" stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id="relevanceGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent-indigo)" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="var(--accent-indigo)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--accent-indigo)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--accent-indigo)" stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id="precisionGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent-cyan)" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="var(--accent-cyan)" stopOpacity={0} />
+                  <stop offset="5%" stopColor="var(--accent-cyan)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="var(--accent-cyan)" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
@@ -352,17 +348,17 @@ export const EvalPanel: React.FC = () => {
 
       {/* Eval Run History List */}
       <div
-        className="p-5 rounded-xl border space-y-3"
+        className="p-6 rounded-2xl border space-y-5 shadow-md"
         style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
       >
         <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider font-display">
           Historical Eval Runs & Benchmark Log
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {evalRuns.map((run) => (
             <div
               key={run.id}
-              className="p-3.5 rounded-lg border bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] space-y-2"
+              className="p-5 rounded-xl border bg-[var(--bg-surface-alt)] border-[var(--border-subtle)] space-y-3 shadow-sm"
             >
               <div className="flex items-center justify-between text-xs">
                 <span className="font-mono font-bold text-emerald-400">{run.id}</span>
@@ -382,7 +378,7 @@ export const EvalPanel: React.FC = () => {
 
       {/* Attributed Test Cases Table */}
       <div
-        className="p-5 rounded-xl border space-y-4"
+        className="p-6 rounded-2xl border space-y-5 shadow-md"
         style={{ backgroundColor: "var(--bg-surface)", borderColor: "var(--border-default)" }}
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -500,12 +496,12 @@ export const EvalPanel: React.FC = () => {
                 className="border-b text-[var(--text-muted)] font-display"
                 style={{ backgroundColor: "var(--bg-surface-alt)", borderColor: "var(--border-subtle)" }}
               >
-                <th className="p-3 font-medium w-8"></th>
-                <th className="p-3 font-medium">ID</th>
-                <th className="p-3 font-medium">Query Prompt</th>
-                <th className="p-3 font-medium">Expected Output</th>
-                <th className="p-3 font-medium">Result Badge</th>
-                <th className="p-3 font-medium text-right">Actions</th>
+                <th className="px-4 py-3.5 font-medium w-8"></th>
+                <th className="px-4 py-3.5 font-medium whitespace-nowrap">ID</th>
+                <th className="px-4 py-3.5 font-medium">Query Prompt</th>
+                <th className="px-4 py-3.5 font-medium">Expected Output</th>
+                <th className="px-4 py-3.5 font-medium whitespace-nowrap">Result Badge</th>
+                <th className="px-4 py-3.5 font-medium text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y text-[var(--text-primary)]" style={{ backgroundColor: "var(--bg-input)", borderColor: "var(--border-subtle)" }}>
@@ -519,19 +515,19 @@ export const EvalPanel: React.FC = () => {
                       onClick={() => setExpandedRowId(isExpanded ? null : tc.id)}
                       className="hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer"
                     >
-                      <td className="p-3 text-zinc-500">
+                      <td className="px-4 py-3.5 text-zinc-500">
                         {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                       </td>
-                      <td className="p-3 font-mono text-[var(--accent-emerald)] shrink-0">{tc.id}</td>
-                      <td className="p-3 max-w-xs truncate font-medium text-[var(--text-primary)]" title={tc.query}>
+                      <td className="px-4 py-3.5 font-mono text-[var(--accent-emerald)] whitespace-nowrap">{tc.id}</td>
+                      <td className="px-4 py-3.5 font-medium text-[var(--text-primary)]" style={{ maxWidth: '320px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.5' }} title={tc.query}>
                         {tc.query}
                       </td>
-                      <td className="p-3 max-w-xs truncate text-[var(--text-secondary)]" title={tc.expected_output}>
+                      <td className="px-4 py-3.5 text-[var(--text-secondary)]" style={{ maxWidth: '280px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.5' }} title={tc.expected_output}>
                         {tc.expected_output}
                       </td>
-                      <td className="p-3">
+                      <td className="px-4 py-3.5">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase font-mono ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase font-mono ${
                             status === "pass"
                               ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                               : status === "fail"
@@ -549,7 +545,7 @@ export const EvalPanel: React.FC = () => {
                           {status}
                         </span>
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="px-4 py-3.5 text-right">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

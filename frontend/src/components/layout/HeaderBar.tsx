@@ -16,7 +16,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ onOpenCommandPalette }) =>
   const isMac = typeof window !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
 
   return (
-    <header className="h-14 bg-[var(--bg-main)]/80 border-b border-[var(--border-subtle)] backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30 select-none">
+    <header className="h-16 bg-[var(--bg-main)]/80 border-b border-[var(--border-subtle)] backdrop-blur-md px-8 flex items-center justify-between sticky top-0 z-30 select-none">
       {/* Dynamic Breadcrumbs */}
       <Breadcrumbs />
 

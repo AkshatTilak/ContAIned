@@ -53,10 +53,10 @@
   /* Spacing Scale */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
-  --space-md: 0.75rem;
-  --space-lg: 1.0rem;
-  --space-xl: 1.5rem;
-  --space-2xl: 2.0rem;
+  --space-md: 0.875rem;
+  --space-lg: 1.125rem;
+  --space-xl: 1.625rem;
+  --space-2xl: 2.25rem;
 
   /* Border Radius */
   --radius-sm: 6px;
@@ -465,8 +465,8 @@ body {
 /* Connection grid styling */
 .connection-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-md);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-lg);
 }
 
 .connection-card {
@@ -584,4 +584,20 @@ body {
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.4);
 }
