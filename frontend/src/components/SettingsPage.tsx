@@ -61,7 +61,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto py-4">
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full">
       {/* Header Banner */}
       <div className="flex items-center justify-between bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 shadow-md">
         <div className="flex items-center gap-4">

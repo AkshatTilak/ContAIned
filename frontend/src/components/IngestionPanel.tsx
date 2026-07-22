@@ -156,7 +156,7 @@ export const IngestionPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto">
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full">
       {/* Top View Navigation Tabs */}
       <div className="flex items-center gap-3 border-b border-[var(--border-default)] pb-4">
         <button

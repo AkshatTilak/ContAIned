@@ -244,7 +244,7 @@ export const EvalPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 select-none">
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full select-none">
       {/* Top Banner & Agent Selector Control Bar */}
       <div
         className="p-6 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-md"

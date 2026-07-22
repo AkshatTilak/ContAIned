@@ -91,9 +91,9 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
     : Array.from({ length: 10 }, (_, i) => ({ idx: i, cpu: 10, mem: 20, vram: 15 }));
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto">
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full">
       {/* Header Bar with Refresh & Timestamp */}
-      <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)]">
+      <div className="flex items-center justify-between pb-4 border-b border-[var(--border-subtle)] mb-2">
         <div className="flex items-center gap-3">
           <h2 className="text-sm font-bold text-white uppercase tracking-wider font-display">
             Live Telemetry Overview
@@ -106,7 +106,7 @@ export const SystemMetrics: React.FC<SystemMetricsProps> = ({
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] text-zinc-300 transition-colors shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] text-zinc-300 transition-colors shadow-sm cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Refresh Telemetry</span>

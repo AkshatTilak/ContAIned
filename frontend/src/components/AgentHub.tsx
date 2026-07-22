@@ -144,7 +144,7 @@ export const AgentHub: React.FC = () => {
   );
 
   return (
-    <div className="space-y-10 max-w-7xl mx-auto">
+    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full">
       {/* Header Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[var(--border-subtle)]">
         <div>
