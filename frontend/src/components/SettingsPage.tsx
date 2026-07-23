@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Settings, Save, RotateCcw, CheckCircle, Shield, Globe, Server } from "lucide-react";
+import { Settings, Save, RotateCcw, CheckCircle, Shield, Globe, Server, Key, Terminal } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useToast } from "./shared";
 import { telemetryService } from "../services/telemetry";
 import { api } from "../services/api";
+import { APIKeysPanel } from "./settings/APIKeysPanel";
+import { APIDocsPanel } from "./settings/APIDocsPanel";
 
 export const SettingsPage: React.FC = () => {
   const gatewayUrl = useStore((state) => state.gatewayUrl);
@@ -15,6 +17,7 @@ export const SettingsPage: React.FC = () => {
   const [inputGatewayUrl, setInputGatewayUrl] = useState(gatewayUrl);
   const [inputApiKey, setInputApiKey] = useState(apiKey);
   const [isTesting, setIsTesting] = useState(false);
+  const [activeTab, setActiveTab] = useState<"general" | "keys" | "docs">("general");
 
   useEffect(() => {
     setInputGatewayUrl(gatewayUrl);
@@ -94,6 +97,47 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Settings Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-2">
+        <button
+          onClick={() => setActiveTab("general")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === "general"
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
+          }`}
+        >
+          <Globe className="w-4 h-4" />
+          <span>General Connection</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("keys")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === "keys"
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
+          }`}
+        >
+          <Key className="w-4 h-4" />
+          <span>OpenAI API Keys</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("docs")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === "docs"
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
+          }`}
+        >
+          <Terminal className="w-4 h-4" />
+          <span>External API Gateway Docs</span>
+        </button>
+      </div>
+
+      {/* Tab Contents */}
+      {activeTab === "general" && (
+        <>
 
       {/* Settings Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -190,6 +234,11 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+        </>
+      )}
+
+      {activeTab === "keys" && <APIKeysPanel />}
+      {activeTab === "docs" && <APIDocsPanel />}
     </div>
   );
 };

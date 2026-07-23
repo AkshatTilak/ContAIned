@@ -58,6 +58,7 @@ from gateway.api.telemetry import router as telemetry_router
 from gateway.api.agent_invoke import router as agent_invoke_router
 from gateway.api.playground import router as playground_router
 from gateway.api.mcp_manager import router as mcp_manager_router
+from gateway.api.api_keys import router as api_keys_router
 
 router.include_router(models_router)
 router.include_router(agent_crud_router)
@@ -65,6 +66,7 @@ router.include_router(telemetry_router)
 router.include_router(agent_invoke_router)
 router.include_router(playground_router)
 router.include_router(mcp_manager_router)
+router.include_router(api_keys_router)
 
 # Dynamically load project API routers
 # Make changes in .env ACTIVE_PROJECTS to register/deregister projects.

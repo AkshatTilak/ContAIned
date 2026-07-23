@@ -4,7 +4,10 @@ import logging
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from common.config.settings import get_settings
+from common.clients.postgres import get_async_db
 from fastapi import HTTPException, Request, status
+
+get_db = get_async_db
 
 logger = logging.getLogger("gateway.auth.dependencies")
 
