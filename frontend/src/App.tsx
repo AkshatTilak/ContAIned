@@ -35,6 +35,10 @@ const FALLBACK_SYSTEM_HEALTH: SystemHealthResponse = {
   },
 };
 
+import { LoginPage } from "./components/auth/LoginPage";
+import { AuthCallback } from "./components/auth/AuthCallback";
+import { AuthGuard } from "./components/auth/AuthGuard";
+
 export default function App() {
   const location = useLocation();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -82,91 +86,101 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  if (location.pathname === "/login") {
+    return <LoginPage />;
+  }
+
+  if (location.pathname === "/auth/callback") {
+    return <AuthCallback />;
+  }
+
   return (
     <ToastProvider>
-      <div className="flex h-screen bg-[#080809] text-[var(--text-primary)] font-sans antialiased overflow-hidden">
-        {/* Sidebar Navigation */}
-        <Sidebar />
+      <AuthGuard>
+        <div className="flex h-screen bg-[#080809] text-[var(--text-primary)] font-sans antialiased overflow-hidden">
+          {/* Sidebar Navigation */}
+          <Sidebar />
 
-        {/* Main Application Container */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Top Header Bar with Breadcrumbs & Actions */}
-          <HeaderBar onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
+          {/* Main Application Container */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Top Header Bar with Breadcrumbs & Actions */}
+            <HeaderBar onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
 
-          {/* Page Viewport */}
-          <main className="flex-1 overflow-y-auto p-6 lg:p-10 pb-16 custom-scrollbar flex flex-col min-h-0">
-            <ErrorBoundary>
-              <AnimatePresence mode="wait">
-                <Routes location={location} key={location.pathname}>
-                  <Route path="/" element={<Navigate to="/system" replace />} />
-                  <Route
-                    path="/system"
-                    element={
-                      <PageTransition>
-                        <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} onRefresh={fetchSystemData} />
-                      </PageTransition>
-                    }
-                  />
-                  <Route
-                    path="/ingestion"
-                    element={
-                      <PageTransition>
-                        <IngestionPanel />
-                      </PageTransition>
-                    }
-                  />
-                  <Route
-                    path="/workflow"
-                    element={
-                      <PageTransition>
-                        <WorkflowCanvas />
-                      </PageTransition>
-                    }
-                  />
-                  <Route
-                    path="/agents"
-                    element={
-                      <PageTransition>
-                        <AgentHub />
-                      </PageTransition>
-                    }
-                  />
-                  <Route
-                    path="/evalops"
-                    element={
-                      <PageTransition>
-                        <EvalPanel />
-                      </PageTransition>
-                    }
-                  />
-                  <Route
-                    path="/settings"
-                    element={
-                      <PageTransition>
-                        <SettingsPage />
-                      </PageTransition>
-                    }
-                  />
-                  <Route
-                    path="*"
-                    element={
-                      <PageTransition>
-                        <NotFound />
-                      </PageTransition>
-                    }
-                  />
-                </Routes>
-              </AnimatePresence>
-            </ErrorBoundary>
-          </main>
+            {/* Page Viewport */}
+            <main className="flex-1 overflow-y-auto p-6 lg:p-10 pb-16 custom-scrollbar flex flex-col min-h-0">
+              <ErrorBoundary>
+                <AnimatePresence mode="wait">
+                  <Routes location={location} key={location.pathname}>
+                    <Route path="/" element={<Navigate to="/system" replace />} />
+                    <Route
+                      path="/system"
+                      element={
+                        <PageTransition>
+                          <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} onRefresh={fetchSystemData} />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="/ingestion"
+                      element={
+                        <PageTransition>
+                          <IngestionPanel />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="/workflow"
+                      element={
+                        <PageTransition>
+                          <WorkflowCanvas />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="/agents"
+                      element={
+                        <PageTransition>
+                          <AgentHub />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="/evalops"
+                      element={
+                        <PageTransition>
+                          <EvalPanel />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="/settings"
+                      element={
+                        <PageTransition>
+                          <SettingsPage />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="*"
+                      element={
+                        <PageTransition>
+                          <NotFound />
+                        </PageTransition>
+                      }
+                    />
+                  </Routes>
+                </AnimatePresence>
+              </ErrorBoundary>
+            </main>
+          </div>
+
+          {/* Global Command Palette Dialog */}
+          <CommandPalette
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+          />
         </div>
-
-        {/* Global Command Palette Dialog */}
-        <CommandPalette
-          isOpen={isCommandPaletteOpen}
-          onClose={() => setIsCommandPaletteOpen(false)}
-        />
-      </div>
+      </AuthGuard>
     </ToastProvider>
   );
 }

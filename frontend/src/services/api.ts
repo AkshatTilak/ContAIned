@@ -59,8 +59,10 @@ async function request<T>(
   const config = getClientConfig();
   const url = `${config.baseUrl}${endpoint}`;
 
+  const token = localStorage.getItem("contained_auth_token");
   const headers: Record<string, string> = {
     "X-API-Key": config.apiKey,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string> || {}),
   };
 
@@ -227,4 +229,18 @@ export const api = {
     }),
   getEvalRuns: (agentId: string) => request<EvalRunResponse[]>(`/api/evalops/runs/${agentId}`),
   getEvalTestCases: (agentId: string) => request<TestCaseResponse[]>(`/api/evalops/test-cases/${agentId}`),
+
+  // Auth & RBAC
+  getMe: () => request<any>("/auth/me"),
+  logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
+  listUsers: () => request<any[]>("/auth/users"),
+  updateUserRole: (userId: string, role: string) =>
+    request<any>(`/auth/users/${userId}/role`, {
+      method: "PUT",
+      body: JSON.stringify({ role }),
+    }),
+  deactivateUser: (userId: string) =>
+    request<{ status: string; id: string }>(`/auth/users/${userId}`, {
+      method: "DELETE",
+    }),
 };

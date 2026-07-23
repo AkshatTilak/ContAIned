@@ -135,6 +135,20 @@ class ModelOverrideSettings(BaseSettings):
     COMPLETION_MODEL: str = Field(default="gemini", alias="COMPLETION_MODEL")
 
 
+class AuthSettings(BaseSettings):
+    """Authentication and RBAC settings."""
+
+    GOOGLE_CLIENT_ID: Optional[str] = Field(default=None, alias="GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: Optional[str] = Field(default=None, alias="GOOGLE_CLIENT_SECRET")
+    GITHUB_CLIENT_ID: Optional[str] = Field(default=None, alias="GITHUB_CLIENT_ID")
+    GITHUB_CLIENT_SECRET: Optional[str] = Field(default=None, alias="GITHUB_CLIENT_SECRET")
+    JWT_SECRET_KEY: str = Field(
+        default="contained-secret-key-change-in-production", alias="JWT_SECRET_KEY"
+    )
+    JWT_ALGORITHM: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    JWT_EXPIRY_HOURS: int = Field(default=24, alias="JWT_EXPIRY_HOURS")
+
+
 class Settings(
     AppSettings,
     DatabaseSettings,
@@ -144,6 +158,7 @@ class Settings(
     RAGSettings,
     ProjectSettings,
     ModelOverrideSettings,
+    AuthSettings,
 ):
     """Combined settings for the entire platform.
 

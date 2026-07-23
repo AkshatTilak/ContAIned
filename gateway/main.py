@@ -148,8 +148,17 @@ try:
 except Exception as e:
     logger.warning("Could not initialize OpenTelemetry: %s", e)
 
+from gateway.auth.middleware import AuthMiddleware
+from gateway.auth.providers import init_oauth
+from gateway.auth.routes import router as auth_router
+
+init_oauth()
+
+app.add_middleware(AuthMiddleware)
+
 # Routes
 app.include_router(health_router)
+app.include_router(auth_router)
 app.include_router(api_router)
 
 logger.info("Gateway app created — active projects: %s", settings.ACTIVE_PROJECTS)
