@@ -224,10 +224,52 @@ export const api = {
 
   // EvalOps & Synthetic Generation
   getEvalDashboard: () => request<EvalDashboardResponse>("/api/evalops/dashboard"),
+  getDashboardStats: (agentId?: string) =>
+    request<any>(`/api/evalops/dashboard/stats${agentId ? `?agent_id=${agentId}` : ""}`),
+  getDashboardTrends: (agentId?: string, days: number = 30) =>
+    request<any>(`/api/evalops/dashboard/trends?days=${days}${agentId ? `&agent_id=${agentId}` : ""}`),
+  getDashboardComparison: () => request<any>("/api/evalops/dashboard/comparison"),
+
+  // EvalOps Test Suite & Case Management (S5-01g)
+  listSuites: (agentId?: string) =>
+    request<any>(`/api/evalops/suites${agentId ? `?agent_id=${agentId}` : ""}`),
+  getSuite: (suiteId: string) => request<any>(`/api/evalops/suites/${suiteId}`),
+  createSuite: (data: { agent_id: string; name: string; description?: string }) =>
+    request<any>("/api/evalops/suites", { method: "POST", body: JSON.stringify(data) }),
+  updateSuite: (suiteId: string, data: { name?: string; description?: string }) =>
+    request<any>(`/api/evalops/suites/${suiteId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteSuite: (suiteId: string) => request<any>(`/api/evalops/suites/${suiteId}`, { method: "DELETE" }),
+  cloneSuite: (suiteId: string, newName?: string) =>
+    request<any>(`/api/evalops/suites/${suiteId}/clone${newName ? `?new_name=${encodeURIComponent(newName)}` : ""}`, {
+      method: "POST",
+    }),
+
+  addTestCase: (suiteId: string, data: { input_query: string; expected_output?: string; expected_context?: string }) =>
+    request<any>(`/api/evalops/suites/${suiteId}/cases`, { method: "POST", body: JSON.stringify(data) }),
+  listTestCases: (suiteId: string) => request<any>(`/api/evalops/suites/${suiteId}/cases`),
+  updateTestCase: (caseId: string, data: { input_query?: string; expected_output?: string; expected_context?: string }) =>
+    request<any>(`/api/evalops/cases/${caseId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteTestCase: (caseId: string) => request<any>(`/api/evalops/cases/${caseId}`, { method: "DELETE" }),
+  importSuiteCasesJson: (suiteId: string, jsonPayload: any[]) =>
+    request<any>(`/api/evalops/suites/${suiteId}/import`, { method: "POST", body: JSON.stringify(jsonPayload) }),
+  exportSuiteCases: (suiteId: string) => request<any>(`/api/evalops/suites/${suiteId}/export`),
+
+  // Enhanced Eval Run Trigger & Metric Drill-Down (S5-01h)
   generateSyntheticCases: (agentId: string, count: number = 10) =>
     request<{ status: string; cases: TestCaseResponse[] }>("/api/evalops/generate", {
       method: "POST",
       body: JSON.stringify({ agent_id: agentId, count }),
+    }),
+  triggerEvalRunEnhanced: (data: {
+    agent_id: string;
+    suite_id?: string;
+    framework?: string;
+    metrics?: string[];
+    thresholds?: Record<string, number>;
+  }) =>
+    request<any>("/api/evalops/run", {
+      method: "POST",
+      body: JSON.stringify(data),
     }),
   triggerEvalRun: (agentId: string, suiteId?: string) =>
     request<EvalRunResponse>("/api/evalops/run", {
@@ -235,6 +277,7 @@ export const api = {
       body: JSON.stringify({ agent_id: agentId, suite_id: suiteId }),
     }),
   getEvalRuns: (agentId: string) => request<EvalRunResponse[]>(`/api/evalops/runs/${agentId}`),
+  getRunMetrics: (runId: string) => request<any>(`/api/evalops/runs/detail/${runId}/metrics`),
   getEvalTestCases: (agentId: string) => request<TestCaseResponse[]>(`/api/evalops/test-cases/${agentId}`),
 
   // Auth & RBAC
