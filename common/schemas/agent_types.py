@@ -7,7 +7,7 @@ and the synthesis layer, ensuring structured handoff.
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskComplexity(str, Enum):
@@ -90,6 +90,7 @@ class AgentUpdate(BaseModel):
 
 class AgentResponse(BaseModel):
     """Schema for Agent Definition API responses."""
+    model_config = ConfigDict(from_attributes=True)
 
     id: str
     name: str
@@ -103,7 +104,4 @@ class AgentResponse(BaseModel):
     endpoint_slug: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 

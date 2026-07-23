@@ -111,6 +111,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     except Exception as e:
         logger.error("Failed to seed default API key: %s", e)
 
+    # Auto-register SyntraFlow internal MCP server (S5-05d)
+    try:
+        from common.clients.postgres import get_sessionmaker
+        from gateway.api.mcp_manager import register_mcp_server
+        session_factory = get_sessionmaker()
+        async with session_factory() as session:
+            syntraflow_url = getattr(settings, "MCP_SYNTRAFLOW_URL", "http://localhost:8012")
+            await register_mcp_server(
+                session=session,
+                name="SyntraFlow (Internal)",
+                url=syntraflow_url,
+                transport="sse",
+                auth_type="none",
+                is_internal=True
+            )
+            logger.info("Auto-registered SyntraFlow internal MCP server.")
+    except Exception as e:
+        logger.error("Failed to auto-register internal SyntraFlow MCP server: %s", e)
+
     for project in settings.ACTIVE_PROJECTS:
         module_path = f"projects.{project}.setup"
         try:

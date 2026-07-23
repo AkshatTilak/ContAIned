@@ -12,8 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from gateway.auth.dependencies import get_current_user, require_role
 from gateway.auth.providers import oauth
-from gateway.auth.utils import create_access_token, hash_token
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,8 +23,9 @@ logger = logging.getLogger("gateway.auth.routes")
 class UserRoleUpdate(BaseModel):
     role: str
 
-
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     email: str
     display_name: Optional[str] = None
@@ -35,9 +35,6 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     last_login: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 
 @router.get("/login/{provider}")

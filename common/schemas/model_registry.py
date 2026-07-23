@@ -6,7 +6,7 @@ Defines the structure and constraints of registry records.
 from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelRole(str, Enum):
@@ -50,8 +50,4 @@ class ModelSpec(BaseModel):
     metadata_json: Optional[dict[str, Any]] = Field(default_factory=dict, description="Additional custom metadata")
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
+    model_config = ConfigDict(from_attributes=True)

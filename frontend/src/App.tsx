@@ -11,6 +11,7 @@ import { WorkflowCanvas } from "./components/WorkflowCanvas";
 import { AgentHub } from "./components/AgentHub";
 import { EvalPanel } from "./components/EvalPanel";
 import { PlaygroundPage } from "./components/PlaygroundPage";
+import { MCPHubPage } from "./components/MCPHubPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { NotFound } from "./components/NotFound";
 import { ErrorBoundary, ToastProvider } from "./components/shared";
@@ -159,6 +160,14 @@ export default function App() {
                       element={
                         <PageTransition>
                           <PlaygroundPage />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="/mcp"
+                      element={
+                        <PageTransition>
+                          <MCPHubPage />
                         </PageTransition>
                       }
                     />

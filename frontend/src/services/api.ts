@@ -20,6 +20,11 @@ import type {
   EvalDashboardResponse,
   EvalRunResponse,
   TestCaseResponse,
+  MCPServer,
+  MCPServerCreatePayload,
+  MCPServerUpdatePayload,
+  MCPTool,
+  MCPTestResult,
 } from "../types/api";
 
 const STORAGE_KEY = "contained-settings";
@@ -334,5 +339,24 @@ export const api = {
   updatePlaygroundSession: (id: string, data: any) =>
     request<any>(`/api/playground/sessions/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deletePlaygroundSession: (id: string) => request<any>(`/api/playground/sessions/${id}`, { method: "DELETE" }),
+
+  // --- MCP Integration Hub APIs ---
+  getMCPServers: () => request<MCPServer[]>("/api/mcp/servers"),
+  createMCPServer: (payload: MCPServerCreatePayload) =>
+    request<MCPServer>("/api/mcp/servers", { method: "POST", body: JSON.stringify(payload) }),
+  updateMCPServer: (id: string, payload: MCPServerUpdatePayload) =>
+    request<MCPServer>(`/api/mcp/servers/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteMCPServer: (id: string) => request<void>(`/api/mcp/servers/${id}`, { method: "DELETE" }),
+  checkMCPServerHealth: (id: string) => request<any>(`/api/mcp/servers/${id}/health`, { method: "POST" }),
+  syncServerTools: (id: string) => request<MCPTool[]>(`/api/mcp/servers/${id}/tools`),
+  getAllMCPTools: () => request<MCPTool[]>("/api/mcp/tools"),
+  toggleMCPTool: (id: string) => request<any>(`/api/mcp/tools/${id}/toggle`, { method: "PUT" }),
+  invokeMCPTool: (payload: { server_id: string; tool_name: string; parameters?: Record<string, any> }) =>
+    request<MCPTestResult>("/api/mcp/tools/invoke", { method: "POST", body: JSON.stringify(payload) }),
+  testMCPTool: (serverId: string, toolName: string, parameters: Record<string, any>) =>
+    request<MCPTestResult>(`/api/mcp/servers/${serverId}/tools/${toolName}/test`, {
+      method: "POST",
+      body: JSON.stringify({ parameters }),
+    }),
 };
 

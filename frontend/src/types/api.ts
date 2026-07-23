@@ -220,3 +220,53 @@ export interface PlaygroundChatResponse {
   status: string;
 }
 
+export interface MCPServer {
+  id: string;
+  name: string;
+  url: string;
+  transport: "sse" | "stdio" | "streamable_http";
+  auth_type: "none" | "bearer" | "api_key";
+  is_internal: boolean;
+  is_active: boolean;
+  health_status: "healthy" | "unhealthy" | "unknown";
+  last_health_check?: string;
+  created_at: string;
+  updated_at: string;
+  tool_count: number;
+}
+
+export interface MCPServerCreatePayload {
+  name: string;
+  url: string;
+  transport?: string;
+  auth_type?: string;
+  auth_token?: string;
+}
+
+export interface MCPServerUpdatePayload {
+  name?: string;
+  url?: string;
+  transport?: string;
+  auth_type?: string;
+  auth_token?: string;
+  is_active?: boolean;
+}
+
+export interface MCPTool {
+  id: string;
+  server_id: string;
+  server_name: string;
+  tool_name: string;
+  description?: string;
+  input_schema_json?: Record<string, any>;
+  is_enabled: boolean;
+  last_synced: string;
+}
+
+export interface MCPTestResult {
+  status: "success" | "error";
+  result?: any;
+  error?: any;
+  execution_time_ms: number;
+}
+
