@@ -7,6 +7,8 @@ export interface Agent {
   tools: string[];
   temperature: number;
   max_tokens: number;
+  is_active?: boolean;
+  endpoint_slug?: string;
   created_at?: string;
   updated_at?: string;
 }

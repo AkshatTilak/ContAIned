@@ -63,7 +63,34 @@ async def get_agent(agent_id: str, db: AsyncSession = Depends(get_async_db)) -> 
     return AgentResponse.model_validate(agent)
 
 
+import re
 from common.clients.redis import publish_event
+
+
+def slugify(text: str) -> str:
+    """Convert text into a URL-friendly slug."""
+    text = text.lower()
+    text = re.sub(r"[^\w\s-]", "", text)
+    text = re.sub(r"[\s_-]+", "-", text)
+    return text.strip("-") or "agent"
+
+
+async def generate_unique_slug(
+    db: AsyncSession, base_name: str, current_agent_id: Optional[str] = None
+) -> str:
+    """Generate a unique endpoint_slug from a base name."""
+    base_slug = slugify(base_name)
+    slug = base_slug
+    counter = 1
+    while True:
+        stmt = select(AgentDefinition).where(AgentDefinition.endpoint_slug == slug)
+        if current_agent_id:
+            stmt = stmt.where(AgentDefinition.id != current_agent_id)
+        result = await db.execute(stmt)
+        if not result.scalar_one_or_none():
+            return slug
+        counter += 1
+        slug = f"{base_slug}-{counter}"
 
 
 @router.post("", response_model=AgentResponse, status_code=status.HTTP_201_CREATED)
@@ -74,6 +101,11 @@ async def create_agent(
     agent_id = str(uuid.uuid4())
     now = datetime.utcnow()
 
+    # Generate unique endpoint_slug if not explicitly provided
+    endpoint_slug = payload.endpoint_slug
+    if not endpoint_slug:
+        endpoint_slug = await generate_unique_slug(db, payload.name)
+
     new_agent = AgentDefinition(
         id=agent_id,
         name=payload.name,
@@ -83,6 +115,8 @@ async def create_agent(
         tools=payload.tools,
         temperature=payload.temperature,
         max_tokens=payload.max_tokens,
+        is_active=payload.is_active if payload.is_active is not None else True,
+        endpoint_slug=endpoint_slug,
         created_at=now,
         updated_at=now,
     )
@@ -90,7 +124,7 @@ async def create_agent(
     try:
         await db.commit()
         await db.refresh(new_agent)
-        logger.info("Created agent '%s' (ID: %s)", new_agent.name, agent_id)
+        logger.info("Created agent '%s' (ID: %s, Slug: %s)", new_agent.name, agent_id, endpoint_slug)
         await publish_event("agent-config-updates", {"action": "created", "agent_id": agent_id})
         return AgentResponse.model_validate(new_agent)
     except Exception as e:
@@ -117,6 +151,12 @@ async def update_agent(
         )
 
     update_data = payload.model_dump(exclude_unset=True)
+
+    if "name" in update_data and "endpoint_slug" not in update_data:
+        update_data["endpoint_slug"] = await generate_unique_slug(db, update_data["name"], agent_id)
+    elif "endpoint_slug" in update_data and update_data["endpoint_slug"]:
+        update_data["endpoint_slug"] = await generate_unique_slug(db, update_data["endpoint_slug"], agent_id)
+
     for field, value in update_data.items():
         setattr(agent, field, value)
 
@@ -134,6 +174,38 @@ async def update_agent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update agent definition: {str(e)}",
+        )
+
+
+@router.patch("/{agent_id}/toggle", response_model=AgentResponse)
+async def toggle_agent_active(
+    agent_id: str, db: AsyncSession = Depends(get_async_db)
+) -> AgentResponse:
+    """Toggle activation state (is_active) of an agent."""
+    stmt = select(AgentDefinition).where(AgentDefinition.id == agent_id)
+    result = await db.execute(stmt)
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Agent with ID '{agent_id}' not found.",
+        )
+
+    agent.is_active = not bool(agent.is_active)
+    agent.updated_at = datetime.utcnow()
+
+    try:
+        await db.commit()
+        await db.refresh(agent)
+        logger.info("Toggled agent '%s' (ID: %s) is_active to %s", agent.name, agent_id, agent.is_active)
+        await publish_event("agent-config-updates", {"action": "toggled", "agent_id": agent_id, "is_active": agent.is_active})
+        return AgentResponse.model_validate(agent)
+    except Exception as e:
+        await db.rollback()
+        logger.error("Failed to toggle agent active state %s: %s", agent_id, e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to toggle agent active state: {str(e)}",
         )
 
 

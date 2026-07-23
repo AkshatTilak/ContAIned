@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Cpu, Trash2, Edit2, Check, X, Users, Search, Activity, Clock } from "lucide-react";
+import { Plus, Cpu, Trash2, Edit2, Check, X, Users, Search, Activity, Clock, Play, Power, Terminal, Zap } from "lucide-react";
 import { api } from "../services/api";
 import { useStore, type Agent } from "../store/useStore";
 import { LoadingSkeleton, EmptyState, ConfirmModal, StatusBadge, ErrorBanner, useToast } from "./shared";
@@ -20,6 +20,16 @@ export const AgentHub: React.FC = () => {
   // Deletion confirm state
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteTargetName, setDeleteTargetName] = useState<string>("");
+
+  // Stats state per agent
+  const [agentStats, setAgentStats] = useState<Record<string, any>>({});
+
+  // Invocation Modal / Drawer state
+  const [showInvokeModal, setShowInvokeModal] = useState(false);
+  const [invokingAgent, setInvokingAgent] = useState<Agent | null>(null);
+  const [invokePrompt, setInvokePrompt] = useState("");
+  const [isInvoking, setIsInvoking] = useState(false);
+  const [invokeResult, setInvokeResult] = useState<any | null>(null);
 
   // Form states
   const [name, setName] = useState("");
@@ -53,11 +63,37 @@ export const AgentHub: React.FC = () => {
     try {
       const data = await api.getAgents();
       setAgents(data);
+      // Fetch stats for all loaded agents asynchronously
+      data.forEach((agent) => loadAgentStats(agent.id));
     } catch (err: any) {
       console.error("Failed to load agents:", err);
       setErrorMessage(err.message || "Failed to communicate with Agent API server.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadAgentStats = async (agentId: string) => {
+    try {
+      const stats = await api.getAgentStats(agentId);
+      setAgentStats((prev) => ({ ...prev, [agentId]: stats }));
+    } catch {
+      // Ignore background stats load error
+    }
+  };
+
+  const handleToggleActive = async (agent: Agent, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const updated = await api.toggleAgentActive(agent.id);
+      useStore.getState().updateAgentInStore(agent.id, { is_active: updated.is_active });
+      toast.success(
+        `Agent ${updated.is_active ? "Activated" : "Deactivated"}`,
+        `"${agent.name}" is now ${updated.is_active ? "active and ready for routing" : "inactive"}.`
+      );
+      fetchAgents();
+    } catch (err: any) {
+      toast.error("Toggle Failed", err.message || "Could not toggle agent state.");
     }
   };
 
@@ -81,6 +117,37 @@ export const AgentHub: React.FC = () => {
     setSelectedTools(agent.tools || []);
     setTemperature(agent.temperature || 0.2);
     setShowModal(true);
+  };
+
+  const handleOpenInvoke = (agent: Agent) => {
+    setInvokingAgent(agent);
+    setInvokePrompt("");
+    setInvokeResult(null);
+    setShowInvokeModal(true);
+  };
+
+  const handleExecuteInvoke = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!invokingAgent || !invokePrompt.trim()) return;
+
+    setIsInvoking(true);
+    setInvokeResult(null);
+
+    try {
+      const targetSlugOrId = invokingAgent.endpoint_slug || invokingAgent.id;
+      const res = await api.invokeAgent(targetSlugOrId, invokePrompt);
+      setInvokeResult(res);
+      toast.success("Agent Invocation Complete", `Completed in ${res.latency_ms}ms.`);
+      loadAgentStats(invokingAgent.id);
+    } catch (err: any) {
+      setInvokeResult({
+        error: true,
+        message: err.message || "Failed to execute agent invocation.",
+      });
+      toast.error("Invocation Failed", err.message || "Execution error.");
+    } finally {
+      setIsInvoking(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -140,7 +207,8 @@ export const AgentHub: React.FC = () => {
     (a) =>
       a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.model_id.toLowerCase().includes(searchQuery.toLowerCase())
+      a.model_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (a.endpoint_slug && a.endpoint_slug.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -157,7 +225,7 @@ export const AgentHub: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Manage custom agent personalities, tool authorizations, and system prompts.
+            Manage custom agent personalities, endpoint slugs, tool authorizations, and activation states.
           </p>
         </div>
 
@@ -169,7 +237,7 @@ export const AgentHub: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter by name, role, model..."
+              placeholder="Filter by name, slug, role..."
               className="pl-9 pr-4 py-2 text-xs rounded-xl bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-indigo-500 w-64 shadow-inner"
             />
           </div>
@@ -214,31 +282,60 @@ export const AgentHub: React.FC = () => {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredAgents.map((agent, index) => {
-            // Mock Analytics Preview per card
-            const mockQueries = (index + 1) * 142 + 89;
-            const mockLatency = (120 + index * 35) + "ms";
+          {filteredAgents.map((agent) => {
+            const stats = agentStats[agent.id];
+            const invocations = stats ? stats.total_invocations : 0;
+            const avgLatency = stats && stats.avg_latency_ms ? `${stats.avg_latency_ms}ms` : "0ms";
+            const isActive = agent.is_active !== false;
 
             return (
               <div
                 key={agent.id}
-                className="p-8 rounded-2xl border flex flex-col justify-between space-y-6 transition-all duration-200 hover:scale-[1.01] hover:border-indigo-500/50 group relative shadow-2xl bg-[#0e0e12]"
+                className={`p-6 rounded-2xl border flex flex-col justify-between space-y-5 transition-all duration-200 hover:scale-[1.01] hover:border-indigo-500/50 group relative shadow-2xl ${
+                  isActive ? "bg-[#0e0e12]" : "bg-[#0b0b0e] opacity-75"
+                }`}
                 style={{
-                  borderColor: "var(--border-default)",
+                  borderColor: isActive ? "var(--border-default)" : "rgba(255, 255, 255, 0.05)",
                 }}
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-sm font-bold text-[var(--text-primary)] group-hover:text-indigo-300 transition-colors">
-                        {agent.name}
-                      </h3>
-                      <div className="flex items-center gap-1.5 mt-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-[var(--text-primary)] group-hover:text-indigo-300 transition-colors">
+                          {agent.name}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                         <StatusBadge variant="info" label={agent.role} size="sm" />
-                        <StatusBadge variant="success" label="Active" size="sm" />
+                        <button
+                          onClick={(e) => handleToggleActive(agent, e)}
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-all ${
+                            isActive
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                              : "bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20"
+                          }`}
+                          title="Click to toggle agent active state"
+                        >
+                          <Power className="w-2.5 h-2.5" />
+                          {isActive ? "Active" : "Inactive"}
+                        </button>
                       </div>
                     </div>
+
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleOpenInvoke(agent)}
+                        className={`p-1.5 rounded-md transition-colors ${
+                          isActive
+                            ? "text-emerald-400 hover:bg-emerald-500/15"
+                            : "text-zinc-600 cursor-not-allowed opacity-50"
+                        }`}
+                        title={isActive ? "Invoke / Test Agent" : "Agent is inactive"}
+                        disabled={!isActive}
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                      </button>
                       <button
                         onClick={() => handleOpenEdit(agent)}
                         className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] rounded-md transition-colors"
@@ -255,6 +352,13 @@ export const AgentHub: React.FC = () => {
                       </button>
                     </div>
                   </div>
+
+                  {agent.endpoint_slug && (
+                    <div className="text-[10px] font-mono text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20 flex items-center gap-1">
+                      <Terminal className="w-3 h-3 shrink-0" />
+                      <span className="truncate">slug: /{agent.endpoint_slug}</span>
+                    </div>
+                  )}
 
                   <p
                     className="text-xs line-clamp-2 p-2.5 rounded-lg border font-mono leading-relaxed"
@@ -282,7 +386,7 @@ export const AgentHub: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Card Footer with Analytics Preview */}
+                {/* Card Footer with Live Analytics */}
                 <div
                   className="text-[10px] pt-3 border-t flex items-center justify-between font-mono"
                   style={{
@@ -291,13 +395,13 @@ export const AgentHub: React.FC = () => {
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1" title="Total Executed Queries">
+                    <span className="flex items-center gap-1" title="Total Executed Invocations">
                       <Activity className="w-3 h-3 text-emerald-400" />
-                      {mockQueries} queries
+                      {invocations} runs
                     </span>
                     <span className="flex items-center gap-1" title="Average Response Latency">
                       <Clock className="w-3 h-3 text-indigo-400" />
-                      {mockLatency}
+                      {avgLatency}
                     </span>
                   </div>
                   <span>Temp: {agent.temperature}</span>
@@ -319,6 +423,111 @@ export const AgentHub: React.FC = () => {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTargetId(null)}
       />
+
+      {/* Invoke Agent Modal / Drawer */}
+      {showInvokeModal && invokingAgent && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-6">
+          <div
+            className="w-full max-w-xl border rounded-2xl shadow-2xl flex flex-col"
+            style={{
+              backgroundColor: "var(--bg-surface)",
+              borderColor: "var(--border-default)",
+              maxHeight: "calc(100vh - 3rem)",
+            }}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border-subtle)] shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                  <Play className="w-4 h-4 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
+                    Invoke: {invokingAgent.name}
+                  </h3>
+                  <p className="text-[11px] font-mono text-[var(--text-secondary)]">
+                    Target: /{invokingAgent.endpoint_slug || invokingAgent.id}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowInvokeModal(false)}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded-lg hover:bg-[var(--bg-elevated)] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleExecuteInvoke} className="p-5 space-y-4 text-xs overflow-y-auto custom-scrollbar">
+              <div>
+                <label className="text-[var(--text-secondary)] font-medium block mb-1.5">
+                  User Prompt / Query
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={invokePrompt}
+                  onChange={(e) => setInvokePrompt(e.target.value)}
+                  placeholder="Enter prompt to execute against this agent definition..."
+                  className="w-full px-3 py-2.5 rounded-xl border text-[var(--text-primary)] focus:outline-none focus:border-indigo-500 font-mono resize-none"
+                  style={{
+                    backgroundColor: "var(--bg-input)",
+                    borderColor: "var(--border-default)",
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isInvoking || !invokePrompt.trim()}
+                className="w-full py-2.5 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--accent-indigo)",
+                }}
+              >
+                {isInvoking ? (
+                  <>
+                    <Zap className="w-4 h-4 animate-spin text-amber-300" /> Executing Agent Pipeline...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5 fill-current" /> Execute Agent Endpoint
+                  </>
+                )}
+              </button>
+
+              {/* Response Panel */}
+              {invokeResult && (
+                <div className="mt-4 pt-4 border-t border-[var(--border-subtle)] space-y-3">
+                  {invokeResult.error ? (
+                    <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300">
+                      <p className="font-bold text-xs">Invocation Error</p>
+                      <p className="text-[11px] mt-1 font-mono">{invokeResult.message}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-[11px] font-mono text-[var(--text-secondary)] bg-[var(--bg-input)] p-2.5 rounded-lg border border-[var(--border-subtle)]">
+                        <span>Model: <strong className="text-white">{invokeResult.model_used}</strong></span>
+                        <span>Latency: <strong className="text-indigo-400">{invokeResult.latency_ms}ms</strong></span>
+                        <span>Tokens: <strong className="text-emerald-400">{invokeResult.input_tokens + invokeResult.output_tokens}</strong></span>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
+                          Agent Response Output
+                        </span>
+                        <div className="text-xs text-[var(--text-primary)] font-mono whitespace-pre-wrap leading-relaxed mt-1">
+                          {invokeResult.response}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Edit/Create Agent Modal */}
       {showModal && (
@@ -444,7 +653,6 @@ export const AgentHub: React.FC = () => {
                   className="w-full accent-[var(--accent-indigo)]"
                 />
               </div>
-
             </form>
 
             <div className="flex items-center justify-end gap-3 p-6 pt-4 border-t border-[var(--border-subtle)] shrink-0">
@@ -474,4 +682,3 @@ export const AgentHub: React.FC = () => {
 };
 
 export default AgentHub;
-

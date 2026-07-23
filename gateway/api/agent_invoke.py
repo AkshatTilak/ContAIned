@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from common.clients.inference import completion_with_fallback
+from common.clients.litellm import completion_with_fallback
 from common.clients.postgres import get_async_db
 from common.models.database import AgentDefinition, AgentInvocationLog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -134,14 +134,22 @@ async def invoke_agent(
     """Invoke a specified agent by ID."""
     start_time = time.time()
 
-    stmt = select(AgentDefinition).where(AgentDefinition.id == agent_id)
+    stmt = select(AgentDefinition).where(
+        (AgentDefinition.id == agent_id) | (AgentDefinition.endpoint_slug == agent_id)
+    )
     result = await db.execute(stmt)
     agent = result.scalar_one_or_none()
 
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent with ID '{agent_id}' not found.",
+            detail=f"Agent with ID or slug '{agent_id}' not found.",
+        )
+
+    if agent.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Agent '{agent.name}' is currently inactive and cannot be invoked.",
         )
 
     # Prepare message chain
@@ -293,7 +301,7 @@ async def route_request(
 
     # 3. Round Robin across active agents
     if strategy == "round_robin":
-        stmt = select(AgentDefinition).order_by(AgentDefinition.created_at.asc())
+        stmt = select(AgentDefinition).where(AgentDefinition.is_active == True).order_by(AgentDefinition.created_at.asc())
         res = await db.execute(stmt)
         agents = res.scalars().all()
 
@@ -321,7 +329,7 @@ async def route_request(
     # 4. Auto classification fallback -> Default Completion Model
     default_model = "gemini/gemini-3.5-flash"
 
-    stmt = select(AgentDefinition)
+    stmt = select(AgentDefinition).where(AgentDefinition.is_active == True)
     res = await db.execute(stmt)
     agents = res.scalars().all()
 

@@ -70,6 +70,8 @@ class AgentCreate(BaseModel):
     tools: list[str] = Field(default_factory=list, description="Enabled tool names")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
     max_tokens: int = Field(default=2048, gt=0, description="Max response tokens")
+    is_active: bool = Field(default=True, description="Activation status of the agent")
+    endpoint_slug: Optional[str] = Field(default=None, description="Friendly URL slug for agent")
 
 
 class AgentUpdate(BaseModel):
@@ -82,6 +84,8 @@ class AgentUpdate(BaseModel):
     tools: Optional[list[str]] = Field(default=None)
     temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     max_tokens: Optional[int] = Field(default=None, gt=0)
+    is_active: Optional[bool] = Field(default=None)
+    endpoint_slug: Optional[str] = Field(default=None)
 
 
 class AgentResponse(BaseModel):
@@ -95,6 +99,8 @@ class AgentResponse(BaseModel):
     tools: list[str]
     temperature: float
     max_tokens: int
+    is_active: bool = True
+    endpoint_slug: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

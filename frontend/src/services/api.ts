@@ -150,7 +150,7 @@ export const api = {
   getSystemHealth: () => request<SystemHealthResponse>("/health", {}, 1, 5000),
   getModels: () => request<ModelRegistryResponse>("/api/agents/models"),
 
-  // Agent Hub CRUD
+  // Agent Hub CRUD & Invocation
   getAgents: () => request<AgentResponse[]>("/api/agents"),
   getAgent: (id: string) => request<AgentResponse>(`/api/agents/${id}`),
   createAgent: (data: AgentCreatePayload) =>
@@ -158,6 +158,13 @@ export const api = {
   updateAgent: (id: string, data: AgentUpdatePayload) =>
     request<AgentResponse>(`/api/agents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteAgent: (id: string) => request<{ status: string; message: string }>(`/api/agents/${id}`, { method: "DELETE" }),
+  toggleAgentActive: (id: string) => request<AgentResponse>(`/api/agents/${id}/toggle`, { method: "PATCH" }),
+  getAgentStats: (id: string) => request<any>(`/api/agents/${id}/stats`),
+  invokeAgent: (idOrSlug: string, prompt: string, sessionId?: string) =>
+    request<any>(`/api/agents/${idOrSlug}/invoke`, {
+      method: "POST",
+      body: JSON.stringify({ prompt, session_id: sessionId }),
+    }),
 
   // Visual Workflows
   getWorkflows: () => request<WorkflowResponse[]>("/api/guardroute/workflows"),
