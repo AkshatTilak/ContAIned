@@ -8,7 +8,6 @@ import {
   useEdgesState,
   addEdge,
   type NodeTypes,
-  type Node,
   type Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -23,6 +22,13 @@ import {
   Layers,
   FolderOpen,
   Sparkles,
+  GitFork,
+  Send,
+  Network,
+  TestTube,
+  Wrench,
+  Route,
+  Sliders,
 } from "lucide-react";
 
 import { useStore } from "../store/useStore";
@@ -31,6 +37,14 @@ import { ClassifierNode } from "./nodes/ClassifierNode";
 import { AgentNode } from "./nodes/AgentNode";
 import { RetrievalNode } from "./nodes/RetrievalNode";
 import { SynthesisNode } from "./nodes/SynthesisNode";
+import { IfElseNode } from "./nodes/IfElseNode";
+import { WebhookNode } from "./nodes/WebhookNode";
+import { APICallNode } from "./nodes/APICallNode";
+import { EvalNode } from "./nodes/EvalNode";
+import { MCPToolNode } from "./nodes/MCPToolNode";
+import { RouterNode } from "./nodes/RouterNode";
+import { TransformNode } from "./nodes/TransformNode";
+
 import { api } from "../services/api";
 import { useToast } from "./shared";
 import type { WorkflowResponse } from "../types/api";
@@ -43,22 +57,28 @@ const initialNodes = [
     position: { x: 280, y: 50 },
   },
   {
+    id: "if_else_branch",
+    type: "IfElseNode",
+    data: { label: "If / Else Complexity Gate", condition: { type: "complexity_equals", value: "HIGH" }, status: "idle" },
+    position: { x: 280, y: 180 },
+  },
+  {
     id: "retrieval",
     type: "RetrievalNode",
     data: { label: "SyntraFlow Hybrid Retrieval", top_k: 5, status: "idle" },
-    position: { x: 120, y: 190 },
+    position: { x: 120, y: 310 },
   },
   {
     id: "coding",
     type: "AgentNode",
     data: { label: "Coding Subagent Node", model_id: "Arch-Router-1.5B", tools: ["retrieval", "code_sandbox"], status: "idle" },
-    position: { x: 420, y: 190 },
+    position: { x: 440, y: 310 },
   },
   {
     id: "synthesis",
     type: "SynthesisNode",
     data: { label: "Gather & Synthesis Node", status: "idle" },
-    position: { x: 280, y: 340 },
+    position: { x: 280, y: 460 },
   },
 ];
 
@@ -66,25 +86,37 @@ const initialEdges = [
   {
     id: "e1",
     source: "classify",
-    target: "retrieval",
+    target: "if_else_branch",
     animated: true,
-    label: "confidence >= 0.75",
+    label: "evaluate intent",
     labelStyle: { fill: "#10b981", fontSize: 10, fontFamily: "monospace" },
     labelBgStyle: { fill: "#14151a", fillOpacity: 0.8 },
     style: { stroke: "#10b981", strokeWidth: 2 },
   },
   {
     id: "e2",
-    source: "classify",
+    source: "if_else_branch",
+    sourceHandle: "false",
+    target: "retrieval",
+    animated: true,
+    label: "standard task",
+    labelStyle: { fill: "#a855f7", fontSize: 10, fontFamily: "monospace" },
+    labelBgStyle: { fill: "#14151a", fillOpacity: 0.8 },
+    style: { stroke: "#a855f7", strokeWidth: 2 },
+  },
+  {
+    id: "e3",
+    source: "if_else_branch",
+    sourceHandle: "true",
     target: "coding",
     animated: true,
-    label: "code task",
+    label: "high complexity",
     labelStyle: { fill: "#f59e0b", fontSize: 10, fontFamily: "monospace" },
     labelBgStyle: { fill: "#14151a", fillOpacity: 0.8 },
     style: { stroke: "#f59e0b", strokeWidth: 2 },
   },
   {
-    id: "e3",
+    id: "e4",
     source: "retrieval",
     target: "synthesis",
     label: "context vector",
@@ -93,7 +125,7 @@ const initialEdges = [
     style: { stroke: "#6366f1", strokeWidth: 2 },
   },
   {
-    id: "e4",
+    id: "e5",
     source: "coding",
     target: "synthesis",
     label: "code artifact",
@@ -107,7 +139,7 @@ export const WorkflowCanvas: React.FC = () => {
   const toast = useToast();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes as any);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges as any);
-  const [workflowName, setWorkflowName] = useState("Scatter-Gather Orchestrator");
+  const [workflowName, setWorkflowName] = useState("Scatter-Gather V5 Workflow");
   const [savedWorkflows, setSavedWorkflows] = useState<WorkflowResponse[]>([]);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>("");
 
@@ -126,6 +158,25 @@ export const WorkflowCanvas: React.FC = () => {
       AgentNode,
       RetrievalNode,
       SynthesisNode,
+      IfElseNode,
+      WebhookNode,
+      APICallNode,
+      EvalNode,
+      MCPToolNode,
+      RouterNode,
+      TransformNode,
+      // Alias mapping
+      classifier: ClassifierNode,
+      agent: AgentNode,
+      retrieval: RetrievalNode,
+      synthesis: SynthesisNode,
+      if_else: IfElseNode,
+      webhook: WebhookNode,
+      api_call: APICallNode,
+      eval: EvalNode,
+      mcp_tool: MCPToolNode,
+      router: RouterNode,
+      transform: TransformNode,
     }),
     []
   );
@@ -140,7 +191,7 @@ export const WorkflowCanvas: React.FC = () => {
       const list = await api.getWorkflows();
       setSavedWorkflows(list);
     } catch {
-      // ignore fetch error if backend not ready
+      // ignore fetch error if backend offline
     }
   };
 
@@ -154,10 +205,8 @@ export const WorkflowCanvas: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         if (e.shiftKey) {
-          // Redo
           handleRedo();
         } else {
-          // Undo
           handleUndo();
         }
       }
@@ -203,42 +252,42 @@ export const WorkflowCanvas: React.FC = () => {
     );
   };
 
-  const formatGraphJson = (currentNodes = nodes, currentEdges = edges) => ({
-    nodes: currentNodes.map((n) => ({
-      id: n.id,
-      type: n.type || "AgentNode",
-      data: n.data || {},
-      position: n.position || { x: 0, y: 0 },
-    })),
-    edges: currentEdges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      label: typeof e.label === "string" ? e.label : undefined,
-    })),
-  });
-
   const handleNodeClick = (_: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
     setActiveWorkflow({
-      id: "wf_current",
+      id: "current",
       name: workflowName,
+      description: "Visual topology",
       graph_json: formatGraphJson(),
-      is_active: true,
+      created_at: new Date().toISOString(),
     });
+    setDrawerOpen(true);
   };
 
-  const handleUpdateNodeData = (nodeId: string, newData: Record<string, any>) => {
+  const handleUpdateNodeData = (nodeId: string, newData: any) => {
     pushStateToHistory();
     setNodes((nds) =>
       nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...newData } } : n))
     );
-    setActiveWorkflow({
-      id: "wf_current",
-      name: workflowName,
-      graph_json: formatGraphJson(),
-      is_active: true,
-    });
+  };
+
+  const formatGraphJson = () => {
+    return {
+      nodes: nodes.map((n) => ({
+        id: n.id,
+        type: n.type,
+        data: n.data,
+        position: n.position,
+      })),
+      edges: edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        label: e.label,
+      })),
+    };
   };
 
   const handleSaveWorkflow = async () => {
@@ -246,6 +295,7 @@ export const WorkflowCanvas: React.FC = () => {
       const graph_json = formatGraphJson();
       const saved = await api.createWorkflow({
         name: workflowName,
+        description: "Configured via V5 Workflow Builder Canvas",
         graph_json,
         is_active: true,
       });
@@ -280,13 +330,13 @@ export const WorkflowCanvas: React.FC = () => {
     }
   };
 
-  const addNodeFromPalette = (type: string, label: string) => {
+  const addNodeFromPalette = (type: string, label: string, extraData: any = {}) => {
     pushStateToHistory();
     const newId = `node_${Date.now()}`;
     const newNode = {
       id: newId,
       type,
-      data: { label, threshold: 0.75, top_k: 5, model_id: "Arch-Router-1.5B", tools: ["retrieval"], status: "idle" },
+      data: { label, status: "idle", ...extraData },
       position: { x: 220 + Math.random() * 80, y: 150 + Math.random() * 80 },
     };
     setNodes((nds) => [...nds, newNode]);
@@ -296,70 +346,128 @@ export const WorkflowCanvas: React.FC = () => {
   return (
     <div className="flex h-[calc(100vh-6rem)] rounded-xl border border-[var(--border-default)] bg-[var(--bg-input)] overflow-hidden select-none">
       {/* Node Palette Sidebar (Left side) */}
-      <div className="w-56 bg-[var(--bg-surface)] border-r border-[var(--border-default)] p-3 flex flex-col justify-between shrink-0">
-        <div>
-          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[var(--border-subtle)] text-xs font-bold text-white uppercase tracking-wider font-display">
+      <div className="w-64 bg-[var(--bg-surface)] border-r border-[var(--border-default)] p-3 flex flex-col justify-between shrink-0 overflow-y-auto">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 pb-2 border-b border-[var(--border-subtle)] text-xs font-bold text-white uppercase tracking-wider font-display">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>Node Palette</span>
+            <span>V5 Node Palette</span>
           </div>
 
-          <div className="space-y-2">
-            <button
-              onClick={() => addNodeFromPalette("ClassifierNode", "Task Classifier Router")}
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-emerald-500/30 text-left transition-colors group"
-            >
-              <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-400">
-                <Cpu className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-white group-hover:text-emerald-300">Classifier</div>
-                <div className="text-[10px] text-zinc-400">Intent Routing Router</div>
-              </div>
-            </button>
+          {/* Core Category */}
+          <div>
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Core Blocks</div>
+            <div className="space-y-1.5">
+              <button
+                onClick={() => addNodeFromPalette("ClassifierNode", "Task Classifier Router", { threshold: 0.75 })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-emerald-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400"><Cpu className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-emerald-300">Classifier</div><div className="text-[9px] text-zinc-400">Intent Routing</div></div>
+              </button>
 
-            <button
-              onClick={() => addNodeFromPalette("AgentNode", "Custom Subagent Node")}
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-amber-500/30 text-left transition-colors group"
-            >
-              <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-400">
-                <Bot className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-white group-hover:text-amber-300">Subagent</div>
-                <div className="text-[10px] text-zinc-400">LLM Reasoning Node</div>
-              </div>
-            </button>
+              <button
+                onClick={() => addNodeFromPalette("AgentNode", "Subagent Execution", { model_id: "Arch-Router-1.5B", tools: ["retrieval"] })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-amber-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-amber-500/10 text-amber-400"><Bot className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-amber-300">Subagent</div><div className="text-[9px] text-zinc-400">LLM Reasoning</div></div>
+              </button>
 
-            <button
-              onClick={() => addNodeFromPalette("RetrievalNode", "SyntraFlow Hybrid Retrieval")}
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-indigo-500/30 text-left transition-colors group"
-            >
-              <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400">
-                <Database className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-white group-hover:text-indigo-300">Retrieval</div>
-                <div className="text-[10px] text-zinc-400">Qdrant Vector RAG</div>
-              </div>
-            </button>
+              <button
+                onClick={() => addNodeFromPalette("RetrievalNode", "SyntraFlow Retrieval", { top_k: 5 })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-indigo-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-indigo-500/10 text-indigo-400"><Database className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-indigo-300">Retrieval</div><div className="text-[9px] text-zinc-400">Qdrant Vector Search</div></div>
+              </button>
 
-            <button
-              onClick={() => addNodeFromPalette("SynthesisNode", "Gather & Synthesis Node")}
-              className="w-full flex items-center gap-2.5 p-2.5 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-cyan-500/30 text-left transition-colors group"
-            >
-              <div className="p-1.5 rounded-md bg-cyan-500/10 text-cyan-400">
-                <Layers className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-white group-hover:text-cyan-300">Synthesis</div>
-                <div className="text-[10px] text-zinc-400">Aggregator & Guard</div>
-              </div>
-            </button>
+              <button
+                onClick={() => addNodeFromPalette("SynthesisNode", "Gather & Synthesis")}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-cyan-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-cyan-500/10 text-cyan-400"><Layers className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-cyan-300">Synthesis</div><div className="text-[9px] text-zinc-400">Terminal Aggregator</div></div>
+              </button>
+            </div>
+          </div>
+
+          {/* Logic Category */}
+          <div>
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Logic & Routing</div>
+            <div className="space-y-1.5">
+              <button
+                onClick={() => addNodeFromPalette("IfElseNode", "If / Else Condition", { condition: { type: "complexity_equals", value: "HIGH" } })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-purple-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-purple-500/10 text-purple-400"><GitFork className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-purple-300">IfElse Node</div><div className="text-[9px] text-zinc-400">Conditional Branch</div></div>
+              </button>
+
+              <button
+                onClick={() => addNodeFromPalette("RouterNode", "Multi-Branch Router", { routes: [{ label: "Route A" }, { label: "Route B" }], default_route: "Default" })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-pink-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-pink-500/10 text-pink-400"><Route className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-pink-300">Router Node</div><div className="text-[9px] text-zinc-400">Multi-way Branching</div></div>
+              </button>
+
+              <button
+                onClick={() => addNodeFromPalette("TransformNode", "Data Transform", { mode: "template", template: "{{prompt}}" })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-yellow-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-yellow-500/10 text-yellow-400"><Sliders className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-yellow-300">Transform</div><div className="text-[9px] text-zinc-400">Jinja2 & Formatting</div></div>
+              </button>
+            </div>
+          </div>
+
+          {/* Integrations Category */}
+          <div>
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Integrations</div>
+            <div className="space-y-1.5">
+              <button
+                onClick={() => addNodeFromPalette("WebhookNode", "Outbound Webhook", { url: "https://api.example.com/webhook", method: "POST" })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-cyan-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-cyan-500/10 text-cyan-400"><Send className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-cyan-300">Webhook</div><div className="text-[9px] text-zinc-400">HTTP Trigger</div></div>
+              </button>
+
+              <button
+                onClick={() => addNodeFromPalette("APICallNode", "REST API Call", { url: "https://api.example.com/v1", method: "GET", auth_type: "none" })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-blue-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-blue-500/10 text-blue-400"><Network className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-blue-300">API Call</div><div className="text-[9px] text-zinc-400">REST Client</div></div>
+              </button>
+            </div>
+          </div>
+
+          {/* Evaluation & Tools */}
+          <div>
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Evaluation & Tools</div>
+            <div className="space-y-1.5">
+              <button
+                onClick={() => addNodeFromPalette("EvalNode", "Inline Evaluation", { suite_name: "Accuracy Suite", framework: "RAGAS", threshold: 0.7 })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-emerald-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400"><TestTube className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-emerald-300">Inline Eval</div><div className="text-[9px] text-zinc-400">RAGAS / DeepEval</div></div>
+              </button>
+
+              <button
+                onClick={() => addNodeFromPalette("MCPToolNode", "MCP Tool", { server_id: "mcp-server-1", tool_name: "query_db" })}
+                className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-surface-alt)] hover:bg-[var(--bg-elevated)] border border-orange-500/30 text-left transition-colors group"
+              >
+                <div className="p-1.5 rounded bg-orange-500/10 text-orange-400"><Wrench className="w-3.5 h-3.5" /></div>
+                <div><div className="text-xs font-semibold text-white group-hover:text-orange-300">MCP Tool</div><div className="text-[9px] text-zinc-400">Server Tool Call</div></div>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Shortcuts Hints */}
-        <div className="p-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] space-y-1 text-[10px] font-mono text-zinc-400">
+        <div className="p-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] space-y-1 text-[10px] font-mono text-zinc-400 mt-4">
           <div className="text-zinc-300 font-semibold mb-1 font-sans">Shortcuts</div>
           <div className="flex justify-between"><span>Undo</span><span className="text-emerald-400">Ctrl+Z</span></div>
           <div className="flex justify-between"><span>Redo</span><span className="text-emerald-400">Ctrl+Shift+Z</span></div>
@@ -451,9 +559,16 @@ export const WorkflowCanvas: React.FC = () => {
             <MiniMap
               className="!bg-[var(--bg-surface-alt)] !border-[var(--border-default)] rounded-lg overflow-hidden"
               nodeColor={(n) => {
-                if (n.type === "ClassifierNode") return "#10b981";
-                if (n.type === "AgentNode") return "#f59e0b";
-                if (n.type === "RetrievalNode") return "#6366f1";
+                if (n.type === "ClassifierNode" || n.type === "classifier") return "#10b981";
+                if (n.type === "AgentNode" || n.type === "agent") return "#f59e0b";
+                if (n.type === "RetrievalNode" || n.type === "retrieval") return "#6366f1";
+                if (n.type === "IfElseNode" || n.type === "if_else") return "#a855f7";
+                if (n.type === "WebhookNode" || n.type === "webhook") return "#06b6d4";
+                if (n.type === "APICallNode" || n.type === "api_call") return "#3b82f6";
+                if (n.type === "EvalNode" || n.type === "eval") return "#10b981";
+                if (n.type === "MCPToolNode" || n.type === "mcp_tool") return "#f97316";
+                if (n.type === "RouterNode" || n.type === "router") return "#ec4899";
+                if (n.type === "TransformNode" || n.type === "transform") return "#eab308";
                 return "#06b6d4";
               }}
               maskColor="rgba(0, 0, 0, 0.6)"
@@ -480,4 +595,3 @@ export const WorkflowCanvas: React.FC = () => {
 };
 
 export default WorkflowCanvas;
-

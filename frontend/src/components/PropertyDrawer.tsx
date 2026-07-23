@@ -25,6 +25,22 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
   const [topK, setTopK] = useState(5);
   const [selectedTools, setSelectedTools] = useState<string[]>(["retrieval"]);
 
+  // V5 Fields
+  const [conditionType, setConditionType] = useState("complexity_equals");
+  const [conditionValue, setConditionValue] = useState("HIGH");
+  const [conditionExpression, setConditionExpression] = useState("");
+  const [url, setUrl] = useState("https://api.example.com/webhook");
+  const [httpMethod, setHttpMethod] = useState("POST");
+  const [authType, setAuthType] = useState("none");
+  const [authValue, setAuthValue] = useState("");
+  const [bodyTemplate, setBodyTemplate] = useState("{\"prompt\": \"{{prompt}}\"}");
+  const [suiteName, setSuiteName] = useState("Accuracy Suite");
+  const [framework, setFramework] = useState("RAGAS");
+  const [serverId, setServerId] = useState("mcp-server-1");
+  const [toolName, setToolName] = useState("query_db");
+  const [transformMode, setTransformMode] = useState("template");
+  const [templateStr, setTemplateStr] = useState("{{prompt}}");
+
   const availableTools = [
     { id: "retrieval", label: "SyntraFlow Hybrid Retrieval" },
     { id: "web_search", label: "Web Search Tool" },
@@ -40,6 +56,24 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
       setThreshold(data.threshold ?? 0.75);
       setTopK(data.top_k ?? 5);
       setSelectedTools(data.tools || ["retrieval"]);
+
+      // Load V5 node state
+      if (data.condition) {
+        setConditionType(data.condition.type || "complexity_equals");
+        setConditionValue(data.condition.value || "HIGH");
+        setConditionExpression(data.condition.expression || "");
+      }
+      if (data.url) setUrl(data.url);
+      if (data.method) setHttpMethod(data.method);
+      if (data.auth_type) setAuthType(data.auth_type);
+      if (data.auth_value) setAuthValue(data.auth_value);
+      if (data.body_template) setBodyTemplate(data.body_template);
+      if (data.suite_name) setSuiteName(data.suite_name);
+      if (data.framework) setFramework(data.framework);
+      if (data.server_id) setServerId(data.server_id);
+      if (data.tool_name) setToolName(data.tool_name);
+      if (data.mode) setTransformMode(data.mode);
+      if (data.template) setTemplateStr(data.template);
     }
   }, [node, availableModels]);
 
@@ -49,12 +83,29 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
 
   const handleSave = () => {
     const newData: any = {
+      ...node.data,
       label,
       model_id: modelId,
       system_prompt: systemPrompt,
       threshold,
       top_k: topK,
       tools: selectedTools,
+      condition: {
+        type: conditionType,
+        value: conditionValue,
+        expression: conditionExpression,
+      },
+      url,
+      method: httpMethod,
+      auth_type: authType,
+      auth_value: authValue,
+      body_template: bodyTemplate,
+      suite_name: suiteName,
+      framework,
+      server_id: serverId,
+      tool_name: toolName,
+      mode: transformMode,
+      template: templateStr,
     };
     onUpdateNodeData(node.id, newData);
     onClose();
@@ -67,11 +118,6 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
     setSelectedTools(updated);
     onUpdateNodeData(node.id, {
       ...node.data,
-      label,
-      model_id: modelId,
-      system_prompt: systemPrompt,
-      threshold,
-      top_k: topK,
       tools: updated,
     });
   };
@@ -136,7 +182,7 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
               <div>
                 <label className="text-zinc-400 font-medium block mb-1">Local System Prompt</label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={systemPrompt}
                   onChange={(e) => {
                     setSystemPrompt(e.target.value);
@@ -146,72 +192,200 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
                   className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-emerald-500 resize-none font-mono text-xs leading-relaxed"
                 />
               </div>
+            </>
+          )}
+
+          {(nodeType === "IfElseNode" || nodeType === "if_else") && (
+            <>
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Condition Type</label>
+                <select
+                  value={conditionType}
+                  onChange={(e) => setConditionType(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-purple-500"
+                >
+                  <option value="complexity_equals">Complexity Equals</option>
+                  <option value="output_contains">Output Contains</option>
+                  <option value="metadata_field">State Field Lookup</option>
+                  <option value="regex_match">Regex Match</option>
+                  <option value="custom_expression">Custom Expression</option>
+                </select>
+              </div>
+
+              {conditionType === "custom_expression" ? (
+                <div>
+                  <label className="text-zinc-400 font-medium block mb-1">Sandboxed Expression</label>
+                  <input
+                    type="text"
+                    value={conditionExpression}
+                    onChange={(e) => setConditionExpression(e.target.value)}
+                    placeholder="complexity == 'HIGH' and token_count > 100"
+                    className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-purple-300 font-mono focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="text-zinc-400 font-medium block mb-1">Target Value</label>
+                  <input
+                    type="text"
+                    value={conditionValue}
+                    onChange={(e) => setConditionValue(e.target.value)}
+                    className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {(nodeType === "WebhookNode" || nodeType === "webhook" || nodeType === "APICallNode" || nodeType === "api_call") && (
+            <>
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Target URL</label>
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-cyan-300 font-mono focus:outline-none focus:border-cyan-500"
+                />
+              </div>
 
               <div>
-                <label className="text-zinc-400 font-medium block mb-1">Tool Authorizations</label>
-                <div className="space-y-1.5">
-                  {availableTools.map((t) => (
-                    <button
-                      type="button"
-                      key={t.id}
-                      onClick={() => toggleTool(t.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded border text-left text-[11px] transition-colors ${
-                        selectedTools.includes(t.id)
-                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                          : "bg-[var(--bg-input)] border-[var(--border-default)] text-zinc-400"
-                      }`}
-                    >
-                      <span className="truncate">{t.label}</span>
-                      {selectedTools.includes(t.id) && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                    </button>
-                  ))}
+                <label className="text-zinc-400 font-medium block mb-1">HTTP Method</label>
+                <select
+                  value={httpMethod}
+                  onChange={(e) => setHttpMethod(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                  <option value="DELETE">DELETE</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Authentication</label>
+                <select
+                  value={authType}
+                  onChange={(e) => setAuthType(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="none">None</option>
+                  <option value="bearer">Bearer Token</option>
+                  <option value="api_key">API Key Header</option>
+                </select>
+              </div>
+
+              {authType !== "none" && (
+                <div>
+                  <label className="text-zinc-400 font-medium block mb-1">Auth Secret / Token</label>
+                  <input
+                    type="password"
+                    value={authValue}
+                    onChange={(e) => setAuthValue(e.target.value)}
+                    className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-cyan-500"
+                  />
                 </div>
+              )}
+            </>
+          )}
+
+          {(nodeType === "EvalNode" || nodeType === "eval") && (
+            <>
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Evaluation Suite</label>
+                <input
+                  type="text"
+                  value={suiteName}
+                  onChange={(e) => setSuiteName(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-emerald-300 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Framework</label>
+                <select
+                  value={framework}
+                  onChange={(e) => setFramework(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="RAGAS">RAGAS</option>
+                  <option value="DeepEval">DeepEval</option>
+                  <option value="Heuristic">Heuristic Sandbox</option>
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-zinc-400 font-medium mb-1">
+                  <span>Pass Threshold</span>
+                  <span className="font-mono text-emerald-400">{threshold}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.05"
+                  value={threshold}
+                  onChange={(e) => setThreshold(Number(e.target.value))}
+                  className="w-full accent-emerald-500"
+                />
               </div>
             </>
           )}
 
-          {nodeType === "ClassifierNode" && (
-            <div>
-              <div className="flex items-center justify-between text-zinc-400 font-medium mb-1">
-                <span>Confidence Threshold</span>
-                <span className="font-mono text-emerald-400">{(threshold * 100).toFixed(0)}%</span>
+          {(nodeType === "MCPToolNode" || nodeType === "mcp_tool") && (
+            <>
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">MCP Server ID</label>
+                <input
+                  type="text"
+                  value={serverId}
+                  onChange={(e) => setServerId(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-orange-300 font-mono focus:outline-none focus:border-orange-500"
+                />
               </div>
-              <input
-                type="range"
-                min="0.1"
-                max="1.0"
-                step="0.05"
-                value={threshold}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setThreshold(val);
-                  onUpdateNodeData(node.id, { ...node.data, threshold: val });
-                }}
-                className="w-full accent-emerald-500"
-              />
-            </div>
+
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Tool Name</label>
+                <input
+                  type="text"
+                  value={toolName}
+                  onChange={(e) => setToolName(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white font-mono focus:outline-none focus:border-orange-500"
+                />
+              </div>
+            </>
           )}
 
-          {nodeType === "RetrievalNode" && (
-            <div>
-              <div className="flex items-center justify-between text-zinc-400 font-medium mb-1">
-                <span>Hybrid Top-K Limit</span>
-                <span className="font-mono text-indigo-400">{topK}</span>
+          {(nodeType === "TransformNode" || nodeType === "transform") && (
+            <>
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Transform Mode</label>
+                <select
+                  value={transformMode}
+                  onChange={(e) => setTransformMode(e.target.value)}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-yellow-500"
+                >
+                  <option value="template">Jinja2 Sandboxed Template</option>
+                  <option value="extract_field">Extract Field</option>
+                  <option value="merge">Merge Dicts</option>
+                  <option value="format_json">Format JSON</option>
+                </select>
               </div>
-              <input
-                type="range"
-                min="1"
-                max="20"
-                step="1"
-                value={topK}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setTopK(val);
-                  onUpdateNodeData(node.id, { ...node.data, top_k: val });
-                }}
-                className="w-full accent-indigo-500"
-              />
-            </div>
+
+              {transformMode === "template" && (
+                <div>
+                  <label className="text-zinc-400 font-medium block mb-1">Jinja2 Template</label>
+                  <textarea
+                    rows={3}
+                    value={templateStr}
+                    onChange={(e) => setTemplateStr(e.target.value)}
+                    className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-yellow-300 font-mono focus:outline-none focus:border-yellow-500 resize-none text-xs"
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
