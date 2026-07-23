@@ -178,3 +178,45 @@ export interface TestCaseResponse {
   answer_relevance_score?: number;
   status?: "pass" | "fail" | "pending";
 }
+
+export interface PlaygroundMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  tokens?: number;
+  attachment_ids?: string[];
+}
+
+export interface PlaygroundAttachment {
+  attachment_id: string;
+  filename: string;
+  file_type: string;
+  extracted_text_preview?: string;
+  extracted_text?: string;
+  total_chars?: number;
+  created_at: string;
+  status?: string;
+}
+
+export interface PlaygroundSession {
+  id: string;
+  user_id?: string | null;
+  name: string;
+  model_id?: string;
+  system_prompt?: string;
+  messages: PlaygroundMessage[];
+  attachments?: PlaygroundAttachment[];
+  temperature?: number;
+  max_tokens?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlaygroundChatResponse {
+  response: string;
+  model_used: string;
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+  status: string;
+}
+

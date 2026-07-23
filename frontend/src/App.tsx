@@ -10,9 +10,11 @@ import { IngestionPanel } from "./components/IngestionPanel";
 import { WorkflowCanvas } from "./components/WorkflowCanvas";
 import { AgentHub } from "./components/AgentHub";
 import { EvalPanel } from "./components/EvalPanel";
+import { PlaygroundPage } from "./components/PlaygroundPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { NotFound } from "./components/NotFound";
 import { ErrorBoundary, ToastProvider } from "./components/shared";
+
 
 import { telemetryService } from "./services/telemetry";
 import { api } from "./services/api";
@@ -149,6 +151,14 @@ export default function App() {
                       element={
                         <PageTransition>
                           <EvalPanel />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="/playground"
+                      element={
+                        <PageTransition>
+                          <PlaygroundPage />
                         </PageTransition>
                       }
                     />

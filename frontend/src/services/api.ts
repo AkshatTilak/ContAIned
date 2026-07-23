@@ -293,4 +293,46 @@ export const api = {
     request<{ status: string; id: string }>(`/auth/users/${userId}`, {
       method: "DELETE",
     }),
+
+  // Playground API (S5-04a, S5-04b, S5-04c)
+  playgroundChat: (payload: {
+    model_id: string;
+    messages: any[];
+    system_prompt?: string;
+    temperature?: number;
+    max_tokens?: number;
+    attachment_ids?: string[];
+    stream?: boolean;
+  }) =>
+    request<any>("/api/playground/chat", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  uploadPlaygroundFile: async (file: File): Promise<any> => {
+    const config = getClientConfig();
+    const url = `${config.baseUrl}/api/playground/upload`;
+    const formData = new FormData();
+    formData.append("file", file);
+    const token = localStorage.getItem("contained_auth_token");
+    const headers: Record<string, string> = {
+      "X-API-Key": config.apiKey,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    const res = await fetch(url, { method: "POST", headers, body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || "File upload failed");
+    }
+    return res.json();
+  },
+  getPlaygroundAttachment: (id: string) => request<any>(`/api/playground/attachments/${id}`),
+  deletePlaygroundAttachment: (id: string) => request<any>(`/api/playground/attachments/${id}`, { method: "DELETE" }),
+  listPlaygroundSessions: () => request<any[]>("/api/playground/sessions"),
+  createPlaygroundSession: (data: any) =>
+    request<any>("/api/playground/sessions", { method: "POST", body: JSON.stringify(data) }),
+  getPlaygroundSession: (id: string) => request<any>(`/api/playground/sessions/${id}`),
+  updatePlaygroundSession: (id: string, data: any) =>
+    request<any>(`/api/playground/sessions/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deletePlaygroundSession: (id: string) => request<any>(`/api/playground/sessions/${id}`, { method: "DELETE" }),
 };
+

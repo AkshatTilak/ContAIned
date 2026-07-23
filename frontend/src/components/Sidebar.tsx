@@ -7,6 +7,7 @@ import {
   Activity,
   Users,
   ShieldCheck,
+  Bot,
   Settings,
   Wifi,
   WifiOff,
@@ -34,7 +35,9 @@ export const Sidebar: React.FC<SidebarProps> = () => {
     { path: "/workflow", label: "Workflow Builder", icon: Server, shortcut: "⌘3" },
     { path: "/agents", label: "Agent Hub", icon: Users, shortcut: "⌘4" },
     { path: "/evalops", label: "EvalOps Benchmark", icon: ShieldCheck, shortcut: "⌘5" },
+    { path: "/playground", label: "Model Playground", icon: Bot, shortcut: "⌘6" },
   ] as const;
+
 
   return (
     <aside
