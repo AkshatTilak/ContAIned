@@ -160,16 +160,21 @@ export const SettingsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Admin User Management Section */}
+      <RoleGuard roles={["admin"]}>
+        <UserManagement />
+      </RoleGuard>
+
       {/* Platform Information Box */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-3 shadow-sm">
         <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] border-b border-[var(--border-subtle)] pb-3 font-display">
           <Server className="w-4 h-4 text-zinc-400" />
-          <span>ContAIned V4 Platform Architecture</span>
+          <span>ContAIned V5 Platform Architecture</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
           <div className="p-3 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] space-y-1">
             <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider">Version</span>
-            <span className="font-semibold text-emerald-400">4.1.0-PROD</span>
+            <span className="font-semibold text-emerald-400">5.0.0-PROD</span>
           </div>
           <div className="p-3 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] space-y-1">
             <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider">State Management</span>
@@ -180,8 +185,8 @@ export const SettingsPage: React.FC = () => {
             <span className="font-semibold text-[var(--text-primary)]">React Router 7</span>
           </div>
           <div className="p-3 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] space-y-1">
-            <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider">Animations</span>
-            <span className="font-semibold text-[var(--text-primary)]">Framer Motion</span>
+            <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider">Security</span>
+            <span className="font-semibold text-[var(--text-primary)]">OAuth2 + JWT + RBAC</span>
           </div>
         </div>
       </div>
