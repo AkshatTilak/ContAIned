@@ -9,6 +9,7 @@ import {
   addEdge,
   type NodeTypes,
   type Connection,
+  type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -271,11 +272,11 @@ export const WorkflowCanvas: React.FC = () => {
     );
   };
 
-  const formatGraphJson = () => {
+  const formatGraphJson = (): { nodes: any[]; edges: any[] } => {
     return {
       nodes: nodes.map((n) => ({
         id: n.id,
-        type: n.type,
+        type: n.type || "custom",
         data: n.data,
         position: n.position,
       })),

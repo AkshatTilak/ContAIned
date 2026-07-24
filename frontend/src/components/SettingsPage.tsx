@@ -6,6 +6,8 @@ import { telemetryService } from "../services/telemetry";
 import { api } from "../services/api";
 import { APIKeysPanel } from "./settings/APIKeysPanel";
 import { APIDocsPanel } from "./settings/APIDocsPanel";
+import { RoleGuard } from "./auth/RoleGuard";
+import { UserManagement } from "./settings/UserManagement";
 
 export const SettingsPage: React.FC = () => {
   const gatewayUrl = useStore((state) => state.gatewayUrl);

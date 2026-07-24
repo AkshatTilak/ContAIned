@@ -90,7 +90,7 @@ export const APIKeysPanel: React.FC = () => {
     }
   };
 
-  const copyToClipboard = (text: str) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(true);
     setTimeout(() => setCopiedKey(false), 2000);

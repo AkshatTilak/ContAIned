@@ -26,7 +26,7 @@ import {
 
 import { api } from "../services/api";
 import type { MCPServer, MCPTool, MCPTestResult } from "../types/api";
-import { useToast } from "./shared/Toast";
+import { useToast } from "./shared";
 
 export const MCPHubPage: React.FC = () => {
   const { addToast } = useToast();

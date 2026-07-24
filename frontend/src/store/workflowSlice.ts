@@ -15,11 +15,12 @@ export interface WorkflowEdge {
 export interface Workflow {
   id: string;
   name: string;
+  description?: string;
   graph_json: {
     nodes: WorkflowNode[];
     edges: WorkflowEdge[];
   };
-  is_active: boolean;
+  is_active?: boolean;
   created_at?: string;
   updated_at?: string;
 }

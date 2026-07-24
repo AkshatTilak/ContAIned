@@ -46,6 +46,8 @@ export interface AgentResponse {
   tools: string[];
   temperature: number;
   max_tokens: number;
+  is_active?: boolean;
+  endpoint_slug?: string;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +83,7 @@ export interface WorkflowResponse {
 
 export interface WorkflowCreatePayload {
   name: string;
+  description?: string;
   graph_json: Record<string, any>;
   is_active?: boolean;
 }

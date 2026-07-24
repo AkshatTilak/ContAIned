@@ -13,6 +13,7 @@ export interface ToastMessage {
 
 interface ToastContextType {
   toast: (msg: Omit<ToastMessage, 'id'>) => void;
+  addToast: (message: string, type?: ToastType) => void;
   success: (title: string, message?: string) => void;
   error: (title: string, message?: string) => void;
   warning: (title: string, message?: string) => void;
@@ -52,13 +53,20 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [removeToast]
   );
 
+  const addToast = useCallback(
+    (message: string, type: ToastType = 'info') => {
+      toast({ type, title: message });
+    },
+    [toast]
+  );
+
   const success = useCallback((title: string, message?: string) => toast({ type: 'success', title, message }), [toast]);
   const error = useCallback((title: string, message?: string) => toast({ type: 'error', title, message }), [toast]);
   const warning = useCallback((title: string, message?: string) => toast({ type: 'warning', title, message }), [toast]);
   const info = useCallback((title: string, message?: string) => toast({ type: 'info', title, message }), [toast]);
 
   return (
-    <ToastContext.Provider value={{ toast, success, error, warning, info }}>
+    <ToastContext.Provider value={{ toast, addToast, success, error, warning, info }}>
       {children}
       {/* Toast Render Stack */}
       <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
