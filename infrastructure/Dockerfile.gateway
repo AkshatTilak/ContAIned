@@ -13,6 +13,7 @@ COPY pyproject.toml poetry.lock* ./
 
 # Configure poetry to install to a local virtualenv
 RUN poetry config virtualenvs.in-project true \
+    && (poetry check || poetry lock) \
     && poetry install --no-interaction --no-ansi --no-root \
     --extras "syntraflow" --extras "guardroute" --extras "evalops"
 

@@ -1,16 +1,22 @@
 """OAuth2 providers registry (Google & GitHub) using Authlib."""
 
 import logging
-from authlib.integrations.starlette_client import OAuth
+try:
+    from authlib.integrations.starlette_client import OAuth
+    oauth = OAuth()
+except ImportError:
+    oauth = None
+
 from common.config.settings import get_settings
 
 logger = logging.getLogger("gateway.auth.providers")
 
-oauth = OAuth()
-
 
 def init_oauth():
     """Register Google and GitHub OAuth providers with Authlib."""
+    if oauth is None:
+        logger.warning("Authlib is not installed. OAuth providers disabled.")
+        return
     settings = get_settings()
 
     google_client_id = getattr(settings, "GOOGLE_CLIENT_ID", None)
