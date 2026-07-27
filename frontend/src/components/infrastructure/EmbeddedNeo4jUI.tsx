@@ -66,6 +66,18 @@ export const EmbeddedNeo4jUI: React.FC = () => {
         </div>
       </div>
 
+      {/* Connection Info Banner */}
+      <div className="px-4 py-2.5 rounded-xl bg-purple-500/5 border border-purple-500/20 text-xs flex flex-wrap items-center justify-between gap-2 text-purple-300">
+        <div className="flex items-center gap-2">
+          <Network className="w-4 h-4 text-purple-400 shrink-0" />
+          <span><strong>Neo4j Connect Settings:</strong> Connect URL: <code className="px-1.5 py-0.5 rounded bg-gray-900 font-mono text-purple-200">bolt://localhost:7687</code></span>
+        </div>
+        <div className="flex items-center gap-3 font-mono text-[11px] text-gray-400">
+          <span>Username: <strong className="text-gray-200">neo4j</strong></span>
+          <span>Password: <strong className="text-gray-200">changeme</strong> (or <code className="text-purple-300">NEO4J_PASSWORD</code> from .env)</span>
+        </div>
+      </div>
+
       {/* Embedded Iframe Container */}
       <div className="relative w-full rounded-xl overflow-hidden border border-gray-800 bg-gray-950 flex-1 min-h-[600px] shadow-2xl">
         {isLoading && (

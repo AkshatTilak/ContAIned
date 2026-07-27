@@ -59,7 +59,7 @@ async def _check_qdrant():
     try:
         from common.clients.qdrant import VectorClient
         qdrant_client = VectorClient()
-        await asyncio.wait_for(qdrant_client.verify_connection(), timeout=1.0)
+        await asyncio.wait_for(qdrant_client.verify_connection(max_retries=1), timeout=3.0)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -69,9 +69,9 @@ async def _check_kafka():
     start_t = time.perf_counter()
     try:
         from confluent_kafka.admin import AdminClient
-        conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 1000}
+        conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 2000}
         admin_client = AdminClient(conf)
-        await asyncio.wait_for(asyncio.to_thread(admin_client.list_topics, timeout=1.0), timeout=1.0)
+        await asyncio.wait_for(asyncio.to_thread(admin_client.list_topics, timeout=2.0), timeout=2.0)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -80,11 +80,15 @@ async def _check_kafka():
 async def _check_inference():
     start_t = time.perf_counter()
     try:
-        client = InferenceClient(base_url=settings.INFERENCE_SERVER_URL)
-        health = await asyncio.wait_for(client.health(), timeout=1.0)
-        status_val = health.get("status", "connected")
-        await client.close()
-        return status_val, round((time.perf_counter() - start_t) * 1000, 2), health
+        import httpx
+        url = f"{settings.INFERENCE_SERVER_URL.rstrip('/')}/health"
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(url)
+            if resp.status_code == 200:
+                health = resp.json()
+                status_val = health.get("status", "connected")
+                return status_val, round((time.perf_counter() - start_t) * 1000, 2), health
+        return "unreachable", -1, {}
     except Exception:
         return "unreachable", -1, {}
 

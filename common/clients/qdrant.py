@@ -33,13 +33,11 @@ class VectorClient:
                 url=settings.QDRANT_URL,
                 api_key=qdrant_api_key,
                 timeout=settings.QDRANT_TIMEOUT,
-                retries=settings.QDRANT_RETRIES,
             )
             self._async_client = AsyncQdrantClient(
                 url=settings.QDRANT_URL,
                 api_key=qdrant_api_key,
                 timeout=settings.QDRANT_TIMEOUT,
-                retries=settings.QDRANT_RETRIES,
             )
             logger.info("Qdrant sync/async clients initialized.")
         except Exception as e:
