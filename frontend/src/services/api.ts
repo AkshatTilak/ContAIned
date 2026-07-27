@@ -382,7 +382,7 @@ export const api = {
       method: "DELETE",
     }),
   queryRetrievalEngine: (payload: {
-    query: str;
+    query: string;
     collection_name?: string;
     strategy?: string;
     limit?: number;

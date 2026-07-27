@@ -26,6 +26,8 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
   const [selectedTools, setSelectedTools] = useState<string[]>(["retrieval"]);
 
   // V5 Fields
+  const [agentId, setAgentId] = useState("coding_agent");
+  const [actionType, setActionType] = useState("http_post");
   const [conditionType, setConditionType] = useState("complexity_equals");
   const [conditionValue, setConditionValue] = useState("HIGH");
   const [conditionExpression, setConditionExpression] = useState("");
@@ -58,6 +60,8 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
       setSelectedTools(data.tools || ["retrieval"]);
 
       // Load V5 node state
+      if (data.agent_id) setAgentId(data.agent_id);
+      if (data.action_type) setActionType(data.action_type);
       if (data.condition) {
         setConditionType(data.condition.type || "complexity_equals");
         setConditionValue(data.condition.value || "HIGH");
@@ -85,6 +89,8 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
     const newData: any = {
       ...node.data,
       label,
+      agent_id: agentId,
+      action_type: actionType,
       model_id: modelId,
       system_prompt: systemPrompt,
       threshold,
@@ -161,8 +167,24 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
             />
           </div>
 
-          {nodeType === "AgentNode" && (
+          {(nodeType === "AgentNode" || nodeType === "agent" || nodeType === "MultiAgentNode" || nodeType === "multi_agent") && (
             <>
+              {(nodeType === "MultiAgentNode" || nodeType === "multi_agent") && (
+                <div>
+                  <label className="text-zinc-400 font-medium block mb-1">Target Agent ID</label>
+                  <input
+                    type="text"
+                    value={agentId}
+                    onChange={(e) => {
+                      setAgentId(e.target.value);
+                      onUpdateNodeData(node.id, { ...node.data, agent_id: e.target.value });
+                    }}
+                    placeholder="e.g. coding_agent, search_agent"
+                    className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-violet-300 font-mono focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="text-zinc-400 font-medium block mb-1">LLM Model</label>
                 <select
@@ -189,6 +211,71 @@ export const PropertyDrawer: React.FC<PropertyDrawerProps> = ({
                     onUpdateNodeData(node.id, { ...node.data, system_prompt: e.target.value });
                   }}
                   placeholder="Override default prompt for this node..."
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-emerald-500 resize-none font-mono text-xs leading-relaxed"
+                />
+              </div>
+            </>
+          )}
+
+          {(nodeType === "ActionNode" || nodeType === "action") && (
+            <>
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Action Type</label>
+                <select
+                  value={actionType}
+                  onChange={(e) => {
+                    setActionType(e.target.value);
+                    onUpdateNodeData(node.id, { ...node.data, action_type: e.target.value });
+                  }}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-rose-500"
+                >
+                  <option value="http_post">Outbound HTTP POST</option>
+                  <option value="db_mutation">Database Side-Effect</option>
+                  <option value="custom_event">System Custom Event</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Endpoint URL (Optional)</label>
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://api.example.com/action"
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-rose-300 font-mono focus:outline-none focus:border-rose-500"
+                />
+              </div>
+            </>
+          )}
+
+          {(nodeType === "FinalMessageNode" || nodeType === "final_message") && (
+            <>
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Synthesis Model</label>
+                <select
+                  value={modelId}
+                  onChange={(e) => {
+                    setModelId(e.target.value);
+                    onUpdateNodeData(node.id, { ...node.data, model_id: e.target.value });
+                  }}
+                  className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-emerald-500"
+                >
+                  {availableModels.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-zinc-400 font-medium block mb-1">Synthesis Instructions</label>
+                <textarea
+                  rows={3}
+                  value={systemPrompt}
+                  onChange={(e) => {
+                    setSystemPrompt(e.target.value);
+                    onUpdateNodeData(node.id, { ...node.data, system_prompt: e.target.value });
+                  }}
+                  placeholder="Instructions for compiling final subagent context..."
                   className="w-full px-3 py-2 rounded bg-[var(--bg-input)] border border-[var(--border-default)] text-white focus:outline-none focus:border-emerald-500 resize-none font-mono text-xs leading-relaxed"
                 />
               </div>

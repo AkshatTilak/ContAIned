@@ -17,6 +17,7 @@ import {
   Info,
 } from "lucide-react";
 import { api } from "../services/api";
+import { useStore } from "../store/useStore";
 import { JobTracker } from "./ingestion/JobTracker";
 import { DocumentLibrary } from "./ingestion/DocumentLibrary";
 import { CollectionManager } from "./collections/CollectionManager";

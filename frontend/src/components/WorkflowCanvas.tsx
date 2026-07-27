@@ -30,6 +30,9 @@ import {
   Wrench,
   Route,
   Sliders,
+  Users,
+  Zap,
+  MessageSquareText,
 } from "lucide-react";
 
 import { useStore } from "../store/useStore";
@@ -45,6 +48,9 @@ import { EvalNode } from "./nodes/EvalNode";
 import { MCPToolNode } from "./nodes/MCPToolNode";
 import { RouterNode } from "./nodes/RouterNode";
 import { TransformNode } from "./nodes/TransformNode";
+import { MultiAgentNode } from "./nodes/MultiAgentNode";
+import { ActionNode } from "./nodes/ActionNode";
+import { FinalMessageNode } from "./nodes/FinalMessageNode";
 
 import { api } from "../services/api";
 import { useToast } from "./shared";
@@ -157,8 +163,11 @@ export const WorkflowCanvas: React.FC = () => {
     () => ({
       ClassifierNode,
       AgentNode,
+      MultiAgentNode,
       RetrievalNode,
       SynthesisNode,
+      ActionNode,
+      FinalMessageNode,
       IfElseNode,
       WebhookNode,
       APICallNode,
@@ -169,8 +178,11 @@ export const WorkflowCanvas: React.FC = () => {
       // Alias mapping
       classifier: ClassifierNode,
       agent: AgentNode,
+      multi_agent: MultiAgentNode,
       retrieval: RetrievalNode,
       synthesis: SynthesisNode,
+      action: ActionNode,
+      final_message: FinalMessageNode,
       if_else: IfElseNode,
       webhook: WebhookNode,
       api_call: APICallNode,
