@@ -395,6 +395,11 @@ export const api = {
         body: JSON.stringify(payload),
       }
     ),
+
+  // Multi-Agent Flow Evaluation Tracing API (S5-10)
+  getRunFlowTraces: (runId: string) =>
+    request<{ run_id: string; count: number; traces: any[] }>(`/api/evalops/runs/${runId}/traces`),
 };
+
 
 

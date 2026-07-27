@@ -5,13 +5,14 @@ import { useStore } from "../store/useStore";
 import { StatusBadge, ErrorBanner, useToast, LoadingSkeleton } from "./shared";
 import { SuiteManager } from "./eval/SuiteManager";
 import { RunConfigModal } from "./eval/RunConfigModal";
+import { FlowTraceVisualizer } from "./eval/FlowTraceVisualizer";
 
 export const EvalPanel: React.FC = () => {
   const toast = useToast();
   const agents = useStore((state) => state.agents);
 
-  // Tab State: "dashboard" | "suites" | "history"
-  const [activeTab, setActiveTab] = useState<"dashboard" | "suites" | "history">("dashboard");
+  // Tab State: "dashboard" | "suites" | "history" | "tracing"
+  const [activeTab, setActiveTab] = useState<"dashboard" | "suites" | "history" | "tracing">("dashboard");
 
   // Selected Agent for Filter
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
@@ -148,6 +149,7 @@ export const EvalPanel: React.FC = () => {
           { id: "dashboard", label: "Dashboard & Trends", icon: BarChart3 },
           { id: "suites", label: "Test Suites & Datasets", icon: Database },
           { id: "history", label: "Run History & Drill-Down", icon: Activity },
+          { id: "tracing", label: "Multi-Agent Flow Tracing", icon: Layers },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -429,6 +431,9 @@ export const EvalPanel: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* --- TAB 4: MULTI-AGENT FLOW TRACING --- */}
+      {activeTab === "tracing" && <FlowTraceVisualizer />}
 
       {/* Trigger Run Modal */}
       <RunConfigModal
