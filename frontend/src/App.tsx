@@ -12,6 +12,7 @@ import { AgentHub } from "./components/AgentHub";
 import { EvalPanel } from "./components/EvalPanel";
 import { PlaygroundPage } from "./components/PlaygroundPage";
 import { MCPHubPage } from "./components/MCPHubPage";
+import { InfrastructurePage } from "./components/InfrastructurePage";
 import { SettingsPage } from "./components/SettingsPage";
 import { NotFound } from "./components/NotFound";
 import { ErrorBoundary, ToastProvider } from "./components/shared";
@@ -168,6 +169,14 @@ export default function App() {
                       element={
                         <PageTransition>
                           <MCPHubPage />
+                        </PageTransition>
+                      }
+                    />
+                    <Route
+                      path="/infrastructure"
+                      element={
+                        <PageTransition>
+                          <InfrastructurePage systemHealth={systemHealth} modelRegistry={modelRegistry} onRefresh={fetchSystemData} />
                         </PageTransition>
                       }
                     />

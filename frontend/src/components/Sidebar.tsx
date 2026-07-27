@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Plus,
   Upload,
+  Database,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 
@@ -38,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = () => {
     { path: "/evalops", label: "EvalOps Benchmark", icon: ShieldCheck, shortcut: "⌘5" },
     { path: "/playground", label: "Model Playground", icon: Bot, shortcut: "⌘6" },
     { path: "/mcp", label: "MCP Hub", icon: Plug, shortcut: "⌘7" },
+    { path: "/infrastructure", label: "Infrastructure UIs", icon: Database, shortcut: "⌘8" },
   ] as const;
 
 
