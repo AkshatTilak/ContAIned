@@ -17,12 +17,14 @@ import {
   Info,
 } from "lucide-react";
 import { api } from "../services/api";
-import { useStore } from "../store/useStore";
 import { JobTracker } from "./ingestion/JobTracker";
 import { DocumentLibrary } from "./ingestion/DocumentLibrary";
+import { CollectionManager } from "./collections/CollectionManager";
+import { RetrievalTester } from "./collections/RetrievalTester";
 import type { IngestionResponse } from "../types/api";
+import { Database, Sparkles } from "lucide-react";
 
-type MainViewTab = "upload" | "jobs" | "documents";
+type MainViewTab = "upload" | "jobs" | "documents" | "collections" | "retrieval";
 type SettingsTab = "chunking" | "preprocessing" | "postprocessing";
 
 const MAX_FILE_SIZE_MB = 500;
@@ -31,6 +33,7 @@ export const IngestionPanel: React.FC = () => {
   const { settings, updateSettings, addNotification } = useStore();
   const [activeMainTab, setActiveMainTab] = useState<MainViewTab>("upload");
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>("chunking");
+
 
   // File Queue State
   const [fileQueue, setFileQueue] = useState<File[]>([]);
@@ -194,10 +197,37 @@ export const IngestionPanel: React.FC = () => {
           <Layers className="w-4 h-4" />
           <span>Document Library</span>
         </button>
+
+        <button
+          onClick={() => setActiveMainTab("collections")}
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-md ${
+            activeMainTab === "collections"
+              ? "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30"
+              : "text-zinc-400 hover:text-white bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]"
+          }`}
+        >
+          <Database className="w-4 h-4 text-indigo-400" />
+          <span>Vector Collections</span>
+        </button>
+
+        <button
+          onClick={() => setActiveMainTab("retrieval")}
+          className={`flex items-center gap-2.5 px-6 py-3 rounded-xl text-xs font-bold transition-all shadow-md ${
+            activeMainTab === "retrieval"
+              ? "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30"
+              : "text-zinc-400 hover:text-white bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)]"
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-indigo-400" />
+          <span>Retrieval Tester</span>
+        </button>
       </div>
 
       {activeMainTab === "jobs" && <JobTracker />}
       {activeMainTab === "documents" && <DocumentLibrary />}
+      {activeMainTab === "collections" && <CollectionManager />}
+      {activeMainTab === "retrieval" && <RetrievalTester />}
+
 
       {activeMainTab === "upload" && (
         <>

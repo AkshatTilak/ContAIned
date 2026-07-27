@@ -358,5 +358,43 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ parameters }),
     }),
+
+  // Global Data Store & Dynamic Collections APIs (S5-08)
+  getCollections: (tenantId?: string) =>
+    request<{ status: string; collections: any[]; count: number }>(
+      tenantId ? `/api/syntraflow/collections?tenant_id=${tenantId}` : "/api/syntraflow/collections"
+    ),
+  createCollection: (payload: {
+    name: string;
+    tenant_id?: string;
+    embedding_model?: string;
+    vector_dimension?: number;
+    description?: string;
+  }) =>
+    request<{ status: string; collection: any }>("/api/syntraflow/collections", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getCollectionDetails: (id: string) =>
+    request<{ status: string; collection: any }>(`/api/syntraflow/collections/${id}`),
+  deleteCollection: (id: string) =>
+    request<{ status: string; message: string }>(`/api/syntraflow/collections/${id}`, {
+      method: "DELETE",
+    }),
+  queryRetrievalEngine: (payload: {
+    query: str;
+    collection_name?: string;
+    strategy?: string;
+    limit?: number;
+    filters?: Record<string, any>;
+  }) =>
+    request<{ status: string; query: string; strategy: string; results: any[]; count: number }>(
+      "/api/syntraflow/query",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    ),
 };
+
 

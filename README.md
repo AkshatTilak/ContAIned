@@ -76,11 +76,13 @@ The platform partitions CPU-bound API routing, asynchronous job queuing, GPU-bou
 graph TD
     subgraph Clients
         App[Client App / SDK]
+        FE[React Frontend UI]
     end
 
     subgraph "Process 1: gateway/ (CPU-only, lightweight)"
         GW[FastAPI Gateway :8000]
         GW --> ProjectRoutes["Dynamic Project Routes<br/>/syntraflow/* /guardroute/* /evalops/*"]
+        GW --> UIProxies["Reverse Proxy<br/>/qdrant/* /neo4j/*"]
     end
 
     subgraph "Process 2: inference/ (GPU, heavyweight)"
@@ -91,15 +93,16 @@ graph TD
         INF --> Classifier["Arch-Router-1.5B<br/>(Task Classifier)"]
     end
 
-    subgraph "Ingestion Queue (Kafka)"
+    subgraph "Orchestration & Tracing"
         Queue[Kafka Ingestion Topic]
         Worker[SyntraFlow Ingestion Worker]
         Queue --> Worker
+        EvalConsumer[EvalOps Trace Consumer]
     end
 
     subgraph "Unified Storage & Serving"
         MCP[SyntraFlow MCP Server]
-        Qdrant[(Qdrant Vector DB)]
+        Qdrant[(Qdrant Vector DB<br/>Multi-Collection)]
         PG[(Postgres Relational DB)]
         Neo4j[(Neo4j Graph Database)]
         
@@ -108,9 +111,12 @@ graph TD
     end
 
     App --> GW
+    FE --> GW
     ProjectRoutes -- "HTTP /infer/*" --> INF
     ProjectRoutes -- "Publish Job" --> Queue
+    ProjectRoutes -- "Multi-Agent LangGraph" --> EvalConsumer
     ProjectRoutes -- "MCP protocol" --> MCP
+    UIProxies -. "Embedded Dashboard" .-> Qdrant
     INF -. "Gemini API fallback" .-> Gemini[Google Gemini API]
 ```
 
@@ -134,6 +140,18 @@ poetry install --extras "syntraflow" --extras "guardroute"
 ```bash
 poetry install --extras "inference"
 ```
+
+---
+
+## Release Notes — Version 5 (v5) Platform Maturity
+
+V5 shifts ContAIned into a production-grade operations platform, emphasizing complex flow control, unified dashboarding, and robust testing:
+
+- **Global Data Store & Dynamic Collections:** Qdrant has been upgraded to support dynamic, multi-collection environments with robust metadata filtering and pluggable retrieval strategies (Dense, Sparse, Hybrid, Graph).
+- **Multi-Agent Workflows & Strict Terminations:** Workflows now support instantiating multiple specialized agents passing state dynamically. Every flow must strictly terminate in an `ActionNode` or `FinalMessageNode`.
+- **EvalOps Flow Tracing:** DeepEval and RAGAS integrations now hook into LangGraph state changes, allowing precise evaluation and mocking of intermediate flow blocks and terminal side-effects.
+- **Embedded Infrastructure Dashboards:** View your Qdrant vector spaces and Neo4j graphs directly inside the ContAIned frontend via authenticated reverse proxies in the API Gateway.
+- **Platform Polish:** Full OAuth RBAC, Model Playground, and MCP Integration Hub to manage all external connections in one unified view.
 
 ---
 
