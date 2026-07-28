@@ -76,3 +76,28 @@ class DatabaseException(ContAInedException):
             status_code=500,
             details=details,
         )
+
+
+class PasswordPolicyError(ContAInedException):
+    """Raised when a proposed password fails policy requirements."""
+
+    def __init__(self, message: str = "Password does not meet policy requirements", details: Optional[Dict[str, Any]] = None) -> None:
+        super().__init__(
+            message=message,
+            error_code="PASSWORD_POLICY_ERROR",
+            status_code=422,
+            details=details,
+        )
+
+
+class AccountLockedError(ContAInedException):
+    """Raised when a user attempts login while their account is locked."""
+
+    def __init__(self, message: str = "Account is temporarily locked due to failed login attempts", details: Optional[Dict[str, Any]] = None) -> None:
+        super().__init__(
+            message=message,
+            error_code="ACCOUNT_LOCKED",
+            status_code=423,
+            details=details,
+        )
+

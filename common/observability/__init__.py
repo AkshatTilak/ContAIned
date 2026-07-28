@@ -6,6 +6,8 @@ from common.observability.exceptions import (
     ValidationErrorException,
     ExternalServiceException,
     DatabaseException,
+    PasswordPolicyError,
+    AccountLockedError,
     ErrorResponseSchema,
 )
 from common.observability.middleware import TraceIdMiddleware, register_exception_handlers
@@ -16,7 +18,10 @@ __all__ = [
     "ValidationErrorException",
     "ExternalServiceException",
     "DatabaseException",
+    "PasswordPolicyError",
+    "AccountLockedError",
     "ErrorResponseSchema",
     "TraceIdMiddleware",
     "register_exception_handlers",
 ]
+
