@@ -25,8 +25,9 @@ def hash_token(token: str) -> str:
 def create_access_token(
     user_id: str,
     email: str,
-    role: str,
+    platform_role: str = "member",
     expires_hours: Optional[int] = None,
+    **kwargs: Any,
 ) -> str:
     """Generate a signed JWT access token."""
     secret_key, algorithm, default_expiry = get_jwt_settings()
@@ -35,10 +36,12 @@ def create_access_token(
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(hours=expiry_hours)
 
+    role_val = kwargs.get("role") or platform_role
+
     payload = {
         "sub": user_id,
         "email": email,
-        "role": role,
+        "platform_role": role_val,
         "iat": int(now.timestamp()),
         "exp": int(expires_at.timestamp()),
     }

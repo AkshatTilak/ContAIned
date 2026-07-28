@@ -7,12 +7,18 @@ from typing import Any, Dict, List, Optional
 
 from common.clients.postgres import get_async_db
 from common.config.settings import get_settings
+from common.constants.roles import (
+    PLATFORM_ROLES,
+    PLATFORM_ROLE_ADMIN,
+    PLATFORM_ROLE_MEMBER,
+)
 from common.models.database import User, UserSession
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from gateway.auth.dependencies import get_current_user, require_role
 from gateway.auth.providers import oauth
-from pydantic import BaseModel, ConfigDict, EmailStr
+from gateway.auth.utils import create_access_token, hash_token
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +27,15 @@ logger = logging.getLogger("gateway.auth.routes")
 
 
 class UserRoleUpdate(BaseModel):
-    role: str
+    platform_role: str
+
+    @field_validator("platform_role")
+    @classmethod
+    def validate_platform_role(cls, v: str) -> str:
+        if v not in PLATFORM_ROLES:
+            raise ValueError(f"Platform role must be one of: {', '.join(PLATFORM_ROLES)}")
+        return v
+
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -31,7 +45,7 @@ class UserResponse(BaseModel):
     display_name: Optional[str] = None
     avatar_url: Optional[str] = None
     provider: str
-    role: str
+    platform_role: str = PLATFORM_ROLE_MEMBER
     is_active: bool
     created_at: datetime
     last_login: Optional[datetime] = None
@@ -115,7 +129,7 @@ async def oauth_callback(
         count_res = await db.execute(count_stmt)
         user_count = count_res.scalar() or 0
 
-        initial_role = "admin" if user_count == 0 else "viewer"
+        initial_role = PLATFORM_ROLE_ADMIN if user_count == 0 else PLATFORM_ROLE_MEMBER
 
         user = User(
             id=str(uuid.uuid4()),
@@ -124,6 +138,7 @@ async def oauth_callback(
             avatar_url=avatar_url,
             provider=provider,
             provider_id=provider_id,
+            platform_role=initial_role,
             role=initial_role,
             is_active=True,
             created_at=now,
@@ -135,7 +150,7 @@ async def oauth_callback(
     await db.refresh(user)
 
     # Generate JWT
-    jwt_token = create_access_token(user_id=user.id, email=user.email, role=user.role)
+    jwt_token = create_access_token(user_id=user.id, email=user.email, platform_role=user.platform_role)
     token_h = hash_token(jwt_token)
     expires_at = now + timedelta(hours=24)
 
@@ -172,7 +187,7 @@ async def get_me(
             display_name="Local Admin",
             avatar_url=None,
             provider="local",
-            role="admin",
+            platform_role=PLATFORM_ROLE_ADMIN,
             is_active=True,
             created_at=datetime.utcnow(),
             last_login=datetime.utcnow(),
@@ -233,11 +248,11 @@ async def update_user_role(
     db: AsyncSession = Depends(get_async_db),
     admin: Dict[str, Any] = Depends(require_role("admin")),
 ):
-    """Update role for a specified user (Admin only)."""
-    if payload.role not in ["admin", "editor", "viewer"]:
+    """Update platform role for a specified user (Admin only)."""
+    if payload.platform_role not in PLATFORM_ROLES:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Role must be one of: admin, editor, viewer",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Platform role must be one of: {', '.join(PLATFORM_ROLES)}",
         )
 
     stmt = select(User).where(User.id == user_id)
@@ -249,7 +264,20 @@ async def update_user_role(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    user.role = payload.role
+    if user.platform_role == PLATFORM_ROLE_ADMIN and payload.platform_role != PLATFORM_ROLE_ADMIN:
+        admin_count_stmt = select(func.count(User.id)).where(
+            User.platform_role == PLATFORM_ROLE_ADMIN, User.is_active.is_(True)
+        )
+        admin_count = (await db.execute(admin_count_stmt)).scalar() or 0
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot demote the last platform admin",
+                headers={"X-Error-Code": "LAST_PLATFORM_ADMIN"},
+            )
+
+    user.platform_role = payload.platform_role
+    user.role = payload.platform_role
     await db.commit()
     await db.refresh(user)
     return user

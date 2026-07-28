@@ -1,26 +1,26 @@
-import unittest
-import jwt
+import pytest
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.testclient import TestClient
 
 from gateway.auth.utils import create_access_token, verify_access_token, hash_token
-from gateway.auth.dependencies import get_current_user, require_role, ROLE_HIERARCHY
+from gateway.auth.dependencies import get_current_user, require_role, require_platform_role
+from common.constants.roles import PLATFORM_ROLE_ADMIN, PLATFORM_ROLE_MEMBER, PLATFORM_ROLES
 
 
 def test_create_and_verify_access_token():
-    """Test JWT token encoding and decoding."""
+    """Test JWT token encoding and decoding with platform_role."""
     user_id = "user-123-uuid"
     email = "test@example.com"
-    role = "editor"
+    platform_role = "member"
 
-    token = create_access_token(user_id=user_id, email=email, role=role, expires_hours=1)
+    token = create_access_token(user_id=user_id, email=email, platform_role=platform_role, expires_hours=1)
     assert isinstance(token, str)
     assert len(token) > 20
 
     payload = verify_access_token(token)
     assert payload["sub"] == user_id
     assert payload["email"] == email
-    assert payload["role"] == role
+    assert payload["platform_role"] == platform_role
     assert "exp" in payload
     assert "iat" in payload
 
@@ -34,10 +34,14 @@ def test_hash_token():
     assert len(h1) == 64  # SHA-256 hex string length
 
 
-def test_role_hierarchy_logic():
-    """Test RBAC role ordering logic."""
-    assert ROLE_HIERARCHY["admin"] > ROLE_HIERARCHY["editor"]
-    assert ROLE_HIERARCHY["editor"] > ROLE_HIERARCHY["viewer"]
+def test_invalid_role_construction():
+    """Test that require_role raises ValueError for unknown platform roles."""
+    with pytest.raises(ValueError) as excinfo:
+        require_role("editor")
+    assert "Unknown platform role" in str(excinfo.value)
+
+    with pytest.raises(ValueError):
+        require_role("viewer")
 
 
 # FastAPI App for testing RBAC dependencies
@@ -51,12 +55,12 @@ async def public_route():
 
 @app.get("/test/admin-only")
 async def admin_route(user: dict = Depends(require_role("admin"))):
-    return {"user": user["email"], "role": user["role"]}
+    return {"user": user["email"], "platform_role": user["platform_role"]}
 
 
-@app.get("/test/editor-or-admin")
-async def editor_route(user: dict = Depends(require_role("editor", "admin"))):
-    return {"user": user["email"], "role": user["role"]}
+@app.get("/test/member-or-admin")
+async def member_route(user: dict = Depends(require_role("member"))):
+    return {"user": user["email"], "platform_role": user["platform_role"]}
 
 
 client = TestClient(app)

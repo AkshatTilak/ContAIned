@@ -46,7 +46,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             request.state.user = {
                 "sub": "local-admin-id",
                 "email": "admin@contained.local",
-                "role": "admin",
+                "platform_role": "admin",
             }
             return await call_next(request)
 

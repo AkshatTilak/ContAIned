@@ -105,14 +105,14 @@ async def _proxy_request(
 
 # --- Qdrant Proxy Endpoints (RBAC Restricted: Admin & Editor) ---
 
-@router.api_route("/qdrant/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"], dependencies=[Depends(require_role("admin", "editor"))])
+@router.api_route("/qdrant/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"], dependencies=[Depends(require_role("admin"))])
 async def proxy_qdrant_path(path: str, request: Request):
     """Proxy route to Qdrant Vector Engine UI and API endpoints."""
     target_path = "dashboard/" if not path else path
     return await _proxy_request(request, QDRANT_BASE_URL, target_path, "Qdrant Vector Engine")
 
 
-@router.get("/qdrant", dependencies=[Depends(require_role("admin", "editor"))])
+@router.get("/qdrant", dependencies=[Depends(require_role("admin"))])
 async def proxy_qdrant_root(request: Request):
     """Proxy root Qdrant dashboard route."""
     return await _proxy_request(request, QDRANT_BASE_URL, "dashboard/", "Qdrant Vector Engine")
@@ -174,14 +174,14 @@ async def proxy_qdrant_aliases_root(request: Request):
 
 # --- Neo4j Proxy Endpoints (RBAC Restricted: Admin & Editor) ---
 
-@router.api_route("/neo4j/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"], dependencies=[Depends(require_role("admin", "editor"))])
+@router.api_route("/neo4j/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"], dependencies=[Depends(require_role("admin"))])
 async def proxy_neo4j_path(path: str, request: Request):
     """Proxy route to Neo4j Graph Database Browser UI, resolving relative browser assets."""
     target_path = path if (path.startswith("browser") or path.startswith("db")) else f"browser/{path}"
     return await _proxy_request(request, NEO4J_BROWSER_URL, target_path, "Neo4j Graph Database")
 
 
-@router.get("/neo4j", dependencies=[Depends(require_role("admin", "editor"))])
+@router.get("/neo4j", dependencies=[Depends(require_role("admin"))])
 async def proxy_neo4j_root(request: Request):
     """Proxy root Neo4j browser route."""
     return await _proxy_request(request, NEO4J_BROWSER_URL, "browser/", "Neo4j Graph Database")

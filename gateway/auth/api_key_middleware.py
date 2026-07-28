@@ -134,6 +134,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # Store context in request state
         request.state.api_key_id = api_key_id
         request.state.user_id = user_id
+        request.state.user = {
+            "sub": user_id or "api-key-user",
+            "platform_role": "member",
+        }
 
         # 4. Proceed with request and time execution
         start_time = time.time()
