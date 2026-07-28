@@ -23,6 +23,13 @@ WHITELIST_PREFIXES: List[str] = [
     "/favicon.ico",
     "/static",
     "/v1",  # External API routes use API key authentication (S5-07)
+    "/api/qdrant",  # Infrastructure proxy iframe route
+    "/api/neo4j",   # Infrastructure proxy iframe route
+    "/dashboard",   # Qdrant dashboard static assets route
+    "/collections", # Qdrant dashboard collections API proxy route
+    "/telemetry",   # Qdrant dashboard telemetry API proxy route
+    "/cluster",     # Qdrant dashboard cluster API proxy route
+    "/aliases",     # Qdrant dashboard aliases API proxy route
 ]
 
 

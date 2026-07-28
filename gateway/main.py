@@ -152,6 +152,7 @@ from gateway.auth.middleware import AuthMiddleware
 from gateway.auth.providers import init_oauth
 from gateway.auth.routes import router as auth_router
 from gateway.auth.api_key_middleware import APIKeyMiddleware
+from gateway.api.proxy import router as proxy_router
 from gateway.api.external import router as external_v1_router
 
 init_oauth()
@@ -163,6 +164,7 @@ app.add_middleware(AuthMiddleware)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(external_v1_router)
+app.include_router(proxy_router)
 app.include_router(api_router)
 
 logger.info("Gateway app created — active projects: %s", settings.ACTIVE_PROJECTS)

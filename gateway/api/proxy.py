@@ -24,6 +24,8 @@ STRIP_HEADERS = {
     "content-length",
     "transfer-encoding",
     "connection",
+    "content-encoding",
+    "accept-encoding",
 }
 
 
@@ -42,7 +44,7 @@ async def _proxy_request(
     headers = {
         key: value
         for key, value in request.headers.items()
-        if key.lower() not in ("host", "authorization", "x-api-key")
+        if key.lower() not in ("host", "authorization", "x-api-key", "accept-encoding")
     }
 
     try:
@@ -106,24 +108,80 @@ async def _proxy_request(
 @router.api_route("/qdrant/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"], dependencies=[Depends(require_role("admin", "editor"))])
 async def proxy_qdrant_path(path: str, request: Request):
     """Proxy route to Qdrant Vector Engine UI and API endpoints."""
-    return await _proxy_request(request, QDRANT_BASE_URL, path, "Qdrant Vector Engine")
+    target_path = "dashboard/" if not path else path
+    return await _proxy_request(request, QDRANT_BASE_URL, target_path, "Qdrant Vector Engine")
 
 
 @router.get("/qdrant", dependencies=[Depends(require_role("admin", "editor"))])
 async def proxy_qdrant_root(request: Request):
     """Proxy root Qdrant dashboard route."""
-    return await _proxy_request(request, QDRANT_BASE_URL, "dashboard", "Qdrant Vector Engine")
+    return await _proxy_request(request, QDRANT_BASE_URL, "dashboard/", "Qdrant Vector Engine")
+
+
+@router.api_route("/dashboard/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+async def proxy_qdrant_dashboard_assets(path: str, request: Request):
+    """Proxy Qdrant dashboard assets (/dashboard/assets/..., /dashboard/manifest.json)."""
+    return await _proxy_request(request, QDRANT_BASE_URL, f"dashboard/{path}", "Qdrant Vector Engine")
+
+
+@router.get("/dashboard")
+async def proxy_qdrant_dashboard_root(request: Request):
+    """Proxy Qdrant dashboard root."""
+    return await _proxy_request(request, QDRANT_BASE_URL, "dashboard/", "Qdrant Vector Engine")
+
+
+@router.api_route("/collections/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+async def proxy_qdrant_collections_path(path: str, request: Request):
+    """Proxy Qdrant collections API endpoint."""
+    return await _proxy_request(request, QDRANT_BASE_URL, f"collections/{path}", "Qdrant Vector Engine")
+
+
+@router.api_route("/collections", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+async def proxy_qdrant_collections_root(request: Request):
+    """Proxy Qdrant collections root endpoint."""
+    return await _proxy_request(request, QDRANT_BASE_URL, "collections", "Qdrant Vector Engine")
+
+
+@router.api_route("/telemetry", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+async def proxy_qdrant_telemetry(request: Request):
+    """Proxy Qdrant telemetry endpoint."""
+    return await _proxy_request(request, QDRANT_BASE_URL, "telemetry", "Qdrant Vector Engine")
+
+
+@router.api_route("/cluster/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+async def proxy_qdrant_cluster_path(path: str, request: Request):
+    """Proxy Qdrant cluster API endpoint."""
+    return await _proxy_request(request, QDRANT_BASE_URL, f"cluster/{path}", "Qdrant Vector Engine")
+
+
+@router.api_route("/cluster", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+async def proxy_qdrant_cluster_root(request: Request):
+    """Proxy Qdrant cluster root endpoint."""
+    return await _proxy_request(request, QDRANT_BASE_URL, "cluster", "Qdrant Vector Engine")
+
+
+@router.api_route("/aliases/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+async def proxy_qdrant_aliases_path(path: str, request: Request):
+    """Proxy Qdrant aliases API endpoint."""
+    return await _proxy_request(request, QDRANT_BASE_URL, f"aliases/{path}", "Qdrant Vector Engine")
+
+
+@router.api_route("/aliases", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])
+async def proxy_qdrant_aliases_root(request: Request):
+    """Proxy Qdrant aliases root endpoint."""
+    return await _proxy_request(request, QDRANT_BASE_URL, "aliases", "Qdrant Vector Engine")
 
 
 # --- Neo4j Proxy Endpoints (RBAC Restricted: Admin & Editor) ---
 
 @router.api_route("/neo4j/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"], dependencies=[Depends(require_role("admin", "editor"))])
 async def proxy_neo4j_path(path: str, request: Request):
-    """Proxy route to Neo4j Graph Database Browser UI."""
-    return await _proxy_request(request, NEO4J_BROWSER_URL, path, "Neo4j Graph Database")
+    """Proxy route to Neo4j Graph Database Browser UI, resolving relative browser assets."""
+    target_path = path if (path.startswith("browser") or path.startswith("db")) else f"browser/{path}"
+    return await _proxy_request(request, NEO4J_BROWSER_URL, target_path, "Neo4j Graph Database")
 
 
 @router.get("/neo4j", dependencies=[Depends(require_role("admin", "editor"))])
 async def proxy_neo4j_root(request: Request):
     """Proxy root Neo4j browser route."""
-    return await _proxy_request(request, NEO4J_BROWSER_URL, "browser", "Neo4j Graph Database")
+    return await _proxy_request(request, NEO4J_BROWSER_URL, "browser/", "Neo4j Graph Database")

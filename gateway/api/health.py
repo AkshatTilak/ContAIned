@@ -28,7 +28,7 @@ async def _check_db():
         from sqlalchemy import text
         session_factory = get_sessionmaker()
         async with session_factory() as session:
-            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=1.0)
+            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=0.5)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -38,7 +38,7 @@ async def _check_redis():
     start_t = time.perf_counter()
     try:
         from common.clients.redis import verify_redis_connection
-        await asyncio.wait_for(verify_redis_connection(), timeout=1.0)
+        await asyncio.wait_for(verify_redis_connection(), timeout=0.5)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -48,7 +48,7 @@ async def _check_neo4j():
     start_t = time.perf_counter()
     try:
         from common.clients.neo4j import verify_neo4j_connection
-        await asyncio.wait_for(verify_neo4j_connection(), timeout=1.0)
+        await asyncio.wait_for(verify_neo4j_connection(), timeout=0.5)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -59,7 +59,7 @@ async def _check_qdrant():
     try:
         from common.clients.qdrant import VectorClient
         qdrant_client = VectorClient()
-        await asyncio.wait_for(qdrant_client.verify_connection(max_retries=1), timeout=3.0)
+        await asyncio.wait_for(qdrant_client.verify_connection(max_retries=1), timeout=0.5)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -69,9 +69,9 @@ async def _check_kafka():
     start_t = time.perf_counter()
     try:
         from confluent_kafka.admin import AdminClient
-        conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 2000}
+        conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 500}
         admin_client = AdminClient(conf)
-        await asyncio.wait_for(asyncio.to_thread(admin_client.list_topics, timeout=2.0), timeout=2.0)
+        await asyncio.wait_for(asyncio.to_thread(admin_client.list_topics, timeout=0.5), timeout=0.5)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -82,7 +82,7 @@ async def _check_inference():
     try:
         import httpx
         url = f"{settings.INFERENCE_SERVER_URL.rstrip('/')}/health"
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=0.5) as client:
             resp = await client.get(url)
             if resp.status_code == 200:
                 health = resp.json()

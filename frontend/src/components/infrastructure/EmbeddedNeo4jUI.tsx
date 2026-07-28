@@ -8,7 +8,7 @@ export const EmbeddedNeo4jUI: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const proxyUrl = `${gatewayUrl.replace(/\/$/, "")}/api/neo4j/browser`;
+  const proxyUrl = `${gatewayUrl.replace(/\/$/, "")}/api/neo4j/browser/`;
   const directUrl = "http://localhost:7474/browser/";
 
   const handleReload = () => {
@@ -94,8 +94,7 @@ export const EmbeddedNeo4jUI: React.FC = () => {
           src={proxyUrl}
           title="Neo4j Graph Browser"
           onLoad={() => setIsLoading(false)}
-          className="w-full h-full min-h-[600px] border-0"
-          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+          className="w-full h-full min-h-[650px] border-0"
         />
       </div>
     </div>

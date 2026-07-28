@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Database, RefreshCw, ExternalLink, Maximize2, Minimize2, ShieldCheck, Server } from "lucide-react";
 import { useStore } from "../../store/useStore";
 
@@ -8,8 +8,15 @@ export const EmbeddedQdrantUI: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const proxyUrl = `${gatewayUrl.replace(/\/$/, "")}/api/qdrant/dashboard`;
-  const directUrl = "http://localhost:6333/dashboard";
+  const proxyUrl = `${gatewayUrl.replace(/\/$/, "")}/api/qdrant/`;
+  const directUrl = "http://localhost:6333/dashboard/";
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [iframeKey]);
 
   const handleReload = () => {
     setIsLoading(true);
@@ -82,8 +89,7 @@ export const EmbeddedQdrantUI: React.FC = () => {
           src={proxyUrl}
           title="Qdrant Vector UI"
           onLoad={() => setIsLoading(false)}
-          className="w-full h-full min-h-[600px] border-0"
-          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+          className="w-full h-full min-h-[650px] border-0"
         />
       </div>
     </div>

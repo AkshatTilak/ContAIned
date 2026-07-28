@@ -46,6 +46,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 from common.observability.tracing import setup_tracing
 setup_tracing("inference")
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="Inference Server",
     description="GPU model serving for contained-ai-platform",
@@ -53,6 +55,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_middleware(RequestIdMiddleware)
 
 
