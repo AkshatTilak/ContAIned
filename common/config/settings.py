@@ -145,6 +145,7 @@ class AuthSettings(BaseSettings):
     JWT_SECRET_KEY: str = Field(
         default="contained-secret-key-change-in-production", alias="JWT_SECRET_KEY"
     )
+    DATASTORE_ENCRYPTION_KEY: str = Field(default="", alias="DATASTORE_ENCRYPTION_KEY")
     JWT_ALGORITHM: str = Field(default="HS256", alias="JWT_ALGORITHM")
     JWT_EXPIRY_HOURS: int = Field(default=24, alias="JWT_EXPIRY_HOURS")
 
@@ -185,6 +186,10 @@ class Settings(
         # Enforce QDRANT_API_KEY in production if specified
         if self.APP_ENV == "production" and not self.QDRANT_API_KEY:
             raise ValueError("QDRANT_API_KEY is required in production environment.")
+
+        # Enforce DATASTORE_ENCRYPTION_KEY in production
+        if self.APP_ENV == "production" and (not self.DATASTORE_ENCRYPTION_KEY or self.DATASTORE_ENCRYPTION_KEY == self.JWT_SECRET_KEY):
+            raise ValueError("DATASTORE_ENCRYPTION_KEY must be explicitly set and distinct from JWT_SECRET_KEY in production environment.")
 
         # 2. Log warnings for optional but recommended settings.
         recommended_vars = {
