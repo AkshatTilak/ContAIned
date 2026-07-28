@@ -44,9 +44,8 @@ class UserResponse(BaseModel):
     email: str
     display_name: Optional[str] = None
     avatar_url: Optional[str] = None
-    provider: str
     platform_role: str = PLATFORM_ROLE_MEMBER
-    is_active: bool
+    status: str = "active"
     created_at: datetime
     last_login: Optional[datetime] = None
 
@@ -116,7 +115,7 @@ async def oauth_callback(
     now = datetime.now(timezone.utc)
 
     if existing_user:
-        if not existing_user.is_active:
+        if existing_user.status != "active":
             return RedirectResponse(url="/login?error=account_deactivated")
 
         existing_user.last_login = now
@@ -136,11 +135,8 @@ async def oauth_callback(
             email=email,
             display_name=display_name,
             avatar_url=avatar_url,
-            provider=provider,
-            provider_id=provider_id,
             platform_role=initial_role,
-            role=initial_role,
-            is_active=True,
+            status="active",
             created_at=now,
             last_login=now,
         )
@@ -186,9 +182,8 @@ async def get_me(
             email="admin@contained.local",
             display_name="Local Admin",
             avatar_url=None,
-            provider="local",
             platform_role=PLATFORM_ROLE_ADMIN,
-            is_active=True,
+            status="active",
             created_at=datetime.utcnow(),
             last_login=datetime.utcnow(),
         )
@@ -266,7 +261,7 @@ async def update_user_role(
 
     if user.platform_role == PLATFORM_ROLE_ADMIN and payload.platform_role != PLATFORM_ROLE_ADMIN:
         admin_count_stmt = select(func.count(User.id)).where(
-            User.platform_role == PLATFORM_ROLE_ADMIN, User.is_active.is_(True)
+            User.platform_role == PLATFORM_ROLE_ADMIN, User.status == "active"
         )
         admin_count = (await db.execute(admin_count_stmt)).scalar() or 0
         if admin_count <= 1:
@@ -277,7 +272,6 @@ async def update_user_role(
             )
 
     user.platform_role = payload.platform_role
-    user.role = payload.platform_role
     await db.commit()
     await db.refresh(user)
     return user
@@ -299,6 +293,7 @@ async def deactivate_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    user.is_active = False
+    user.status = "suspended"
     await db.commit()
     return {"status": "deactivated", "id": user_id}
+

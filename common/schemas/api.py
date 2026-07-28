@@ -33,3 +33,88 @@ class PaginatedResponse(BaseModel, Generic[T]):
     page: int = Field(..., description="Current page number (1-indexed)")
     size: int = Field(..., description="Number of items per page")
     pages: int = Field(..., description="Total number of pages")
+
+
+from datetime import datetime
+
+
+class IdentitySummary(BaseModel):
+    """Summary representation of a user identity."""
+
+    id: str
+    provider: str
+    provider_id: str
+    email: str
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+
+
+class HubMembershipSummary(BaseModel):
+    """Summary representation of a hub membership for a user."""
+
+    id: str
+    hub_id: str
+    hub_name: Optional[str] = None
+    hub_slug: Optional[str] = None
+    hub_type: Optional[str] = None
+    hub_role: str
+    created_at: datetime
+
+
+class UserSummary(BaseModel):
+    """Basic summary representation of a user."""
+
+    id: str
+    email: str
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    platform_role: str
+    status: str
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+
+class UserDetail(UserSummary):
+    """Detailed user record including identities and hub memberships."""
+
+    password_updated_at: Optional[datetime] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    failed_login_count: int = 0
+    locked_until: Optional[datetime] = None
+    identities: list[IdentitySummary] = Field(default_factory=list)
+    hub_memberships: list[HubMembershipSummary] = Field(default_factory=list)
+
+
+class InviteGrant(BaseModel):
+    """Pre-assigned hub grant included in an invitation."""
+
+    hub_id: str
+    hub_role: str
+
+
+class InviteCreate(BaseModel):
+    """Payload for creating a new user invitation."""
+
+    email: str
+    platform_role: str = "member"
+    hub_grants: list[InviteGrant] = Field(default_factory=list)
+
+
+class InviteSummary(BaseModel):
+    """Summary representation of a user invite."""
+
+    id: str
+    email: str
+    platform_role: str
+    hub_grants_json: list[dict[str, Any]] = Field(default_factory=list)
+    invited_by: Optional[str] = None
+    status: str
+    expires_at: datetime
+    accepted_at: Optional[datetime] = None
+    accepted_user_id: Optional[str] = None
+    resend_count: int = 0
+    last_sent_at: Optional[datetime] = None
+    created_at: datetime
+    invite_url: Optional[str] = None
+

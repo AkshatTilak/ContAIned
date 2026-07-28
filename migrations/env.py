@@ -18,9 +18,11 @@ import projects.guardroute.src.database.models  # noqa: F401
 # access to the values within the .ini file in use.
 config = context.config
 
-# Dynamically set the database URL from settings if not explicitly provided
-if not config.get_main_option("sqlalchemy.url"):
+# Dynamically set the database URL from settings if not explicitly provided or dummy placeholder
+url_opt = config.get_main_option("sqlalchemy.url")
+if not url_opt or "driver://" in url_opt:
     config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
