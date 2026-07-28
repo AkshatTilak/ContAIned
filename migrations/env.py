@@ -18,8 +18,9 @@ import projects.guardroute.src.database.models  # noqa: F401
 # access to the values within the .ini file in use.
 config = context.config
 
-# Dynamically set the database URL from settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Dynamically set the database URL from settings if not explicitly provided
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -53,6 +54,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        render_as_batch=True,
     )
 
     with context.begin_transaction():
@@ -60,7 +62,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=True,
+    )
 
     with context.begin_transaction():
         context.run_migrations()
@@ -86,8 +92,19 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-
-    asyncio.run(run_async_migrations())
+    url = config.get_main_option("sqlalchemy.url") or ""
+    if "sqlite" in url and "aiosqlite" not in url:
+        from sqlalchemy import engine_from_config
+        connectable = engine_from_config(
+            config.get_section(config.config_ini_section, {}),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+        )
+        with connectable.connect() as connection:
+            do_run_migrations(connection)
+        connectable.dispose()
+    else:
+        asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():
