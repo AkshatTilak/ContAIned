@@ -19,6 +19,10 @@ logger = logging.getLogger("gateway.auth.dependencies")
 
 async def get_current_user(request: Request) -> Dict[str, Any]:
     """Retrieve authenticated user from request state."""
+    user = getattr(request.state, "user", None)
+    if user:
+        return user
+
     settings = get_settings()
 
     # Fallback for when AUTH_ENABLED is False
@@ -31,17 +35,18 @@ async def get_current_user(request: Request) -> Dict[str, Any]:
             "display_name": "Local Admin",
         }
 
-    user = getattr(request.state, "user", None)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication credentials were not provided",
-        )
-    return user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication credentials were not provided",
+    )
 
 
 async def get_optional_user(request: Request) -> Optional[Dict[str, Any]]:
     """Retrieve optional user from request state (returns None if unauthenticated)."""
+    user = getattr(request.state, "user", None)
+    if user:
+        return user
+
     settings = get_settings()
     if not getattr(settings, "AUTH_ENABLED", False):
         return {
@@ -51,7 +56,7 @@ async def get_optional_user(request: Request) -> Optional[Dict[str, Any]]:
             "platform_role": PLATFORM_ROLE_ADMIN,
         }
 
-    return getattr(request.state, "user", None)
+    return None
 
 
 def require_role(*allowed_roles: str) -> Callable:
