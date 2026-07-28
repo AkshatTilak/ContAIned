@@ -36,6 +36,8 @@ class AppSettings(BaseSettings):
     MAX_RAM_MB: int = Field(default=16384, alias="MAX_RAM_MB")
     DEEPEVAL_MODEL: str = Field(default="gemini/gemini-3.5-flash", alias="DEEPEVAL_MODEL")
     EVALOPS_CONSUMER_ENABLED: bool = Field(default=False, alias="EVALOPS_CONSUMER_ENABLED")
+    ALLOW_MEMBER_HUB_CREATION: bool = Field(default=True, alias="ALLOW_MEMBER_HUB_CREATION")
+    TRUST_PROXY_HEADERS: bool = Field(default=False, alias="TRUST_PROXY_HEADERS")
 
 
 class DatabaseSettings(BaseSettings):

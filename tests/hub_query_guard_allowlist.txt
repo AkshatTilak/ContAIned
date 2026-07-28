@@ -1,0 +1,4 @@
+common/services/hub_resolver.py::resolve_linked  # hub unknown until the row is loaded; link is asserted immediately after
+common/services/hub_repository.py::get_scoped  # the scoping primitive itself
+common/services/hub_repository.py::get_hub  # hub lookup primitive
+common/services/hub_repository.py::get_hub_by_slug  # hub slug lookup primitive

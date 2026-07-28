@@ -4,7 +4,7 @@ from typing import Optional, TypeVar, Sequence
 from sqlalchemy import select, func, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.models.database import Hub, HubMember, HubLink, DatastoreBinding, Base
+from common.models.database import Hub, HubMember, HubLink, DatastoreBinding, AuditLog, Base
 from common.models.hub_enums import is_link_direction_allowed, HUB_ROLE_OWNER
 from common.models import HUB_SCOPED_MODELS
 from common.schemas.hubs import HubCreate, HubUpdate
@@ -166,19 +166,26 @@ async def archive_hub(session: AsyncSession, *, hub_id: str, archived: bool) -> 
 
 
 async def delete_hub_if_empty(session: AsyncSession, *, hub_id: str) -> None:
-    """Delete a Hub if it owns no resources across HUB_SCOPED_MODELS."""
+    """Delete a Hub if it owns no resources across hub-owned models."""
     hub = await get_hub(session, hub_id)
     if not hub:
         raise HubNotFoundError(f"Hub '{hub_id}' not found.")
 
+    counts = {}
     total_resources = 0
-    for table_name, model_cls in HUB_SCOPED_MODELS.items():
-        stmt = select(func.count()).select_from(model_cls).where(model_cls.hub_id == hub_id)
-        count = (await session.execute(stmt)).scalar() or 0
-        total_resources += count
+    for m in Base.registry.mappers:
+        cls = m.class_
+        if cls in (Hub, HubMember, AuditLog, HubLink):
+            continue
+        if hasattr(cls, "hub_id"):
+            stmt = select(func.count()).select_from(cls).where(cls.hub_id == hub_id)
+            cnt = (await session.execute(stmt)).scalar() or 0
+            if cnt > 0:
+                counts[getattr(cls, "__tablename__", str(cls))] = cnt
+                total_resources += cnt
 
     if total_resources > 0:
-        raise HubNotEmptyError(f"Cannot delete hub '{hub_id}': it still owns {total_resources} resources.")
+        raise HubNotEmptyError(f"Cannot delete hub '{hub_id}': it still owns {total_resources} resources ({counts}).")
 
     await session.delete(hub)
     await session.flush()

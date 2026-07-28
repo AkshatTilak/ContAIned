@@ -38,6 +38,12 @@ from common.services.hub_resolver import (
     list_linked_hub_ids,
     validate_link_creation,
 )
+from common.services.audit import (
+    record_audit,
+    redact,
+    client_ip,
+    audited,
+)
 
 __all__ = [
     "HubRepositoryError",
@@ -74,4 +80,8 @@ __all__ = [
     "assert_link",
     "list_linked_hub_ids",
     "validate_link_creation",
+    "record_audit",
+    "redact",
+    "client_ip",
+    "audited",
 ]
