@@ -27,6 +27,17 @@ from common.services.hub_repository import (
     get_scoped,
     list_scoped,
 )
+from common.services.hub_resolver import (
+    HubLinkError,
+    HUB_LINK_REQUIRED,
+    HUB_LINK_REVOKED,
+    HUB_LINK_INSUFFICIENT,
+    resolve_linked,
+    resolve_linked_many,
+    assert_link,
+    list_linked_hub_ids,
+    validate_link_creation,
+)
 
 __all__ = [
     "HubRepositoryError",
@@ -54,4 +65,13 @@ __all__ = [
     "list_bindings",
     "get_scoped",
     "list_scoped",
+    "HubLinkError",
+    "HUB_LINK_REQUIRED",
+    "HUB_LINK_REVOKED",
+    "HUB_LINK_INSUFFICIENT",
+    "resolve_linked",
+    "resolve_linked_many",
+    "assert_link",
+    "list_linked_hub_ids",
+    "validate_link_creation",
 ]
