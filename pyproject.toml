@@ -94,6 +94,7 @@ pytest-mock = ">=3.14.0"
 pytest-asyncio = ">=0.24.0"
 
 # Black Code Formatter Configuration
+aiosqlite = "^0.22.1"
 [tool.black]
 line-length = 88
 target-version = ['py311', 'py312']

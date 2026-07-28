@@ -17,6 +17,27 @@ from common.schemas.api import (
     PaginatedResponse,
 )
 
+from common.schemas.hubs import (
+    HubType,
+    HubRole,
+    LinkAccess,
+    StoreType,
+    HubCreate,
+    HubUpdate,
+    HubSummary,
+    HubRead,
+    HubMemberCreate,
+    HubMemberUpdate,
+    HubMemberRead,
+    HubLinkCreate,
+    HubLinkRead,
+    DatastoreBindingCreate,
+    DatastoreBindingUpdate,
+    DatastoreBindingRead,
+    AuditLogRead,
+    AuditLogFilter,
+)
+
 __all__ = [
     "TaskComplexity",
     "SubAgentStatus",
@@ -28,6 +49,25 @@ __all__ = [
     "HealthResponse",
     "ErrorResponse",
     "PaginatedResponse",
+    "HubType",
+    "HubRole",
+    "LinkAccess",
+    "StoreType",
+    "HubCreate",
+    "HubUpdate",
+    "HubSummary",
+    "HubRead",
+    "HubMemberCreate",
+    "HubMemberUpdate",
+    "HubMemberRead",
+    "HubLinkCreate",
+    "HubLinkRead",
+    "DatastoreBindingCreate",
+    "DatastoreBindingUpdate",
+    "DatastoreBindingRead",
+    "AuditLogRead",
+    "AuditLogFilter",
 ]
+
 
 
