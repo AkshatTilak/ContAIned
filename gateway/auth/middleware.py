@@ -79,6 +79,31 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         try:
             payload = verify_access_token(token)
+            user_id = payload.get("sub") or payload.get("id")
+
+            if user_id:
+                try:
+                    from common.clients.postgres import get_async_db
+                    from common.models.database import User
+                    db_gen = request.app.dependency_overrides.get(get_async_db, get_async_db)
+                    async for db in db_gen():
+                        user_obj = await db.get(User, user_id)
+                        if user_obj and user_obj.status != "active":
+                            reason_map = {
+                                "pending": "ACCOUNT_PENDING_APPROVAL",
+                                "suspended": "ACCOUNT_SUSPENDED",
+                                "rejected": "ACCOUNT_REJECTED",
+                            }
+                            reason_code = reason_map.get(user_obj.status, "ACCOUNT_NOT_ACTIVE")
+                            return JSONResponse(
+                                status_code=403,
+                                content={"detail": {"reason": reason_code, "status": user_obj.status}},
+                            )
+                        break
+                except Exception as exc:
+                    logger.debug(f"User status DB re-verification skipped: {exc}")
+
+
             request.state.user = payload
             request.state.token = token
         except Exception as e:
@@ -87,5 +112,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 status_code=401,
                 content={"detail": f"Invalid or expired token: {str(e)}"},
             )
+
 
         return await call_next(request)

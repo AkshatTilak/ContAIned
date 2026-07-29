@@ -32,6 +32,8 @@ from common.observability.limiter import limiter
 from common.schemas.hubs import AuditLogRead
 from common.services.audit import client_ip, record_audit
 from gateway.auth.dependencies import get_current_user, require_platform_admin
+from gateway.auth.utils import normalize_email, revoke_sessions
+
 from gateway.auth.invites import (
     InviteResult,
     create_invites,
@@ -362,7 +364,8 @@ async def update_user(
             await assert_admin_floor(db, user_id)
 
             # Revoke all sessions for demoted admin
-            await db.execute(delete(UserSession).where(UserSession.user_id == user_id))
+            await revoke_sessions(db, user_id)
+
 
         user.platform_role = payload.platform_role
 
@@ -499,7 +502,7 @@ async def reject_user(
     user.status = "rejected"
 
     # Revoke sessions
-    await db.execute(delete(UserSession).where(UserSession.user_id == user_id))
+    await revoke_sessions(db, user_id)
 
     await write_audit(
         db,
@@ -552,7 +555,8 @@ async def suspend_user(
     user.status = "suspended"
 
     # Immediately delete all UserSession rows in same transaction
-    await db.execute(delete(UserSession).where(UserSession.user_id == user_id))
+    await revoke_sessions(db, user_id)
+
 
     await write_audit(
         db,

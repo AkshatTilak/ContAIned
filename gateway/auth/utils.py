@@ -60,3 +60,52 @@ def verify_access_token(token: str) -> Dict[str, Any]:
     secret_key, algorithm, _ = get_jwt_settings()
     payload = jwt.decode(token, secret_key, algorithms=[algorithm])
     return payload
+
+
+def normalize_email(email: str) -> str:
+    """Normalize email address by trimming whitespace and lowercasing."""
+    if not email:
+        return ""
+    return email.strip().lower()
+
+
+def client_ip(request: Any) -> Optional[str]:
+    """Extract client IP address from X-Forwarded-For (first hop if TRUST_PROXY_HEADERS enabled) or request.client.host."""
+    import ipaddress
+    settings = get_settings()
+    ip_str: Optional[str] = None
+
+    if getattr(settings, "TRUST_PROXY_HEADERS", False) and request.headers:
+        x_forwarded_for = request.headers.get("X-Forwarded-For")
+        if x_forwarded_for:
+            ip_str = x_forwarded_for.split(",")[0].strip()
+
+    if not ip_str and hasattr(request, "client") and request.client:
+        ip_str = request.client.host
+
+    if ip_str:
+        try:
+            ipaddress.ip_address(ip_str)
+            return ip_str[:45]
+        except ValueError:
+            return None
+    return None
+
+
+async def revoke_sessions(
+    db: Any,
+    user_id: str,
+    *,
+    keep_token_hash: Optional[str] = None,
+) -> int:
+    """Revoke user session records in DB. Returns count of deleted sessions."""
+    from sqlalchemy import delete
+    from common.models.database import UserSession
+
+    stmt = delete(UserSession).where(UserSession.user_id == user_id)
+    if keep_token_hash:
+        stmt = stmt.where(UserSession.token_hash != keep_token_hash)
+
+    res = await db.execute(stmt)
+    return res.rowcount if hasattr(res, "rowcount") else 0
+

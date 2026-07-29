@@ -51,7 +51,9 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def reset_db_state():
     """Reset database and actor state between tests."""
+    app.dependency_overrides[get_async_db] = override_get_async_db
     async def _reset():
+
         async with test_engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)

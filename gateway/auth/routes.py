@@ -25,9 +25,10 @@ from gateway.auth.passwords import (
     needs_rehash,
     validate_password_policy,
 )
-from gateway.auth.providers import build_state, parse_state, oauth
+from common.observability.limiter import limiter
 from gateway.auth.signup_service import resolve_signup
-from gateway.auth.utils import create_access_token, hash_token
+from gateway.auth.utils import create_access_token, hash_token, normalize_email, revoke_sessions
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -324,7 +325,9 @@ async def logout(
 
 
 @router.post("/register", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/hour")
 async def register_user(
+    request: Request,
     payload: RegisterRequest,
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -337,7 +340,7 @@ async def register_user(
             detail={"reason": "SELF_REGISTRATION_DISABLED", "message": "Self registration is currently disabled."},
         )
 
-    norm_email = payload.email.strip().lower()
+    norm_email = normalize_email(payload.email)
     validate_password_policy(payload.password, norm_email)
 
     stmt = select(User).where(User.email == norm_email)
@@ -388,12 +391,15 @@ async def register_user(
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute")
 async def login_user(
+    request: Request,
     payload: LoginRequest,
     db: AsyncSession = Depends(get_async_db),
 ):
     """Authenticate user with email and password."""
-    norm_email = payload.email.strip().lower()
+    norm_email = normalize_email(payload.email)
+
 
     stmt = select(User).where(User.email == norm_email)
     res = await db.execute(stmt)
@@ -501,12 +507,8 @@ async def change_password(
 
     # Revoke all other sessions except current
     current_token = getattr(request.state, "token", None)
-    if current_token:
-        curr_hash = hash_token(current_token)
-        sess_stmt = select(UserSession).where(UserSession.user_id == user.id, UserSession.token_hash != curr_hash)
-        other_sessions = (await db.execute(sess_stmt)).scalars().all()
-        for s in other_sessions:
-            await db.delete(s)
+    curr_hash = hash_token(current_token) if current_token else None
+    await revoke_sessions(db, user.id, keep_token_hash=curr_hash)
 
     audit = AuditLog(
         id=str(uuid.uuid4()),
@@ -524,12 +526,14 @@ async def change_password(
 
 
 @router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("3/hour")
 async def forgot_password(
+    request: Request,
     payload: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_async_db),
 ):
     """Initiate password reset flow. Returns non-enumerating 202."""
-    norm_email = payload.email.strip().lower()
+    norm_email = normalize_email(payload.email)
 
     # Generate dummy token to make execution time symmetric
     raw_token = secrets.token_urlsafe(32)
@@ -601,10 +605,7 @@ async def reset_password(
     user.locked_until = None
     reset_record.used_at = now
 
-    sess_stmt = select(UserSession).where(UserSession.user_id == user.id)
-    sessions = (await db.execute(sess_stmt)).scalars().all()
-    for s in sessions:
-        await db.delete(s)
+    await revoke_sessions(db, user.id)
 
     await db.commit()
     return {"status": "password_reset_success"}
@@ -626,6 +627,7 @@ async def preview_invite(
 
 
 @router.post("/invite/{token}/accept", response_model=TokenResponse)
+@limiter.limit("10/hour")
 async def accept_invite(
     token: str,
     payload: AcceptInviteRequest,
@@ -633,17 +635,19 @@ async def accept_invite(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Accept an invitation via email + password setup, creating an active account and issuing a session."""
-    client_ip = request.client.host if request.client else None
+    c_ip = request.client.host if request.client else None
+    norm_email = normalize_email(payload.email)
     user = await redeem_invite(
         db,
         raw_token=token,
-        email=payload.email,
+        email=norm_email,
         provider="password",
         provider_id="",
         password=payload.password,
         display_name=payload.display_name,
-        ip_address=client_ip,
+        ip_address=c_ip,
     )
+
 
     now = datetime.now(timezone.utc)
     jwt_token = create_access_token(user_id=user.id, email=user.email, platform_role=user.platform_role)
