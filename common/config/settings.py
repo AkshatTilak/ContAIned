@@ -150,6 +150,10 @@ class AuthSettings(BaseSettings):
     DATASTORE_ENCRYPTION_KEY: str = Field(default="", alias="DATASTORE_ENCRYPTION_KEY")
     JWT_ALGORITHM: str = Field(default="HS256", alias="JWT_ALGORITHM")
     JWT_EXPIRY_HOURS: int = Field(default=24, alias="JWT_EXPIRY_HOURS")
+    ALLOW_SELF_REGISTRATION: bool = Field(default=True, alias="ALLOW_SELF_REGISTRATION")
+    AUTO_APPROVE_EMAIL_DOMAINS: list[str] = Field(
+        default=["example.com"], alias="AUTO_APPROVE_EMAIL_DOMAINS"
+    )
 
 
 class Settings(

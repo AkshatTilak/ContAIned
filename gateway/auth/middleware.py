@@ -14,6 +14,9 @@ logger = logging.getLogger("gateway.auth.middleware")
 # Endpoints exempt from JWT validation
 WHITELIST_PREFIXES: List[str] = [
     "/auth/login",
+    "/auth/register",
+    "/auth/forgot-password",
+    "/auth/reset-password",
     "/auth/callback",
     "/health",
     "/api/health",
@@ -31,6 +34,7 @@ WHITELIST_PREFIXES: List[str] = [
     "/cluster",     # Qdrant dashboard cluster API proxy route
     "/aliases",     # Qdrant dashboard aliases API proxy route
 ]
+
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
