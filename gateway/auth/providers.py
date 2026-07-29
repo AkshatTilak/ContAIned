@@ -1,6 +1,12 @@
-"""OAuth2 providers registry (Google & GitHub) using Authlib."""
-
 import logging
+import secrets
+from datetime import datetime, timedelta, timezone
+
+from typing import Any, Dict
+
+import jwt
+from fastapi import HTTPException, status
+
 try:
     from authlib.integrations.starlette_client import OAuth
     oauth = OAuth()
@@ -8,8 +14,48 @@ except ImportError:
     oauth = None
 
 from common.config.settings import get_settings
+from gateway.auth.utils import get_jwt_settings
 
 logger = logging.getLogger("gateway.auth.providers")
+
+
+def build_state(payload: Dict[str, Any]) -> str:
+    """Build a signed, timestamped JWT state string for OAuth flows."""
+    secret_key, algorithm, _ = get_jwt_settings()
+    now = datetime.now(timezone.utc)
+    exp = now + timedelta(minutes=10)
+
+    data = dict(payload)
+    data.setdefault("nonce", secrets.token_urlsafe(16))
+    data["iat"] = int(now.timestamp())
+    data["exp"] = int(exp.timestamp())
+
+    token = jwt.encode(data, secret_key, algorithm=algorithm)
+    if isinstance(token, bytes):
+        token = token.decode("utf-8")
+    return token
+
+
+def parse_state(state: str) -> Dict[str, Any]:
+    """Parse and verify a signed OAuth state string.
+
+    Raises HTTPException(400) if state is invalid, expired, or tampered.
+    """
+    if not state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OAuth state",
+        )
+    secret_key, algorithm, _ = get_jwt_settings()
+    try:
+        payload = jwt.decode(state, secret_key, algorithms=[algorithm])
+        return payload
+    except jwt.PyJWTError as e:
+        logger.warning(f"OAuth state validation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid OAuth state",
+        )
 
 
 def init_oauth():
@@ -29,7 +75,10 @@ def init_oauth():
                 client_id=google_client_id,
                 client_secret=google_client_secret,
                 server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-                client_kwargs={"scope": "openid email profile"},
+                client_kwargs={
+                    "scope": "openid email profile",
+                    "code_challenge_method": "S256",
+                },
             )
             logger.info("Google OAuth provider registered")
         except Exception as e:
@@ -52,3 +101,4 @@ def init_oauth():
             logger.info("GitHub OAuth provider registered")
         except Exception as e:
             logger.warning(f"Failed to register GitHub OAuth provider: {e}")
+

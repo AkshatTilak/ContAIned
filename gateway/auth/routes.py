@@ -16,18 +16,20 @@ from common.observability.exceptions import AccountLockedError, PasswordPolicyEr
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from gateway.auth.dependencies import get_current_user, require_role
+from gateway.auth.identities import fetch_profile, resolve_identity, gate_status
 from gateway.auth.passwords import (
     hash_password,
     verify_password,
     needs_rehash,
     validate_password_policy,
 )
-from gateway.auth.providers import oauth
+from gateway.auth.providers import build_state, parse_state, oauth
 from gateway.auth.signup_service import resolve_signup
 from gateway.auth.utils import create_access_token, hash_token
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("gateway.auth.routes")
@@ -44,6 +46,22 @@ class UserRoleUpdate(BaseModel):
         return v
 
 
+class IdentityResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    provider: str
+    last_used_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class HubMembershipResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    hub_id: str
+    hub_role: str
+    created_at: datetime
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,6 +73,8 @@ class UserResponse(BaseModel):
     status: str = "active"
     created_at: datetime
     last_login: Optional[datetime] = None
+    identities: List[IdentityResponse] = Field(default_factory=list)
+    hub_memberships: List[HubMembershipResponse] = Field(default_factory=list)
 
 
 class RegisterRequest(BaseModel):
@@ -88,10 +108,14 @@ class TokenResponse(BaseModel):
     user: UserResponse
 
 
-
 @router.get("/login/{provider}")
-async def oauth_login(provider: str, request: Request):
-    """Initiate OAuth2 login flow for specified provider (google/github)."""
+async def oauth_login(
+    provider: str,
+    request: Request,
+    invite_token: Optional[str] = None,
+    redirect: Optional[str] = None,
+):
+    """Initiate OAuth2 login flow with PKCE and signed state token."""
     client = getattr(oauth, provider, None)
     if not client:
         raise HTTPException(
@@ -99,8 +123,19 @@ async def oauth_login(provider: str, request: Request):
             detail=f"OAuth provider '{provider}' is not configured.",
         )
 
+    settings = get_settings()
+    public_url = getattr(settings, "APP_PUBLIC_URL", "http://localhost:5173")
+
+    if redirect:
+        if not (redirect.startswith("/") or redirect.startswith(public_url)):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid redirect target",
+            )
+
+    signed_state = build_state({"invite_token": invite_token, "redirect": redirect})
     redirect_uri = request.url_for("oauth_callback", provider=provider)
-    return await client.authorize_redirect(request, redirect_uri)
+    return await client.authorize_redirect(request, redirect_uri, state=signed_state)
 
 
 @router.get("/callback/{provider}", name="oauth_callback")
@@ -114,82 +149,47 @@ async def oauth_callback(
     if not client:
         return RedirectResponse(url="/login?error=provider_not_configured")
 
+    state_str = request.query_params.get("state")
+    state_payload = parse_state(state_str) if state_str else {}
+    invite_token = state_payload.get("invite_token")
+    custom_redirect = state_payload.get("redirect")
+
     try:
         token = await client.authorize_access_token(request)
     except Exception as e:
         logger.error(f"OAuth token exchange error for {provider}: {e}")
         return RedirectResponse(url=f"/login?error=auth_failed&detail={str(e)}")
 
-    user_info: Dict[str, Any] = {}
-    if provider == "google":
-        user_info = token.get("userinfo") or {}
-        email = user_info.get("email")
-        provider_id = user_info.get("sub")
-        display_name = user_info.get("name")
-        avatar_url = user_info.get("picture")
-    elif provider == "github":
-        resp = await client.get("user", token=token)
-        gh_data = resp.json()
-        provider_id = str(gh_data.get("id"))
-        display_name = gh_data.get("name") or gh_data.get("login")
-        avatar_url = gh_data.get("avatar_url")
-        email = gh_data.get("email")
+    settings = get_settings()
+    public_url = getattr(settings, "APP_PUBLIC_URL", "http://localhost:5173")
 
-        if not email:
-            emails_resp = await client.get("user/emails", token=token)
-            emails_data = emails_resp.json()
-            for em in emails_data:
-                if em.get("primary") and em.get("verified"):
-                    email = em.get("email")
-                    break
+    try:
+        profile = await fetch_profile(provider, client, token)
+    except HTTPException as exc:
+        if exc.status_code == 400 and "email" in str(exc.detail).lower():
+            return RedirectResponse(url=f"{public_url}/login?error=email_not_verified")
+        raise exc
 
-    if not email:
-        return RedirectResponse(url="/login?error=missing_email")
+    client_ip = request.client.host if request.client else None
+    user, is_new = await resolve_identity(db, profile, invite_token=invite_token, ip_address=client_ip)
 
-    # Query existing user by email
-    stmt = select(User).where(User.email == email)
-    result = await db.execute(stmt)
-    existing_user = result.scalar_one_or_none()
+    if user.status != "active":
+        reason_map = {
+            "pending": "ACCOUNT_PENDING_APPROVAL",
+            "suspended": "ACCOUNT_SUSPENDED",
+            "rejected": "ACCOUNT_REJECTED",
+        }
+        reason_code = reason_map.get(user.status, "ACCOUNT_NOT_ACTIVE")
+        return RedirectResponse(url=f"{public_url}/auth/pending?reason={reason_code}&email={user.email}")
 
     now = datetime.now(timezone.utc)
-
-    if existing_user:
-        if existing_user.status != "active":
-            return RedirectResponse(url="/login?error=account_deactivated")
-
-        existing_user.last_login = now
-        existing_user.avatar_url = avatar_url or existing_user.avatar_url
-        existing_user.display_name = display_name or existing_user.display_name
-        user = existing_user
-    else:
-        # Check if this is the first user in system
-        count_stmt = select(func.count(User.id))
-        count_res = await db.execute(count_stmt)
-        user_count = count_res.scalar() or 0
-
-        initial_role = PLATFORM_ROLE_ADMIN if user_count == 0 else PLATFORM_ROLE_MEMBER
-
-        user = User(
-            id=str(uuid.uuid4()),
-            email=email,
-            display_name=display_name,
-            avatar_url=avatar_url,
-            platform_role=initial_role,
-            status="active",
-            created_at=now,
-            last_login=now,
-        )
-        db.add(user)
-
+    user.last_login = now
     await db.commit()
-    await db.refresh(user)
 
-    # Generate JWT
     jwt_token = create_access_token(user_id=user.id, email=user.email, platform_role=user.platform_role)
     token_h = hash_token(jwt_token)
     expires_at = now + timedelta(hours=24)
 
-    # Save session
     session_record = UserSession(
         id=str(uuid.uuid4()),
         user_id=user.id,
@@ -200,10 +200,14 @@ async def oauth_callback(
     db.add(session_record)
     await db.commit()
 
-    # Redirect to frontend callback route with JWT
-    frontend_url = f"http://localhost:5173/auth/callback?token={jwt_token}"
-    response = RedirectResponse(url=frontend_url)
-    response.set_cookie("auth_token", jwt_token, httponly=True, max_age=86400)
+    target_redirect = custom_redirect or f"{public_url}/auth/callback?token={jwt_token}"
+    if not ("token=" in target_redirect):
+        sep = "&" if "?" in target_redirect else "?"
+        target_redirect = f"{target_redirect}{sep}token={jwt_token}"
+
+    is_prod = getattr(settings, "APP_ENV", "development") == "production"
+    response = RedirectResponse(url=target_redirect)
+    response.set_cookie("auth_token", jwt_token, httponly=True, secure=is_prod, samesite="lax", max_age=86400)
     return response
 
 
@@ -212,7 +216,7 @@ async def get_me(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Fetch current user identity and permissions."""
+    """Fetch current user identity, linked identities, hub memberships, and permissions."""
     user_id = current_user.get("sub") or current_user.get("id")
 
     if user_id == "local-admin-id":
@@ -225,6 +229,8 @@ async def get_me(
             status="active",
             created_at=datetime.utcnow(),
             last_login=datetime.utcnow(),
+            identities=[],
+            hub_memberships=[],
         )
 
     stmt = select(User).where(User.id == user_id)
@@ -235,7 +241,68 @@ async def get_me(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
-    return user
+
+    # Fetch identities
+    id_stmt = select(UserIdentity).where(UserIdentity.user_id == user.id)
+    identities = (await db.execute(id_stmt)).scalars().all()
+
+    # Fetch hub memberships
+    from common.models.database import HubMember
+    hm_stmt = select(HubMember).where(HubMember.user_id == user.id)
+    hub_memberships = (await db.execute(hm_stmt)).scalars().all()
+
+    resp = UserResponse.model_validate(user)
+    resp.identities = [IdentityResponse.model_validate(i) for i in identities]
+    resp.hub_memberships = [HubMembershipResponse.model_validate(hm) for hm in hub_memberships]
+    return resp
+
+
+@router.post("/identities/{provider}/unlink")
+async def unlink_identity(
+    provider: str,
+    request: Request,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Unlink an authentication provider identity from the current user account."""
+    user_id = current_user.get("sub") or current_user.get("id")
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    id_stmt = select(UserIdentity).where(UserIdentity.user_id == user.id)
+    identities = (await db.execute(id_stmt)).scalars().all()
+
+    target_identity = next((i for i in identities if i.provider == provider), None)
+    if not target_identity:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No identity found for provider '{provider}'")
+
+    # Guard: do not allow unlinking if it's the only remaining identity AND user has no password_hash
+    if len(identities) <= 1 and not user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cannot unlink the only sign-in method",
+        )
+
+    await db.delete(target_identity)
+
+    now = datetime.now(timezone.utc)
+    client_ip = request.client.host if request.client else None
+    audit = AuditLog(
+        id=str(uuid.uuid4()),
+        actor_user_id=user.id,
+        action="delete",
+        resource_type="user_identity",
+        resource_id=target_identity.id,
+        summary=f"Unlinked {provider} identity",
+        ip_address=client_ip,
+        created_at=now,
+    )
+    db.add(audit)
+    await db.commit()
+
+    return {"status": "unlinked", "provider": provider}
+
 
 
 @router.post("/logout")
