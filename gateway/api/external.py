@@ -1,26 +1,32 @@
-"""OpenAI-Compatible External API Gateway endpoints (`/v1/*`).
+"""OpenAI-Compatible External API Gateway endpoints (`/v1/*`) (S6-05d).
 
 Provides standard OpenAI SDK compatible endpoints:
-- `POST /v1/chat/completions`: Chat completions for models or agent endpoint slugs (streaming & non-streaming)
+- `POST /v1/chat/completions`: Chat completions for models or hub-qualified agent strings ('{hub_slug}/{agent_slug}')
 - `POST /v1/embeddings`: Text embeddings via inference service
-- `GET /v1/models`: List available models and agent slugs
+- `GET /v1/models`: List available registry models and authorized qualified agent model strings
 """
 
-import time
 import json
-import uuid
 import logging
+import time
+import uuid
 from typing import Any, Dict, List, Optional, Union
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from common.clients.litellm import completion_with_fallback
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from common.clients.inference import InferenceClient
-from common.models.database import AgentDefinition, ModelRegistryModel
+from common.clients.litellm import completion_with_fallback
+from common.constants.roles import PLATFORM_ROLE_ADMIN, hub_role_satisfies
+from common.models.database import AgentDefinition, AgentInvocationLog, Hub, HubMember, ModelRegistryModel, User
+from common.schemas.agent_types import CollectionBinding
+from gateway.api.external_resolution import resolve_qualified_agent
+from gateway.api.agent_invoke import log_invocation_background
 from gateway.auth.dependencies import get_db
+from projects.guardroute.src.agents.collection_binding import resolve_bindings
 
 router = APIRouter(prefix="/v1", tags=["OpenAI External API Gateway"])
 logger = logging.getLogger("gateway.api.external")
@@ -56,21 +62,82 @@ async def chat_completions(
 ):
     """OpenAI-compatible chat completion endpoint.
     
-    Supports both model names (e.g. 'gemini/gemini-3.5-flash') and agent endpoint_slugs (e.g. 'research-agent').
+    Supports model names (e.g. 'gemini/gemini-3.5-flash') and hub-qualified agent model strings ('{hub_slug}/{agent_slug}').
     Supports streaming (`stream: true`) in standard SSE format.
     """
     created_timestamp = int(time.time())
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
 
-    # 1. Check if model matches an agent endpoint_slug
-    stmt = select(AgentDefinition).where(
-        AgentDefinition.endpoint_slug == req.model,
-        AgentDefinition.is_active == True
-    )
-    res = await db.execute(stmt)
-    agent = res.scalar_one_or_none()
+    api_key_hub_id = getattr(request.state, "api_key_hub_id", None)
+    api_key_user_id = getattr(request.state, "api_key_user_id", None) or getattr(request.state, "user_id", None)
+
+    agent = None
+    if "/" in req.model:
+        try:
+            agent = await resolve_qualified_agent(
+                db,
+                model=req.model,
+                api_key_hub_id=api_key_hub_id,
+                api_key_user_id=api_key_user_id,
+            )
+        except HTTPException as e:
+            if e.status_code == 404:
+                return JSONResponse(
+                    status_code=404,
+                    content={
+                        "error": {
+                            "message": f"The model '{req.model}' does not exist.",
+                            "type": "invalid_request_error",
+                            "param": "model",
+                            "code": "model_not_found",
+                        }
+                    },
+                )
+            elif e.status_code == 403:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error": {
+                            "message": e.detail,
+                            "type": "invalid_request_error",
+                            "param": "model",
+                            "code": getattr(e, "headers", {}).get("X-Error-Code", "unauthorized"),
+                        }
+                    },
+                )
+            raise e
+
+        if agent is None and "/" in req.model:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": {
+                        "message": f"The model '{req.model}' does not exist.",
+                        "type": "invalid_request_error",
+                        "param": "model",
+                        "code": "model_not_found",
+                    }
+                },
+            )
 
     if agent:
+        # Pre-validate agent collection bindings & hub links
+        raw_bindings = [CollectionBinding(**b) for b in (agent.collection_bindings_json or [])]
+        try:
+            await resolve_bindings(db, source_hub_id=agent.hub_id, bindings=raw_bindings)
+        except HTTPException as bind_err:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": {
+                        "message": bind_err.detail,
+                        "type": "invalid_request_error",
+                        "param": "model",
+                        "code": "hub_link_revoked",
+                    }
+                },
+            )
+
         system_prompt = agent.system_prompt
         model_to_use = agent.model_id
         formatted_messages = [{"role": "system", "content": system_prompt}] + [
@@ -79,12 +146,29 @@ async def chat_completions(
         temp = req.temperature if req.temperature is not None else (agent.temperature or 0.7)
         max_toks = req.max_tokens if req.max_tokens is not None else (agent.max_tokens or 2048)
     else:
+        # Verify model exists in registry or carries valid provider prefix
+        reg_stmt = select(ModelRegistryModel).where(
+            ModelRegistryModel.model_id == req.model,
+            ModelRegistryModel.is_enabled == True,
+        )
+        reg_model = (await db.execute(reg_stmt)).scalar_one_or_none()
+        if not reg_model and not any(req.model.startswith(p) for p in ("openai/", "gemini/", "ollama/", "huggingface/", "vllm/", "anthropic/")):
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": {
+                        "message": f"The model '{req.model}' does not exist.",
+                        "type": "invalid_request_error",
+                        "param": "model",
+                        "code": "model_not_found",
+                    }
+                },
+            )
         model_to_use = req.model
         formatted_messages = [{"role": m.role, "content": m.content} for m in req.messages]
         temp = req.temperature or 0.7
         max_toks = req.max_tokens or 2048
 
-    # Store for middleware logging
     request.state.model_used = model_to_use
 
     # Handle streaming response
@@ -98,38 +182,45 @@ async def chat_completions(
                     max_tokens=max_toks,
                     stream=True,
                 )
-                async for chunk in res:
-                    delta_content = chunk.choices[0].delta.content or "" if chunk.choices else ""
-                    chunk_data = {
-                        "id": completion_id,
-                        "object": "chat.completion.chunk",
-                        "created": created_timestamp,
-                        "model": req.model,
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": {"content": delta_content},
-                                "finish_reason": chunk.choices[0].finish_reason if chunk.choices else None,
-                            }
-                        ],
-                    }
-                    yield f"data: {json.dumps(chunk_data)}\n\n"
+
+                role_header = {
+                    "id": completion_id,
+                    "object": "chat.completion.chunk",
+                    "created": created_timestamp,
+                    "model": req.model,
+                    "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
+                }
+                yield f"data: {json.dumps(role_header)}\n\n"
+
+                for chunk in res:
+                    content_chunk = getattr(chunk.choices[0].delta, "content", None) or ""
+                    if content_chunk:
+                        chunk_payload = {
+                            "id": completion_id,
+                            "object": "chat.completion.chunk",
+                            "created": created_timestamp,
+                            "model": req.model,
+                            "choices": [{"index": 0, "delta": {"content": content_chunk}, "finish_reason": None}],
+                        }
+                        yield f"data: {json.dumps(chunk_payload)}\n\n"
+
+                stop_chunk = {
+                    "id": completion_id,
+                    "object": "chat.completion.chunk",
+                    "created": created_timestamp,
+                    "model": req.model,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                }
+                yield f"data: {json.dumps(stop_chunk)}\n\n"
                 yield "data: [DONE]\n\n"
             except Exception as e:
-                logger.error("Streaming error in /v1/chat/completions: %s", e)
-                err_chunk = {
-                    "error": {
-                        "message": str(e),
-                        "type": "server_error",
-                        "code": "internal_error",
-                    }
-                }
-                yield f"data: {json.dumps(err_chunk)}\n\n"
-                yield "data: [DONE]\n\n"
+                logger.error("Error during streaming completion: %s", e)
+                err_body = {"error": {"message": str(e), "type": "server_error"}}
+                yield f"data: {json.dumps(err_body)}\n\n"
 
         return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
-    # Non-streaming response
+    # Non-streaming execution
     try:
         res = await completion_with_fallback(
             model=model_to_use,
@@ -139,129 +230,158 @@ async def chat_completions(
             stream=False,
         )
 
-        content = res.choices[0].message.content if res.choices else ""
-        prompt_tokens = getattr(res.usage, "prompt_tokens", 0) if hasattr(res, "usage") and res.usage else 0
-        completion_tokens = getattr(res.usage, "completion_tokens", 0) if hasattr(res, "usage") and res.usage else 0
-        total_tokens = prompt_tokens + completion_tokens
+        response_content = res.choices[0].message.content or ""
+        in_tokens = getattr(res.usage, "prompt_tokens", 0)
+        out_tokens = getattr(res.usage, "completion_tokens", 0)
 
-        request.state.input_tokens = prompt_tokens
-        request.state.output_tokens = completion_tokens
+        request.state.input_tokens = in_tokens
+        request.state.output_tokens = out_tokens
 
-        return JSONResponse(
-            status_code=200,
-            content={
-                "id": completion_id,
-                "object": "chat.completion",
-                "created": created_timestamp,
-                "model": req.model,
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {"role": "assistant", "content": content},
-                        "finish_reason": "stop",
-                    }
-                ],
-                "usage": {
-                    "prompt_tokens": prompt_tokens,
-                    "completion_tokens": completion_tokens,
-                    "total_tokens": total_tokens,
-                },
+        if agent:
+            asyncio.create_task(
+                log_invocation_background(
+                    hub_id=agent.hub_id,
+                    agent_id=agent.id,
+                    user_id=api_key_user_id,
+                    prompt=req.messages[-1].content if req.messages else "",
+                    response=response_content,
+                    model_used=model_to_use,
+                    input_tokens=in_tokens,
+                    output_tokens=out_tokens,
+                    latency_ms=0.0,
+                    status_str="success",
+                    route_decision="external_v1",
+                )
+            )
+
+        return {
+            "id": completion_id,
+            "object": "chat.completion",
+            "created": created_timestamp,
+            "model": req.model,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": response_content,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": in_tokens,
+                "completion_tokens": out_tokens,
+                "total_tokens": in_tokens + out_tokens,
             },
-        )
+        }
+
     except Exception as e:
-        logger.error("Completion error in /v1/chat/completions: %s", e)
+        logger.error("Chat completion error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"message": str(e), "type": "server_error", "code": "internal_error"}},
+            detail=f"Inference processing failed: {str(e)}",
         )
 
 
 @router.post("/embeddings")
 async def create_embeddings(
     req: EmbeddingRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """OpenAI-compatible text embeddings endpoint."""
-    input_texts = [req.input] if isinstance(req.input, str) else req.input
-    
-    model_name = req.model
-    if not model_name:
-        stmt = select(ModelRegistryModel).where(
-            ModelRegistryModel.role == "embedding",
-            ModelRegistryModel.is_enabled == True
-        ).order_by(ModelRegistryModel.is_default.desc())
-        res = await db.execute(stmt)
-        default_embed = res.scalars().first()
-        model_name = default_embed.model_id if default_embed else "jinaai/jina-embeddings-v3"
+    """Generate text embeddings for inputs."""
+    inference = getattr(request.app.state, "syntraflow_inference", None)
+    if not inference:
+        inference = InferenceClient()
 
+    texts = [req.input] if isinstance(req.input, str) else req.input
     try:
-        client = InferenceClient()
-        embeddings_data = []
-        total_tokens = 0
-
-        for idx, text in enumerate(input_texts):
-            vec = await client.embed(text, model_id=model_name)
-            embeddings_data.append({
+        embeddings = inference.embed_passages(texts)
+        data = [
+            {
                 "object": "embedding",
-                "embedding": vec,
+                "embedding": emb,
                 "index": idx,
-            })
-            total_tokens += len(text.split())
-
+            }
+            for idx, emb in enumerate(embeddings)
+        ]
         return {
             "object": "list",
-            "data": embeddings_data,
-            "model": model_name,
+            "data": data,
+            "model": req.model or "default-embedding",
             "usage": {
-                "prompt_tokens": total_tokens,
-                "total_tokens": total_tokens,
+                "prompt_tokens": sum(len(t.split()) for t in texts),
+                "total_tokens": sum(len(t.split()) for t in texts),
             },
         }
     except Exception as e:
-        logger.error("Embeddings error in /v1/embeddings: %s", e)
+        logger.error("Embedding generation failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"message": str(e), "type": "server_error", "code": "internal_error"}},
+            detail=f"Embedding generation failed: {str(e)}",
         )
 
 
 @router.get("/models")
 async def list_models(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    """OpenAI-compatible list models endpoint.
-    
-    Returns both registered LLM/embedding models and active agent endpoint_slugs.
-    """
-    models_list = []
+    """List available registry models and authorized qualified agent model strings ('{hub_slug}/{agent_slug}')."""
+    now = int(time.time())
+    data = []
 
-    # 1. Registered models
+    # 1. Add Model Registry entries
     reg_stmt = select(ModelRegistryModel).where(ModelRegistryModel.is_enabled == True)
-    reg_res = await db.execute(reg_stmt)
-    reg_models = reg_res.scalars().all()
+    reg_models = (await db.execute(reg_stmt)).scalars().all()
     for m in reg_models:
-        models_list.append({
-            "id": m.model_id,
-            "object": "model",
-            "created": int(time.time()),
-            "owned_by": m.provider or "system",
-        })
+        data.append(
+            {
+                "id": m.model_id,
+                "object": "model",
+                "created": now,
+                "owned_by": m.provider,
+                "role": m.role,
+            }
+        )
 
-    # 2. Active agent slugs
-    agent_stmt = select(AgentDefinition).where(AgentDefinition.is_active == True)
-    agent_res = await db.execute(agent_stmt)
-    agents = agent_res.scalars().all()
-    for a in agents:
-        slug = a.endpoint_slug or f"agent-{a.id[:8]}"
-        models_list.append({
-            "id": slug,
-            "object": "model",
-            "created": int(time.time()),
-            "owned_by": "contained-agent",
-            "permission": [],
-        })
+    # 2. Add Hub-Qualified Agent entries
+    api_key_hub_id = getattr(request.state, "api_key_hub_id", None)
+    api_key_user_id = getattr(request.state, "api_key_user_id", None) or getattr(request.state, "user_id", None)
 
-    return {
-        "object": "list",
-        "data": models_list,
-    }
+    if api_key_hub_id:
+        hub_stmt = select(Hub).where(Hub.id == api_key_hub_id, Hub.hub_type == "agent", Hub.is_archived == False)
+        hubs = (await db.execute(hub_stmt)).scalars().all()
+    else:
+        if api_key_user_id:
+            user = await db.get(User, api_key_user_id)
+            if user and user.platform_role == PLATFORM_ROLE_ADMIN:
+                hub_stmt = select(Hub).where(Hub.hub_type == "agent", Hub.is_archived == False)
+                hubs = (await db.execute(hub_stmt)).scalars().all()
+            else:
+                mem_stmt = select(Hub).join(HubMember, HubMember.hub_id == Hub.id).where(
+                    HubMember.user_id == api_key_user_id,
+                    Hub.hub_type == "agent",
+                    Hub.is_archived == False,
+                )
+                hubs = (await db.execute(mem_stmt)).scalars().all()
+        else:
+            hubs = []
+
+    for h in hubs:
+        agent_stmt = select(AgentDefinition).where(AgentDefinition.hub_id == h.id, AgentDefinition.is_active == True)
+        agents = (await db.execute(agent_stmt)).scalars().all()
+        for a in agents:
+            if a.endpoint_slug:
+                model_id = f"{h.slug}/{a.endpoint_slug}"
+                data.append(
+                    {
+                        "id": model_id,
+                        "object": "model",
+                        "created": int(a.created_at.timestamp()) if a.created_at else now,
+                        "owned_by": "contained-agent",
+                    }
+                )
+
+    return {"object": "list", "data": data}

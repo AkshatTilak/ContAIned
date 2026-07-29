@@ -63,6 +63,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         # 2. Look up key in DB
         api_key_id = None
+        api_key_hub_id = None
         rate_limit = 60
         user_id = None
 
@@ -73,6 +74,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             api_key_obj = res.scalar_one_or_none()
             if api_key_obj and api_key_obj.is_active:
                 api_key_id = api_key_obj.id
+                api_key_hub_id = api_key_obj.hub_id
                 rate_limit = api_key_obj.rate_limit or 60
                 user_id = api_key_obj.user_id
                 api_key_obj.usage_count = (api_key_obj.usage_count or 0) + 1
@@ -133,6 +135,8 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         # Store context in request state
         request.state.api_key_id = api_key_id
+        request.state.api_key_hub_id = api_key_hub_id
+        request.state.api_key_user_id = user_id
         request.state.user_id = user_id
         request.state.user = {
             "sub": user_id or "api-key-user",

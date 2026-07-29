@@ -1,26 +1,38 @@
-"""Agent Invocation, Smart Routing, and Invocation Logging REST API endpoints."""
+"""Agent Invocation, Smart Routing, and Invocation Logging REST API endpoints (S6-05c).
+
+All routes are nested under /hubs/{hub_id}/agents and guarded by require_hub(hub_type="agent").
+"""
 
 import asyncio
+import json
 import logging
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from common.clients.litellm import completion_with_fallback
-from common.clients.postgres import get_async_db
-from common.models.database import AgentDefinition, AgentInvocationLog
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from gateway.auth.dependencies import get_optional_user
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-router = APIRouter(tags=["agent-invocation"])
+from common.clients.litellm import completion_with_fallback
+from common.clients.postgres import get_async_db, get_sessionmaker
+from common.models.database import AgentDefinition, AgentInvocationLog
+from common.schemas.agent_types import CollectionBinding
+from gateway.auth.hub_context import HubContext, require_hub
+from projects.guardroute.src.agents.agent_repository import get_agent as repo_get_agent
+from projects.guardroute.src.agents.collection_binding import resolve_bindings
+
+router = APIRouter(prefix="/hubs/{hub_id}/agents", tags=["agent-invocation"])
 logger = logging.getLogger("gateway.api.agent_invoke")
 
-# --- Pydantic Schemas ---
+# Per-hub round-robin counter for smart routing
+_rr_counters: Dict[str, int] = {}
 
+
+# --- Pydantic Schemas ---
 
 class AgentInvokeRequest(BaseModel):
     prompt: str = Field(..., description="User prompt text")
@@ -68,6 +80,7 @@ class RouteResponse(BaseModel):
 
 class AgentStatsResponse(BaseModel):
     agent_id: str
+    hub_id: str
     total_invocations: int
     avg_latency_ms: float
     total_input_tokens: int
@@ -78,8 +91,8 @@ class AgentStatsResponse(BaseModel):
 
 # --- Helper for Fire-and-Forget Logging ---
 
-
 async def log_invocation_background(
+    hub_id: str,
     agent_id: str,
     user_id: Optional[str],
     prompt: str,
@@ -90,15 +103,15 @@ async def log_invocation_background(
     latency_ms: float,
     status_str: str = "success",
     route_decision: Optional[str] = "direct",
+    metadata_json: Optional[Dict[str, Any]] = None,
 ):
-    """Background task to insert AgentInvocationLog record silently."""
+    """Background task to insert AgentInvocationLog record with hub_id."""
     try:
-        from common.clients.postgres import get_sessionmaker
-
         SessionLocal = get_sessionmaker()
         async with SessionLocal() as session:
             log_entry = AgentInvocationLog(
                 id=str(uuid.uuid4()),
+                hub_id=hub_id,
                 agent_id=agent_id,
                 user_id=user_id,
                 prompt=prompt,
@@ -109,84 +122,132 @@ async def log_invocation_background(
                 latency_ms=latency_ms,
                 status=status_str,
                 route_decision=route_decision,
-                created_at=datetime.utcnow(),
+                metadata_json=metadata_json,
+                created_at=datetime.now(timezone.utc),
             )
             session.add(log_entry)
             await session.commit()
     except Exception as e:
-        logger.warning(f"Failed to log agent invocation in background: {e}")
+        logger.error("Failed to write background invocation log: %s", e)
 
 
-# --- Round Robin Counter ---
-_rr_counter = 0
+# --- Endpoint Implementations ---
 
-
-# --- Endpoints ---
-
-
-@router.post("/agents/{agent_id}/invoke", response_model=AgentInvokeResponse)
+@router.post("/{agent_id}/invoke")
 async def invoke_agent(
     agent_id: str,
-    payload: AgentInvokeRequest,
+    req: AgentInvokeRequest,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="contributor")),
     db: AsyncSession = Depends(get_async_db),
-    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
 ):
-    """Invoke a specified agent by ID."""
-    start_time = time.time()
-
-    stmt = select(AgentDefinition).where(
-        (AgentDefinition.id == agent_id) | (AgentDefinition.endpoint_slug == agent_id)
-    )
-    result = await db.execute(stmt)
-    agent = result.scalar_one_or_none()
-
+    """Invoke an agent in a hub."""
+    agent = await repo_get_agent(db, hub_id=ctx.hub_id, agent_id=agent_id)
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent with ID or slug '{agent_id}' not found.",
+            detail=f"Agent '{agent_id}' not found in this hub.",
         )
 
-    if agent.is_active is False:
+    if not agent.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Agent '{agent.name}' is currently inactive and cannot be invoked.",
+            detail=f"Agent '{agent.name}' is inactive.",
+            headers={"X-Error-Code": "AGENT_INACTIVE"},
         )
 
-    # Prepare message chain
-    messages = [{"role": "system", "content": agent.system_prompt}]
-    if payload.conversation_history:
-        messages.extend(payload.conversation_history)
-    messages.append({"role": "user", "content": payload.prompt})
+    # Resolve & validate collection bindings via Hub Links BEFORE streaming or executing
+    raw_bindings = [CollectionBinding(**b) for b in (agent.collection_bindings_json or [])]
+    resolved_bindings = await resolve_bindings(db, source_hub_id=ctx.hub_id, bindings=raw_bindings)
 
-    temp = payload.temperature if payload.temperature is not None else (agent.temperature or 0.7)
-    max_tok = payload.max_tokens if payload.max_tokens is not None else (agent.max_tokens or 1000)
-    user_id = current_user.get("sub") if current_user else None
+    messages = []
+    if agent.system_prompt:
+        messages.append({"role": "system", "content": agent.system_prompt})
+    if req.conversation_history:
+        messages.extend(req.conversation_history)
+    messages.append({"role": "user", "content": req.prompt})
 
+    temperature = req.temperature if req.temperature is not None else agent.temperature
+    max_tokens = req.max_tokens if req.max_tokens is not None else agent.max_tokens
+
+    if req.stream:
+        async def event_generator():
+            start_t = time.time()
+            full_response_text = ""
+            try:
+                raw_response = completion_with_fallback(
+                    model=agent.model_id,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=True,
+                )
+                for chunk in raw_response:
+                    content_chunk = getattr(chunk.choices[0].delta, "content", None) or ""
+                    if content_chunk:
+                        full_response_text += content_chunk
+                        chunk_payload = {
+                            "agent_id": agent.id,
+                            "delta": content_chunk,
+                            "status": "in_progress",
+                        }
+                        yield f"data: {json.dumps(chunk_payload)}\n\n"
+
+                lat_ms = round((time.time() - start_t) * 1000, 2)
+                end_payload = {
+                    "agent_id": agent.id,
+                    "delta": "",
+                    "status": "completed",
+                    "latency_ms": lat_ms,
+                }
+                yield f"data: {json.dumps(end_payload)}\n\n"
+                yield "data: [DONE]\n\n"
+
+                asyncio.create_task(
+                    log_invocation_background(
+                        hub_id=ctx.hub_id,
+                        agent_id=agent.id,
+                        user_id=ctx.user_id,
+                        prompt=req.prompt,
+                        response=full_response_text,
+                        model_used=agent.model_id,
+                        input_tokens=0,
+                        output_tokens=0,
+                        latency_ms=lat_ms,
+                        status_str="success",
+                        route_decision="direct",
+                    )
+                )
+            except Exception as e:
+                logger.error("Streaming invocation failed: %s", e)
+                err_payload = {"error": str(e), "status": "failed"}
+                yield f"data: {json.dumps(err_payload)}\n\n"
+
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+    # Non-streaming call
+    start_t = time.time()
     try:
-        completion_res = await completion_with_fallback(
+        response = completion_with_fallback(
             model=agent.model_id,
             messages=messages,
-            temperature=temp,
-            max_tokens=max_tok,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
-        latency_ms = (time.time() - start_time) * 1000.0
+        latency_ms = round((time.time() - start_t) * 1000, 2)
+        response_text = response.choices[0].message.content or ""
+        in_tokens = getattr(response.usage, "prompt_tokens", 0)
+        out_tokens = getattr(response.usage, "completion_tokens", 0)
 
-        content = completion_res.get("choices", [{}])[0].get("message", {}).get("content", "")
-        model_used = completion_res.get("model", agent.model_id)
-        usage = completion_res.get("usage", {})
-        input_tokens = usage.get("prompt_tokens", 0)
-        output_tokens = usage.get("completion_tokens", 0)
-
-        # Trigger background logging
         asyncio.create_task(
             log_invocation_background(
-                agent_id=agent_id,
-                user_id=user_id,
-                prompt=payload.prompt,
-                response=content,
-                model_used=model_used,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
+                hub_id=ctx.hub_id,
+                agent_id=agent.id,
+                user_id=ctx.user_id,
+                prompt=req.prompt,
+                response=response_text,
+                model_used=agent.model_id,
+                input_tokens=in_tokens,
+                output_tokens=out_tokens,
                 latency_ms=latency_ms,
                 status_str="success",
                 route_decision="direct",
@@ -194,228 +255,187 @@ async def invoke_agent(
         )
 
         return AgentInvokeResponse(
-            agent_id=agent_id,
-            response=content,
-            model_used=model_used,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            latency_ms=round(latency_ms, 2),
+            agent_id=agent.id,
+            response=response_text,
+            model_used=agent.model_id,
+            input_tokens=in_tokens,
+            output_tokens=out_tokens,
+            latency_ms=latency_ms,
             status="success",
         )
-
     except Exception as e:
-        latency_ms = (time.time() - start_time) * 1000.0
-        logger.error(f"Error invoking agent {agent_id}: {e}")
-
+        latency_ms = round((time.time() - start_t) * 1000, 2)
         asyncio.create_task(
             log_invocation_background(
-                agent_id=agent_id,
-                user_id=user_id,
-                prompt=payload.prompt,
-                response=str(e),
+                hub_id=ctx.hub_id,
+                agent_id=agent.id,
+                user_id=ctx.user_id,
+                prompt=req.prompt,
+                response=None,
                 model_used=agent.model_id,
                 input_tokens=0,
                 output_tokens=0,
                 latency_ms=latency_ms,
-                status_str="error",
+                status_str="failed",
                 route_decision="direct",
             )
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Agent invocation failed: {str(e)}",
-        )
+        raise HTTPException(status_code=500, detail=f"Agent invocation failed: {str(e)}")
 
 
-@router.post("/agents/{agent_id}/invoke/batch")
-async def invoke_agent_batch(
+@router.post("/{agent_id}/batch-invoke")
+async def batch_invoke_agent(
     agent_id: str,
-    payload: AgentBatchInvokeRequest,
+    req: AgentBatchInvokeRequest,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="contributor")),
     db: AsyncSession = Depends(get_async_db),
-    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
 ):
-    """Invoke an agent sequentially across a batch of prompts (max 20)."""
+    """Run batch invocation over a list of prompts."""
+    agent = await repo_get_agent(db, hub_id=ctx.hub_id, agent_id=agent_id)
+    if not agent or not agent.is_active:
+        raise HTTPException(status_code=404, detail="Agent not found or inactive.")
+
     results = []
-    for prompt_text in payload.prompts:
-        single_req = AgentInvokeRequest(prompt=prompt_text)
-        res = await invoke_agent(
-            agent_id=agent_id,
-            payload=single_req,
-            db=db,
-            current_user=current_user,
-        )
-        results.append(res)
-    return {"agent_id": agent_id, "total": len(results), "results": results}
+    for prompt in req.prompts:
+        start_t = time.time()
+        try:
+            resp = completion_with_fallback(
+                model=agent.model_id,
+                messages=[{"role": "system", "content": agent.system_prompt}, {"role": "user", "content": prompt}],
+                temperature=agent.temperature,
+                max_tokens=agent.max_tokens,
+            )
+            lat = round((time.time() - start_t) * 1000, 2)
+            results.append({"prompt": prompt, "response": resp.choices[0].message.content, "status": "success", "latency_ms": lat})
+        except Exception as e:
+            results.append({"prompt": prompt, "error": str(e), "status": "failed"})
+
+    return {"agent_id": agent.id, "total": len(req.prompts), "results": results}
 
 
 @router.post("/route", response_model=RouteResponse)
-async def route_request(
-    payload: RouteRequest,
+async def route_prompt(
+    req: RouteRequest,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="contributor")),
     db: AsyncSession = Depends(get_async_db),
-    current_user: Optional[Dict[str, Any]] = Depends(get_optional_user),
 ):
-    """Unified smart routing endpoint (direct agent, direct model, auto classifier, round-robin)."""
-    start_time = time.time()
-    user_id = current_user.get("sub") if current_user else None
-    strategy = payload.routing_strategy or "auto"
+    """Route user prompt to candidate agents in the hub."""
+    strategy = req.routing_strategy or "auto"
+    target_agent = None
 
-    target_agent_id: Optional[str] = payload.agent_id
+    if req.agent_id:
+        target_agent = await repo_get_agent(db, hub_id=ctx.hub_id, agent_id=req.agent_id)
 
-    # 1. Direct Agent
-    if target_agent_id:
-        inv_res = await invoke_agent(
-            agent_id=target_agent_id,
-            payload=AgentInvokeRequest(prompt=payload.prompt, session_id=payload.session_id),
-            db=db,
-            current_user=current_user,
+    if not target_agent:
+        active_agents = select(AgentDefinition).where(
+            AgentDefinition.hub_id == ctx.hub_id, AgentDefinition.is_active == True
         )
-        return RouteResponse(
-            response=inv_res.response,
-            route_decision="direct_agent",
-            agent_used=target_agent_id,
-            model_used=inv_res.model_used,
-            latency_ms=inv_res.latency_ms,
-            input_tokens=inv_res.input_tokens,
-            output_tokens=inv_res.output_tokens,
-        )
+        candidates = (await db.execute(active_agents)).scalars().all()
+        if not candidates:
+            raise HTTPException(status_code=404, detail="No active agents available in hub.")
 
-    # 2. Direct Model
-    if payload.model_id:
-        completion_res = await completion_with_fallback(
-            model=payload.model_id,
-            messages=[{"role": "user", "content": payload.prompt}],
-        )
-        latency_ms = (time.time() - start_time) * 1000.0
-        content = completion_res.get("choices", [{}])[0].get("message", {}).get("content", "")
-        usage = completion_res.get("usage", {})
+        if strategy == "round_robin":
+            idx = _rr_counters.get(ctx.hub_id, 0) % len(candidates)
+            _rr_counters[ctx.hub_id] = idx + 1
+            target_agent = candidates[idx]
+        else:
+            target_agent = candidates[0]
 
-        return RouteResponse(
-            response=content,
-            route_decision="direct_model",
-            agent_used=None,
-            model_used=payload.model_id,
-            latency_ms=round(latency_ms, 2),
-            input_tokens=usage.get("prompt_tokens", 0),
-            output_tokens=usage.get("completion_tokens", 0),
-        )
-
-    # 3. Round Robin across active agents
-    if strategy == "round_robin":
-        stmt = select(AgentDefinition).where(AgentDefinition.is_active == True).order_by(AgentDefinition.created_at.asc())
-        res = await db.execute(stmt)
-        agents = res.scalars().all()
-
-        if agents:
-            global _rr_counter
-            selected_agent = agents[_rr_counter % len(agents)]
-            _rr_counter += 1
-
-            inv_res = await invoke_agent(
-                agent_id=selected_agent.id,
-                payload=AgentInvokeRequest(prompt=payload.prompt),
-                db=db,
-                current_user=current_user,
-            )
-            return RouteResponse(
-                response=inv_res.response,
-                route_decision="round_robin",
-                agent_used=selected_agent.id,
-                model_used=inv_res.model_used,
-                latency_ms=inv_res.latency_ms,
-                input_tokens=inv_res.input_tokens,
-                output_tokens=inv_res.output_tokens,
-            )
-
-    # 4. Auto classification fallback -> Default Completion Model
-    default_model = "gemini/gemini-3.5-flash"
-
-    stmt = select(AgentDefinition).where(AgentDefinition.is_active == True)
-    res = await db.execute(stmt)
-    agents = res.scalars().all()
-
-    matched_agent = None
-    prompt_lower = payload.prompt.lower()
-    for a in agents:
-        if a.name.lower() in prompt_lower or a.role.lower() in prompt_lower:
-            matched_agent = a
-            break
-
-    if matched_agent:
-        inv_res = await invoke_agent(
-            agent_id=matched_agent.id,
-            payload=AgentInvokeRequest(prompt=payload.prompt),
-            db=db,
-            current_user=current_user,
-        )
-        return RouteResponse(
-            response=inv_res.response,
-            route_decision="auto_agent_match",
-            agent_used=matched_agent.id,
-            model_used=inv_res.model_used,
-            latency_ms=inv_res.latency_ms,
-            input_tokens=inv_res.input_tokens,
-            output_tokens=inv_res.output_tokens,
-        )
-
-    # Fallback to direct completion
-    completion_res = await completion_with_fallback(
-        model=default_model,
-        messages=[{"role": "user", "content": payload.prompt}],
+    start_t = time.time()
+    resp = completion_with_fallback(
+        model=target_agent.model_id,
+        messages=[{"role": "system", "content": target_agent.system_prompt}, {"role": "user", "content": req.prompt}],
+        temperature=target_agent.temperature,
+        max_tokens=target_agent.max_tokens,
     )
-    latency_ms = (time.time() - start_time) * 1000.0
-    content = completion_res.get("choices", [{}])[0].get("message", {}).get("content", "")
-    usage = completion_res.get("usage", {})
+    lat_ms = round((time.time() - start_t) * 1000, 2)
 
     return RouteResponse(
-        response=content,
-        route_decision="auto_fallback",
-        agent_used=None,
-        model_used=default_model,
-        latency_ms=round(latency_ms, 2),
-        input_tokens=usage.get("prompt_tokens", 0),
-        output_tokens=usage.get("completion_tokens", 0),
+        response=resp.choices[0].message.content or "",
+        route_decision=f"{strategy}_selected_{target_agent.endpoint_slug}",
+        agent_used=target_agent.id,
+        model_used=target_agent.model_id,
+        latency_ms=lat_ms,
+        input_tokens=getattr(resp.usage, "prompt_tokens", 0),
+        output_tokens=getattr(resp.usage, "completion_tokens", 0),
     )
 
 
-@router.get("/agents/{agent_id}/stats", response_model=AgentStatsResponse)
+@router.get("/{agent_id}/stats", response_model=AgentStatsResponse)
 async def get_agent_stats(
     agent_id: str,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="viewer")),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Retrieve analytics stats for a specific agent by ID."""
-    stmt = select(AgentInvocationLog).where(AgentInvocationLog.agent_id == agent_id)
-    res = await db.execute(stmt)
-    logs = res.scalars().all()
+    """Retrieve telemetry stats for an agent in a hub."""
+    agent = await repo_get_agent(db, hub_id=ctx.hub_id, agent_id=agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found.")
+
+    stmt = select(AgentInvocationLog).where(
+        AgentInvocationLog.agent_id == agent_id, AgentInvocationLog.hub_id == ctx.hub_id
+    )
+    logs = (await db.execute(stmt)).scalars().all()
 
     total = len(logs)
-    if total == 0:
-        return AgentStatsResponse(
-            agent_id=agent_id,
-            total_invocations=0,
-            avg_latency_ms=0.0,
-            total_input_tokens=0,
-            total_output_tokens=0,
-            status_counts={"success": 0, "error": 0},
-            last_used=None,
-        )
+    avg_lat = sum(l.latency_ms or 0.0 for l in logs) / total if total > 0 else 0.0
+    in_tok = sum(l.input_tokens or 0 for l in logs)
+    out_tok = sum(l.output_tokens or 0 for l in logs)
 
-    total_latency = sum(l.latency_ms or 0.0 for l in logs)
-    total_in_tokens = sum(l.input_tokens or 0 for l in logs)
-    total_out_tokens = sum(l.output_tokens or 0 for l in logs)
-
-    status_counts: Dict[str, int] = {}
+    counts = {}
     for l in logs:
-        st = l.status or "success"
-        status_counts[st] = status_counts.get(st, 0) + 1
+        st = l.status or "unknown"
+        counts[st] = counts.get(st, 0) + 1
 
     last_used = max((l.created_at for l in logs if l.created_at), default=None)
 
     return AgentStatsResponse(
-        agent_id=agent_id,
+        agent_id=agent.id,
+        hub_id=ctx.hub_id,
         total_invocations=total,
-        avg_latency_ms=round(total_latency / total, 2),
-        total_input_tokens=total_in_tokens,
-        total_output_tokens=total_out_tokens,
-        status_counts=status_counts,
+        avg_latency_ms=round(avg_lat, 2),
+        total_input_tokens=in_tok,
+        total_output_tokens=out_tok,
+        status_counts=counts,
         last_used=last_used,
     )
+
+
+@router.get("/{agent_id}/logs")
+async def get_agent_logs(
+    agent_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="viewer")),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Retrieve invocation log history for an agent in a hub."""
+    agent = await repo_get_agent(db, hub_id=ctx.hub_id, agent_id=agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found.")
+
+    stmt = (
+        select(AgentInvocationLog)
+        .where(AgentInvocationLog.agent_id == agent_id, AgentInvocationLog.hub_id == ctx.hub_id)
+        .order_by(AgentInvocationLog.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    logs = (await db.execute(stmt)).scalars().all()
+
+    return {
+        "agent_id": agent.id,
+        "hub_id": ctx.hub_id,
+        "items": [
+            {
+                "id": l.id,
+                "prompt": l.prompt,
+                "response": l.response,
+                "model_used": l.model_used,
+                "latency_ms": l.latency_ms,
+                "status": l.status,
+                "created_at": l.created_at.isoformat() if l.created_at else None,
+            }
+            for l in logs
+        ],
+    }

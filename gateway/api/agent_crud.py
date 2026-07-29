@@ -1,40 +1,117 @@
-"""Agent CRUD REST API Endpoints for Gateway Agent Hub."""
+"""Agent CRUD REST API Endpoints for Ingestion/Agent Hub (S6-05c).
+
+All routes are nested under /hubs/{hub_id}/agents and guarded by require_hub(hub_type="agent").
+"""
 
 import logging
 import uuid
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
-from common.models.database import AgentDefinition, ModelRegistryModel
+from common.clients.redis import publish_event
+from common.models.database import AgentDefinition, AuditLog, ModelRegistryModel
 from common.schemas.agent_types import AgentCreate, AgentResponse, AgentUpdate
+from gateway.auth.hub_context import HubContext, require_hub
+from projects.guardroute.src.agents.agent_repository import (
+    create_agent as repo_create_agent,
+    delete_agent as repo_delete_agent,
+    generate_unique_slug,
+    get_agent as repo_get_agent,
+    get_agent_by_slug as repo_get_agent_by_slug,
+    list_agents as repo_list_agents,
+    slugify,
+    update_agent as repo_update_agent,
+)
+from projects.guardroute.src.agents.collection_binding import (
+    inspect_binding_statuses,
+    validate_bindings,
+)
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(prefix="/hubs/{hub_id}/agents", tags=["agent-hub"])
 logger = logging.getLogger("gateway.api.agent_crud")
 
 
+async def _log_audit_event(
+    session: AsyncSession,
+    *,
+    hub_id: Optional[str],
+    actor_user_id: Optional[str],
+    action: str,
+    resource_type: str,
+    resource_id: Optional[str] = None,
+    summary: Optional[str] = None,
+    before_json: Optional[Dict[str, Any]] = None,
+    after_json: Optional[Dict[str, Any]] = None,
+) -> None:
+    audit = AuditLog(
+        id=str(uuid.uuid4()),
+        hub_id=hub_id,
+        actor_user_id=actor_user_id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        summary=summary,
+        before_json=before_json,
+        after_json=after_json,
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(audit)
+
+
+async def _to_agent_response(session: AsyncSession, agent: AgentDefinition, hub_slug: str) -> AgentResponse:
+    bindings_resp = await inspect_binding_statuses(
+        session,
+        source_hub_id=agent.hub_id,
+        bindings_raw=agent.collection_bindings_json or [],
+    )
+    return AgentResponse(
+        id=agent.id,
+        hub_id=agent.hub_id,
+        hub_slug=hub_slug,
+        name=agent.name,
+        role=agent.role,
+        system_prompt=agent.system_prompt,
+        model_id=agent.model_id,
+        tools=agent.tools or [],
+        collection_bindings=bindings_resp,
+        temperature=agent.temperature,
+        max_tokens=agent.max_tokens,
+        is_active=agent.is_active,
+        endpoint_slug=agent.endpoint_slug,
+        created_at=agent.created_at,
+        updated_at=agent.updated_at,
+    )
+
+
 @router.get("", response_model=List[AgentResponse])
-async def list_agents(db: AsyncSession = Depends(get_async_db)) -> List[AgentResponse]:
-    """Retrieve all defined agents."""
-    stmt = select(AgentDefinition).order_by(AgentDefinition.name.asc())
-    result = await db.execute(stmt)
-    agents = result.scalars().all()
-    return [AgentResponse.model_validate(a) for a in agents]
+async def list_agents(
+    is_active: Optional[bool] = Query(None),
+    q: Optional[str] = Query(None),
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="viewer")),
+    db: AsyncSession = Depends(get_async_db),
+) -> List[AgentResponse]:
+    """Retrieve agent definitions for a hub."""
+    agents = await repo_list_agents(db, hub_id=ctx.hub_id, is_active=is_active, q=q)
+    return [await _to_agent_response(db, a, ctx.hub.slug) for a in agents]
 
 
-@router.get("/models")
-async def list_agent_models(db: AsyncSession = Depends(get_async_db)) -> dict:
-    """Retrieve available completion models from Model Registry for Agent dropdowns."""
+@router.get("/available-models")
+async def list_agent_models(
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="viewer")),
+    db: AsyncSession = Depends(get_async_db),
+) -> dict:
+    """Retrieve available models from Model Registry for Agent dropdowns."""
     stmt = select(ModelRegistryModel).where(
         ModelRegistryModel.role.in_(["completion", "classifier"]),
         ModelRegistryModel.is_enabled == True,
     )
-    result = await db.execute(stmt)
-    models = result.scalars().all()
+    models = (await db.execute(stmt)).scalars().all()
     return {
         "models": [
             {
@@ -49,188 +126,179 @@ async def list_agent_models(db: AsyncSession = Depends(get_async_db)) -> dict:
     }
 
 
-@router.get("/{agent_id}", response_model=AgentResponse)
-async def get_agent(agent_id: str, db: AsyncSession = Depends(get_async_db)) -> AgentResponse:
-    """Retrieve details for a specific agent by ID."""
-    stmt = select(AgentDefinition).where(AgentDefinition.id == agent_id)
-    result = await db.execute(stmt)
-    agent = result.scalar_one_or_none()
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent with ID '{agent_id}' not found.",
-        )
-    return AgentResponse.model_validate(agent)
-
-
-import re
-from common.clients.redis import publish_event
-
-
-def slugify(text: str) -> str:
-    """Convert text into a URL-friendly slug."""
-    text = text.lower()
-    text = re.sub(r"[^\w\s-]", "", text)
-    text = re.sub(r"[\s_-]+", "-", text)
-    return text.strip("-") or "agent"
-
-
-async def generate_unique_slug(
-    db: AsyncSession, base_name: str, current_agent_id: Optional[str] = None
-) -> str:
-    """Generate a unique endpoint_slug from a base name."""
-    base_slug = slugify(base_name)
-    slug = base_slug
-    counter = 1
-    while True:
-        stmt = select(AgentDefinition).where(AgentDefinition.endpoint_slug == slug)
-        if current_agent_id:
-            stmt = stmt.where(AgentDefinition.id != current_agent_id)
-        result = await db.execute(stmt)
-        if not result.scalar_one_or_none():
-            return slug
-        counter += 1
-        slug = f"{base_slug}-{counter}"
-
-
 @router.post("", response_model=AgentResponse, status_code=status.HTTP_201_CREATED)
 async def create_agent(
-    payload: AgentCreate, db: AsyncSession = Depends(get_async_db)
+    payload: AgentCreate,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="contributor")),
+    db: AsyncSession = Depends(get_async_db),
 ) -> AgentResponse:
-    """Create a new agent definition."""
-    agent_id = str(uuid.uuid4())
-    now = datetime.utcnow()
+    """Create a new agent definition in a hub."""
+    # Pre-validate collection bindings via Hub Links
+    if payload.collection_bindings:
+        await validate_bindings(db, source_hub_id=ctx.hub_id, bindings=payload.collection_bindings)
 
-    # Generate unique endpoint_slug if not explicitly provided
-    endpoint_slug = payload.endpoint_slug
-    if not endpoint_slug:
-        endpoint_slug = await generate_unique_slug(db, payload.name)
-
-    new_agent = AgentDefinition(
-        id=agent_id,
-        name=payload.name,
-        role=payload.role,
-        system_prompt=payload.system_prompt,
-        model_id=payload.model_id,
-        tools=payload.tools,
-        temperature=payload.temperature,
-        max_tokens=payload.max_tokens,
-        is_active=payload.is_active if payload.is_active is not None else True,
-        endpoint_slug=endpoint_slug,
-        created_at=now,
-        updated_at=now,
-    )
-    db.add(new_agent)
     try:
-        await db.commit()
-        await db.refresh(new_agent)
-        logger.info("Created agent '%s' (ID: %s, Slug: %s)", new_agent.name, agent_id, endpoint_slug)
-        await publish_event("agent-config-updates", {"action": "created", "agent_id": agent_id})
-        return AgentResponse.model_validate(new_agent)
-    except Exception as e:
-        await db.rollback()
-        logger.error("Failed to create agent: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create agent definition: {str(e)}",
+        agent = await repo_create_agent(db, hub_id=ctx.hub_id, payload=payload)
+        await _log_audit_event(
+            db,
+            hub_id=ctx.hub_id,
+            actor_user_id=ctx.user_id,
+            action="create",
+            resource_type="agent",
+            resource_id=agent.id,
+            summary=f"Created agent '{agent.name}'",
+            after_json={"id": agent.id, "name": agent.name, "endpoint_slug": agent.endpoint_slug},
         )
+        await db.commit()
+        await db.refresh(agent)
+
+        await publish_event("agent-config-updates", {"action": "created", "hub_id": ctx.hub_id, "agent_id": agent.id})
+        return await _to_agent_response(db, agent, ctx.hub.slug)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+
+@router.get("/{agent_id}", response_model=AgentResponse)
+async def get_agent(
+    agent_id: str,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="viewer")),
+    db: AsyncSession = Depends(get_async_db),
+) -> AgentResponse:
+    """Retrieve details for a specific agent by ID."""
+    agent = await repo_get_agent(db, hub_id=ctx.hub_id, agent_id=agent_id)
+    if not agent:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found.")
+    return await _to_agent_response(db, agent, ctx.hub.slug)
 
 
 @router.put("/{agent_id}", response_model=AgentResponse)
 async def update_agent(
-    agent_id: str, payload: AgentUpdate, db: AsyncSession = Depends(get_async_db)
+    agent_id: str,
+    payload: AgentUpdate,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="contributor")),
+    db: AsyncSession = Depends(get_async_db),
 ) -> AgentResponse:
-    """Update configurations for an existing agent."""
-    stmt = select(AgentDefinition).where(AgentDefinition.id == agent_id)
-    result = await db.execute(stmt)
-    agent = result.scalar_one_or_none()
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent with ID '{agent_id}' not found.",
-        )
-
-    update_data = payload.model_dump(exclude_unset=True)
-
-    if "name" in update_data and "endpoint_slug" not in update_data:
-        update_data["endpoint_slug"] = await generate_unique_slug(db, update_data["name"], agent_id)
-    elif "endpoint_slug" in update_data and update_data["endpoint_slug"]:
-        update_data["endpoint_slug"] = await generate_unique_slug(db, update_data["endpoint_slug"], agent_id)
-
-    for field, value in update_data.items():
-        setattr(agent, field, value)
-
-    agent.updated_at = datetime.utcnow()
+    """Update an existing agent definition in a hub."""
+    if payload.collection_bindings is not None:
+        await validate_bindings(db, source_hub_id=ctx.hub_id, bindings=payload.collection_bindings)
 
     try:
+        agent = await repo_update_agent(db, hub_id=ctx.hub_id, agent_id=agent_id, payload=payload)
+        await _log_audit_event(
+            db,
+            hub_id=ctx.hub_id,
+            actor_user_id=ctx.user_id,
+            action="update",
+            resource_type="agent",
+            resource_id=agent.id,
+            summary=f"Updated agent '{agent.id}'",
+        )
         await db.commit()
         await db.refresh(agent)
-        logger.info("Updated agent '%s' (ID: %s)", agent.name, agent_id)
-        await publish_event("agent-config-updates", {"action": "updated", "agent_id": agent_id})
-        return AgentResponse.model_validate(agent)
-    except Exception as e:
-        await db.rollback()
-        logger.error("Failed to update agent %s: %s", agent_id, e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to update agent definition: {str(e)}",
-        )
+
+        await publish_event("agent-config-updates", {"action": "updated", "hub_id": ctx.hub_id, "agent_id": agent.id})
+        return await _to_agent_response(db, agent, ctx.hub.slug)
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
 
 
 @router.patch("/{agent_id}/toggle", response_model=AgentResponse)
-async def toggle_agent_active(
-    agent_id: str, db: AsyncSession = Depends(get_async_db)
+async def toggle_agent_status(
+    agent_id: str,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="contributor")),
+    db: AsyncSession = Depends(get_async_db),
 ) -> AgentResponse:
-    """Toggle activation state (is_active) of an agent."""
-    stmt = select(AgentDefinition).where(AgentDefinition.id == agent_id)
-    result = await db.execute(stmt)
-    agent = result.scalar_one_or_none()
+    """Toggle activation status of an agent."""
+    agent = await repo_get_agent(db, hub_id=ctx.hub_id, agent_id=agent_id)
     if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent with ID '{agent_id}' not found.",
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found.")
 
-    agent.is_active = not bool(agent.is_active)
-    agent.updated_at = datetime.utcnow()
+    agent.is_active = not agent.is_active
+    await _log_audit_event(
+        db,
+        hub_id=ctx.hub_id,
+        actor_user_id=ctx.user_id,
+        action="update",
+        resource_type="agent",
+        resource_id=agent.id,
+        summary=f"Toggled agent '{agent.id}' active status to {agent.is_active}",
+    )
+    await db.commit()
+    await db.refresh(agent)
 
-    try:
-        await db.commit()
-        await db.refresh(agent)
-        logger.info("Toggled agent '%s' (ID: %s) is_active to %s", agent.name, agent_id, agent.is_active)
-        await publish_event("agent-config-updates", {"action": "toggled", "agent_id": agent_id, "is_active": agent.is_active})
-        return AgentResponse.model_validate(agent)
-    except Exception as e:
-        await db.rollback()
-        logger.error("Failed to toggle agent active state %s: %s", agent_id, e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to toggle agent active state: {str(e)}",
-        )
+    await publish_event("agent-config-updates", {"action": "updated", "hub_id": ctx.hub_id, "agent_id": agent.id})
+    return await _to_agent_response(db, agent, ctx.hub.slug)
 
 
-@router.delete("/{agent_id}")
-async def delete_agent(agent_id: str, db: AsyncSession = Depends(get_async_db)) -> dict:
+@router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_agent(
+    agent_id: str,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="maintainer")),
+    db: AsyncSession = Depends(get_async_db),
+):
     """Delete an agent definition."""
-    stmt = select(AgentDefinition).where(AgentDefinition.id == agent_id)
-    result = await db.execute(stmt)
-    agent = result.scalar_one_or_none()
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Agent with ID '{agent_id}' not found.",
-        )
+    deleted = await repo_delete_agent(db, hub_id=ctx.hub_id, agent_id=agent_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found.")
 
-    await db.delete(agent)
-    try:
-        await db.commit()
-        logger.info("Deleted agent '%s' (ID: %s)", agent.name, agent_id)
-        await publish_event("agent-config-updates", {"action": "deleted", "agent_id": agent_id})
-        return {"status": "success", "id": agent_id}
-    except Exception as e:
-        await db.rollback()
-        logger.error("Failed to delete agent %s: %s", agent_id, e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete agent definition: {str(e)}",
-        )
+    await _log_audit_event(
+        db,
+        hub_id=ctx.hub_id,
+        actor_user_id=ctx.user_id,
+        action="delete",
+        resource_type="agent",
+        resource_id=agent_id,
+        summary=f"Deleted agent '{agent_id}'",
+    )
+    await db.commit()
+
+    await publish_event("agent-config-updates", {"action": "deleted", "hub_id": ctx.hub_id, "agent_id": agent_id})
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{agent_id}/duplicate", response_model=AgentResponse, status_code=status.HTTP_201_CREATED)
+async def duplicate_agent(
+    agent_id: str,
+    ctx: HubContext = Depends(require_hub(hub_type="agent", min_role="contributor")),
+    db: AsyncSession = Depends(get_async_db),
+) -> AgentResponse:
+    """Duplicate an existing agent within the hub."""
+    original = await repo_get_agent(db, hub_id=ctx.hub_id, agent_id=agent_id)
+    if not original:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found.")
+
+    new_name = f"{original.name} (Copy)"
+    slug = await generate_unique_slug(db, hub_id=ctx.hub_id, base_name=new_name)
+
+    new_agent = AgentDefinition(
+        id=str(uuid.uuid4()),
+        hub_id=ctx.hub_id,
+        name=new_name,
+        role=original.role,
+        system_prompt=original.system_prompt,
+        model_id=original.model_id,
+        tools=original.tools or [],
+        collection_bindings_json=original.collection_bindings_json or [],
+        temperature=original.temperature,
+        max_tokens=original.max_tokens,
+        is_active=original.is_active,
+        endpoint_slug=slug,
+    )
+    db.add(new_agent)
+    await _log_audit_event(
+        db,
+        hub_id=ctx.hub_id,
+        actor_user_id=ctx.user_id,
+        action="create",
+        resource_type="agent",
+        resource_id=new_agent.id,
+        summary=f"Duplicated agent '{original.id}' to '{new_agent.id}'",
+    )
+    await db.commit()
+    await db.refresh(new_agent)
+
+    await publish_event("agent-config-updates", {"action": "created", "hub_id": ctx.hub_id, "agent_id": new_agent.id})
+    return await _to_agent_response(db, new_agent, ctx.hub.slug)

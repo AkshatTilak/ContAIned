@@ -58,6 +58,22 @@ class ClassificationResult(BaseModel):
 
 
 from datetime import datetime
+from pydantic import field_validator
+
+
+class CollectionBinding(BaseModel):
+    """Binding referencing a collection in an ingestion hub."""
+
+    hub_id: str = Field(..., description="Ingestion hub owning the collection")
+    collection_id: str = Field(..., description="Collection ID")
+    alias: Optional[str] = Field(default=None, description="Optional alias name for tool prompt")
+    top_k: int = Field(default=5, ge=1, le=100)
+
+
+class CollectionBindingResponse(CollectionBinding):
+    """Response representation of collection binding with computed link status."""
+
+    status: str = Field(default="ok", description="ok | link_revoked | missing")
 
 
 class AgentCreate(BaseModel):
@@ -68,10 +84,22 @@ class AgentCreate(BaseModel):
     system_prompt: str = Field(..., min_length=1, description="System prompt instructions")
     model_id: str = Field(..., description="Target model ID from Model Registry")
     tools: list[str] = Field(default_factory=list, description="Enabled tool names")
+    collection_bindings: list[CollectionBinding] = Field(default_factory=list, description="Linked collection bindings")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
     max_tokens: int = Field(default=2048, gt=0, description="Max response tokens")
     is_active: bool = Field(default=True, description="Activation status of the agent")
     endpoint_slug: Optional[str] = Field(default=None, description="Friendly URL slug for agent")
+
+    @field_validator("collection_bindings")
+    @classmethod
+    def validate_unique_bindings(cls, bindings: list[CollectionBinding]) -> list[CollectionBinding]:
+        seen = set()
+        for b in bindings:
+            key = (b.hub_id, b.collection_id)
+            if key in seen:
+                raise ValueError("Duplicate collection binding pair (hub_id, collection_id)")
+            seen.add(key)
+        return bindings
 
 
 class AgentUpdate(BaseModel):
@@ -82,10 +110,23 @@ class AgentUpdate(BaseModel):
     system_prompt: Optional[str] = Field(default=None, min_length=1)
     model_id: Optional[str] = Field(default=None)
     tools: Optional[list[str]] = Field(default=None)
+    collection_bindings: Optional[list[CollectionBinding]] = Field(default=None)
     temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     max_tokens: Optional[int] = Field(default=None, gt=0)
     is_active: Optional[bool] = Field(default=None)
     endpoint_slug: Optional[str] = Field(default=None)
+
+    @field_validator("collection_bindings")
+    @classmethod
+    def validate_unique_bindings(cls, bindings: Optional[list[CollectionBinding]]) -> Optional[list[CollectionBinding]]:
+        if bindings is not None:
+            seen = set()
+            for b in bindings:
+                key = (b.hub_id, b.collection_id)
+                if key in seen:
+                    raise ValueError("Duplicate collection binding pair (hub_id, collection_id)")
+                seen.add(key)
+        return bindings
 
 
 class AgentResponse(BaseModel):
@@ -93,15 +134,19 @@ class AgentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    hub_id: str
+    hub_slug: Optional[str] = None
     name: str
     role: str
     system_prompt: str
     model_id: str
-    tools: list[str]
+    tools: list[str] = Field(default_factory=list)
+    collection_bindings: list[CollectionBindingResponse] = Field(default_factory=list)
     temperature: float
     max_tokens: int
     is_active: bool = True
     endpoint_slug: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
 
