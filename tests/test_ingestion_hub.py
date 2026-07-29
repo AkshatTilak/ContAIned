@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 import pytest
+import pytest_asyncio
 from qdrant_client import QdrantClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -183,6 +184,7 @@ async def test_delete_safety_non_empty_collection(mock_vector_client):
         # Seed document in Hub 1
         doc = SyntraFlowDocument(
             hub_id="hub-ingest-1",
+            collection_id=c1.id,
             filename="handbook.pdf",
             content="Company handbook text...",
         )
@@ -197,3 +199,59 @@ async def test_delete_safety_non_empty_collection(mock_vector_client):
         res_del = await mgr.delete_collection(hub_id="hub-ingest-1", collection_id=c1.id, force=True)
         assert res_del["deleted"]["name"] == "hr_files"
         assert res_del["deleted"]["documents"] == 1
+
+
+# --- API Route Integration Tests ---
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from common.clients.postgres import get_async_db
+from gateway.api.ingestion_hub import router as ingestion_hub_router
+from gateway.auth.middleware import AuthMiddleware
+from projects.syntraflow.src.datastores.crypto import encrypt_credentials, decrypt_credentials, mask_uri
+
+
+@pytest_asyncio.fixture
+async def api_client():
+    """Create a FastAPI test client for testing ingestion hub routes."""
+    app = FastAPI()
+    app.include_router(ingestion_hub_router, prefix="/api")
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    async def _get_test_db():
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_async_db] = _get_test_db
+
+    # Seed initial test data
+    async with session_factory() as db:
+        now = datetime.now(timezone.utc)
+        admin = User(id="usr-admin", email="admin@example.com", platform_role="admin", status="active", created_at=now)
+        viewer = User(id="usr-viewer", email="viewer@example.com", platform_role="member", status="active", created_at=now)
+        hub_a = Hub(id="hub-support", name="Support Hub", slug="support", hub_type="ingestion", owner_id="usr-admin", created_at=now)
+        hub_b = Hub(id="hub-eng", name="Eng Hub", slug="eng", hub_type="ingestion", owner_id="usr-admin", created_at=now)
+
+        db.add_all([admin, viewer, hub_a, hub_b])
+        await db.commit()
+
+    return TestClient(app), session_factory
+
+
+def test_datastore_credential_encryption_and_uri_masking():
+    """Verify encryption of credentials at rest and URI masking on read."""
+    payload = {"password": "supersecretpassword123!"}
+    encrypted = encrypt_credentials(payload)
+    assert "supersecretpassword123!" not in encrypted
+    decrypted = decrypt_credentials(encrypted)
+    assert decrypted["password"] == "supersecretpassword123!"
+
+    masked = mask_uri("postgresql://user:secretpass@localhost:5432/mydb")
+    assert "secretpass" not in masked
+    assert "user:***@localhost" in masked
+

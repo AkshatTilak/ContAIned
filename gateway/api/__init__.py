@@ -53,6 +53,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None, alias="X-API-Ke
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_api_key)])
 
 from gateway.api.hubs import router as hubs_router
+from gateway.api.ingestion_hub import router as ingestion_hub_router
 from gateway.api.admin_audit import router as admin_audit_router
 from gateway.api.models import router as models_router
 from gateway.api.agent_crud import router as agent_crud_router
@@ -64,6 +65,7 @@ from gateway.api.api_keys import router as api_keys_router
 from gateway.api.proxy import router as proxy_router
 
 router.include_router(hubs_router)
+router.include_router(ingestion_hub_router)
 router.include_router(admin_audit_router)
 router.include_router(models_router)
 router.include_router(agent_crud_router)

@@ -31,8 +31,8 @@ async def async_session():
     )
     async with async_session_factory() as session:
         # Seed users
-        ua = User(id="user-a", email="usera@example.com", provider="local", provider_id="ua", platform_role="member")
-        ub = User(id="user-b", email="userb@example.com", provider="local", provider_id="ub", platform_role="member")
+        ua = User(id="user-a", email="usera@example.com", platform_role="member", status="active")
+        ub = User(id="user-b", email="userb@example.com", platform_role="member", status="active")
         session.add_all([ua, ub])
         await session.commit()
 

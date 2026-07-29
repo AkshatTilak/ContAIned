@@ -118,3 +118,87 @@ class InviteSummary(BaseModel):
     created_at: datetime
     invite_url: Optional[str] = None
 
+
+class DatastoreBindingResponse(BaseModel):
+    """Response schema for datastore binding metadata. Excludes plaintext & encrypted credentials."""
+
+    id: str
+    hub_id: str
+    name: str
+    store_type: str
+    connection_uri: str
+    is_default: bool = False
+    is_synthetic: bool = False
+    health_status: str = "healthy"
+    last_health_check: Optional[datetime] = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class CollectionResponse(BaseModel):
+    """Response schema for an Ingestion Hub collection."""
+
+    id: str
+    hub_id: str
+    name: str
+    physical_name: str
+    embedding_model: str
+    vector_dimension: int
+    description: Optional[str] = None
+    retrieval_config: dict[str, Any] = Field(default_factory=dict)
+    datastore_binding_id: Optional[str] = None
+    points_count: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class IngestionJobResponse(BaseModel):
+    """Response schema for an ingestion job in a hub."""
+
+    job_id: str
+    hub_id: str
+    collection_id: Optional[str] = None
+    document_id: Optional[str] = None
+    status: str
+    progress: float = 0.0
+    error_msg: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class DocumentResponse(BaseModel):
+    """Response schema for an ingested document in a hub collection."""
+
+    id: str
+    hub_id: str
+    collection_id: str
+    filename: str
+    file_hash: str
+    file_type: str = "unknown"
+    created_at: Optional[datetime] = None
+
+
+class SearchHit(BaseModel):
+    """Schema for an individual retrieval hit."""
+
+    id: str
+    hub_id: str
+    collection_id: str
+    collection_name: Optional[str] = None
+    document_id: Optional[str] = None
+    score: float
+    text: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SearchResponse(BaseModel):
+    """Response schema for multi-collection/hybrid search."""
+
+    status: str = "success"
+    query: str
+    count: int
+    results: list[SearchHit] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
