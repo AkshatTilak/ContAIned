@@ -150,10 +150,24 @@ class AuthSettings(BaseSettings):
     DATASTORE_ENCRYPTION_KEY: str = Field(default="", alias="DATASTORE_ENCRYPTION_KEY")
     JWT_ALGORITHM: str = Field(default="HS256", alias="JWT_ALGORITHM")
     JWT_EXPIRY_HOURS: int = Field(default=24, alias="JWT_EXPIRY_HOURS")
-    ALLOW_SELF_REGISTRATION: bool = Field(default=True, alias="ALLOW_SELF_REGISTRATION")
     AUTO_APPROVE_EMAIL_DOMAINS: list[str] = Field(
         default=["example.com"], alias="AUTO_APPROVE_EMAIL_DOMAINS"
     )
+
+
+class MailSettings(BaseSettings):
+
+    """Outbound email SMTP settings, TTLs, and application URLs."""
+
+    SMTP_HOST: Optional[str] = Field(default=None, alias="SMTP_HOST")
+    SMTP_PORT: int = Field(default=587, alias="SMTP_PORT")
+    SMTP_USER: Optional[str] = Field(default=None, alias="SMTP_USER")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, alias="SMTP_PASSWORD")
+    SMTP_FROM: str = Field(default="ContAIned <no-reply@contained.local>", alias="SMTP_FROM")
+    SMTP_USE_TLS: bool = Field(default=True, alias="SMTP_USE_TLS")
+    INVITE_TTL_HOURS: int = Field(default=72, alias="INVITE_TTL_HOURS")
+    PASSWORD_RESET_TTL_MINUTES: int = Field(default=60, alias="PASSWORD_RESET_TTL_MINUTES")
+    APP_PUBLIC_URL: str = Field(default="http://localhost:5173", alias="APP_PUBLIC_URL")
 
 
 class Settings(
@@ -166,7 +180,9 @@ class Settings(
     ProjectSettings,
     ModelOverrideSettings,
     AuthSettings,
+    MailSettings,
 ):
+
     """Combined settings for the entire platform.
 
     Composed via multi-inheritance (same pattern as zypp monorepo).
@@ -288,6 +304,16 @@ class Settings(
     @property
     def max_ram_mb(self) -> int:
         return self.MAX_RAM_MB
+
+    @property
+    def auto_approve_domains(self) -> list[str]:
+        raw = getattr(self, "AUTO_APPROVE_EMAIL_DOMAINS", [])
+        if isinstance(raw, list):
+            return [d.strip().lower() for d in raw if d.strip()]
+        if isinstance(raw, str):
+            return [d.strip().lower() for d in raw.split(",") if d.strip()]
+        return []
+
 
 
 settings = Settings()

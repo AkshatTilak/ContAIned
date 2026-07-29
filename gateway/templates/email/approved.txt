@@ -1,0 +1,8 @@
+Account Approved — ContAIned
+
+Hello {{ display_name or 'there' }},
+
+Your account request on ContAIned has been approved by an administrator.
+
+You can now log in at:
+{{ app_url }}/login

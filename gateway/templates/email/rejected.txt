@@ -1,0 +1,10 @@
+Account Status Update — ContAIned
+
+Hello {{ display_name or 'there' }},
+
+Your registration request on ContAIned was not approved.
+{% if reason %}
+Reason: {{ reason }}
+{% endif %}
+
+If you believe this is an error, please contact your platform administrator.

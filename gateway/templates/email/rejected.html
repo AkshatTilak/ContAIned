@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Account Status Update — ContAIned</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h2>Account Status Update</h2>
+  <p>Hello {{ display_name or 'there' }},</p>
+  <p>Your registration request on ContAIned was not approved.</p>
+  {% if reason %}
+  <p><strong>Reason:</strong> {{ reason }}</p>
+  {% endif %}
+  <p style="font-size: 0.9em; color: #666; margin-top: 20px;">
+    If you believe this is an error, please contact your platform administrator.
+  </p>
+</body>
+</html>
