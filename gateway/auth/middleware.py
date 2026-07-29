@@ -17,7 +17,9 @@ WHITELIST_PREFIXES: List[str] = [
     "/auth/register",
     "/auth/forgot-password",
     "/auth/reset-password",
+    "/auth/invite",
     "/auth/callback",
+
     "/health",
     "/api/health",
     "/docs",

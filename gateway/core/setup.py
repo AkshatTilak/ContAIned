@@ -150,10 +150,35 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         except Exception as e:
             logger.error("Failed to initialize project %s: %s", project, e)
 
+    # Start periodic background task for sweeping expired invites (every 15 min)
+    sweeper_task = None
+    if settings.APP_ENV != "testing":
+        import asyncio
+
+        async def _periodic_invite_sweeper():
+            from common.clients.postgres import get_sessionmaker
+            from gateway.auth.invites import sweep_expired_invites
+            session_factory = get_sessionmaker()
+            while True:
+                try:
+                    await asyncio.sleep(900)  # 15 minutes
+                    async with session_factory() as session:
+                        await sweep_expired_invites(session)
+                except asyncio.CancelledError:
+                    break
+                except Exception as ex:
+                    logger.error("Error in periodic invite sweeper: %s", ex)
+                    await asyncio.sleep(60)
+
+        sweeper_task = asyncio.create_task(_periodic_invite_sweeper())
+
     logger.info("Gateway started with projects: %s", settings.ACTIVE_PROJECTS)
     yield
 
     # --- Shutdown phase ---
+    if sweeper_task:
+        sweeper_task.cancel()
+
     for project in settings.ACTIVE_PROJECTS:
         module_path = f"projects.{project}.setup"
         try:

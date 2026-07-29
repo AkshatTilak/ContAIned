@@ -17,7 +17,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from gateway.auth.dependencies import get_current_user, require_role
 from gateway.auth.identities import fetch_profile, resolve_identity, gate_status
+from gateway.auth.invites import get_invite_preview, redeem_invite, InvitePreview
 from gateway.auth.passwords import (
+
     hash_password,
     verify_password,
     needs_rehash,
@@ -692,5 +694,63 @@ async def reset_password(
 
     await db.commit()
     return {"status": "password_reset_success"}
+
+
+class AcceptInviteRequest(BaseModel):
+    email: EmailStr
+    password: str
+    display_name: Optional[str] = None
+
+
+@router.get("/invite/{token}", response_model=InvitePreview)
+async def preview_invite(
+    token: str,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Retrieve unauthenticated preview details for an invite link."""
+    return await get_invite_preview(db, token)
+
+
+@router.post("/invite/{token}/accept", response_model=TokenResponse)
+async def accept_invite(
+    token: str,
+    payload: AcceptInviteRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Accept an invitation via email + password setup, creating an active account and issuing a session."""
+    client_ip = request.client.host if request.client else None
+    user = await redeem_invite(
+        db,
+        raw_token=token,
+        email=payload.email,
+        provider="password",
+        provider_id="",
+        password=payload.password,
+        display_name=payload.display_name,
+        ip_address=client_ip,
+    )
+
+    now = datetime.now(timezone.utc)
+    jwt_token = create_access_token(user_id=user.id, email=user.email, platform_role=user.platform_role)
+    token_h = hash_token(jwt_token)
+    expires_at = now + timedelta(hours=24)
+
+    session_record = UserSession(
+        id=str(uuid.uuid4()),
+        user_id=user.id,
+        token_hash=token_h,
+        expires_at=expires_at,
+        created_at=now,
+    )
+    db.add(session_record)
+    await db.commit()
+
+    return TokenResponse(
+        access_token=jwt_token,
+        token_type="bearer",
+        user=UserResponse.model_validate(user),
+    )
+
 
 
