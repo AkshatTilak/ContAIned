@@ -81,3 +81,5 @@ def require_role(*allowed_roles: str) -> Callable:
 
 
 require_platform_role = require_role
+require_platform_admin = require_role(PLATFORM_ROLE_ADMIN)
+

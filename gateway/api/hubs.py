@@ -505,7 +505,8 @@ async def transfer_ownership(
         )
 
     target_user = (await db.execute(select(User).where(User.id == payload.new_owner_user_id))).scalar_one_or_none()
-    if target_user is None or not target_user.is_active:
+    if target_user is None or target_user.status != "active":
+
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Target user for ownership transfer not found",

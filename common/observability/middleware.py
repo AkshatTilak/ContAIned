@@ -55,7 +55,8 @@ def register_exception_handlers(app: FastAPI) -> None:
             details={"status_code": exc.status_code},
             trace_id=trace_id,
         )
-        return JSONResponse(status_code=exc.status_code, content=schema.model_dump())
+        return JSONResponse(status_code=exc.status_code, content=schema.model_dump(), headers=exc.headers)
+
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):

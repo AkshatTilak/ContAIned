@@ -37,16 +37,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("gateway.auth.routes")
 
 
-class UserRoleUpdate(BaseModel):
-    platform_role: str
-
-    @field_validator("platform_role")
-    @classmethod
-    def validate_platform_role(cls, v: str) -> str:
-        if v not in PLATFORM_ROLES:
-            raise ValueError(f"Platform role must be one of: {', '.join(PLATFORM_ROLES)}")
-        return v
-
 
 class IdentityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -329,84 +319,8 @@ async def logout(
     return {"status": "logged_out"}
 
 
-# --- Admin User Management Endpoints ---
-
-
-@router.get("/users", response_model=List[UserResponse])
-async def list_users(
-    db: AsyncSession = Depends(get_async_db),
-    admin: Dict[str, Any] = Depends(require_role("admin")),
-):
-    """List all registered users (Admin only)."""
-    stmt = select(User).order_by(User.created_at.desc())
-    result = await db.execute(stmt)
-    users = result.scalars().all()
-    return users
-
-
-@router.put("/users/{user_id}/role", response_model=UserResponse)
-async def update_user_role(
-    user_id: str,
-    payload: UserRoleUpdate,
-    db: AsyncSession = Depends(get_async_db),
-    admin: Dict[str, Any] = Depends(require_role("admin")),
-):
-    """Update platform role for a specified user (Admin only)."""
-    if payload.platform_role not in PLATFORM_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Platform role must be one of: {', '.join(PLATFORM_ROLES)}",
-        )
-
-    stmt = select(User).where(User.id == user_id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-
-    if user.platform_role == PLATFORM_ROLE_ADMIN and payload.platform_role != PLATFORM_ROLE_ADMIN:
-        admin_count_stmt = select(func.count(User.id)).where(
-            User.platform_role == PLATFORM_ROLE_ADMIN, User.status == "active"
-        )
-        admin_count = (await db.execute(admin_count_stmt)).scalar() or 0
-        if admin_count <= 1:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Cannot demote the last platform admin",
-                headers={"X-Error-Code": "LAST_PLATFORM_ADMIN"},
-            )
-
-    user.platform_role = payload.platform_role
-    await db.commit()
-    await db.refresh(user)
-    return user
-
-
-@router.delete("/users/{user_id}")
-async def deactivate_user(
-    user_id: str,
-    db: AsyncSession = Depends(get_async_db),
-    admin: Dict[str, Any] = Depends(require_role("admin")),
-):
-    """Deactivate a user account (Admin only)."""
-    stmt = select(User).where(User.id == user_id)
-    result = await db.execute(stmt)
-    user = result.scalar_one_or_none()
-
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
-
-    user.status = "suspended"
-    await db.commit()
-    return {"status": "deactivated", "id": user_id}
-
-
 # --- Local Password Authentication Endpoints ---
+
 
 
 @router.post("/register", status_code=status.HTTP_202_ACCEPTED)

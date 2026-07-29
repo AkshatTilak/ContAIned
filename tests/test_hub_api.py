@@ -36,26 +36,25 @@ async def async_session():
             id="user-admin",
             email="admin@example.com",
             display_name="Admin",
-            provider="local",
-            provider_id="u-admin",
             platform_role="admin",
+            status="active",
         )
         member1 = User(
             id="user-1",
             email="user1@example.com",
             display_name="User One",
-            provider="local",
-            provider_id="u-1",
             platform_role="member",
+            status="active",
         )
+
         member2 = User(
             id="user-2",
             email="user2@example.com",
             display_name="User Two",
-            provider="local",
-            provider_id="u-2",
             platform_role="member",
+            status="active",
         )
+
         session.add_all([admin_user, member1, member2])
         await session.commit()
 

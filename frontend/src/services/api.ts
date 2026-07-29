@@ -288,16 +288,41 @@ export const api = {
   // Auth & RBAC
   getMe: () => request<any>("/auth/me"),
   logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
-  listUsers: () => request<any[]>("/auth/users"),
-  updateUserRole: (userId: string, role: string) =>
-    request<any>(`/auth/users/${userId}/role`, {
-      method: "PUT",
-      body: JSON.stringify({ role }),
+  listUsers: (params?: { status?: string; platform_role?: string; hub_id?: string; q?: string; limit?: number; offset?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.append("status", params.status);
+    if (params?.platform_role) query.append("platform_role", params.platform_role);
+    if (params?.hub_id) query.append("hub_id", params.hub_id);
+    if (params?.q) query.append("q", params.q);
+    if (params?.limit) query.append("limit", params.limit.toString());
+    if (params?.offset) query.append("offset", params.offset.toString());
+    const qs = query.toString();
+    return request<any>(`/admin/users${qs ? `?${qs}` : ""}`);
+  },
+  updateUserRole: (userId: string, platform_role: string) =>
+    request<any>(`/admin/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ platform_role }),
     }),
   deactivateUser: (userId: string) =>
-    request<{ status: string; id: string }>(`/auth/users/${userId}`, {
+    request<any>(`/admin/users/${userId}/suspend`, {
+      method: "POST",
+    }),
+  deleteUser: (userId: string) =>
+    request<{ status: string; id: string }>(`/admin/users/${userId}`, {
       method: "DELETE",
     }),
+  approveUser: (userId: string, payload?: { platform_role?: string; hub_grants?: any[] }) =>
+    request<any>(`/admin/users/${userId}/approve`, {
+      method: "POST",
+      body: JSON.stringify(payload || {}),
+    }),
+  rejectUser: (userId: string, reason?: string) =>
+    request<any>(`/admin/users/${userId}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
 
   // Playground API (S5-04a, S5-04b, S5-04c)
   playgroundChat: (payload: {

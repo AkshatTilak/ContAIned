@@ -7,7 +7,11 @@ import os
 from functools import lru_cache
 from typing import Any, Optional, Protocol
 
-import aiosmtplib
+try:
+    import aiosmtplib
+except ImportError:
+    aiosmtplib = None
+
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from common.config.settings import get_settings
@@ -47,7 +51,13 @@ class SMTPMailer:
 
         Returns False on any delivery failure without raising.
         """
+        if aiosmtplib is None:
+            logger.warning("aiosmtplib is not installed; dropping email to %s", to)
+            return False
+
         msg = email.message.EmailMessage()
+
+
         msg["From"] = self.sender
         msg["To"] = to
         msg["Subject"] = subject
