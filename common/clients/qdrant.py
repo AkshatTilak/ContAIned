@@ -17,29 +17,30 @@ logger = logging.getLogger("common.qdrant")
 class VectorClient:
     """Wrapper class for Qdrant client interactions."""
 
-    def __init__(self) -> None:
-        """Initializes both QdrantClient and AsyncQdrantClient using settings."""
-        if not settings.QDRANT_API_KEY:
+    def __init__(self, url: Optional[str] = None, api_key: Optional[str] = None) -> None:
+        """Initializes both QdrantClient and AsyncQdrantClient with optional overrides or settings."""
+        target_url = url or settings.QDRANT_URL
+        target_key = api_key if api_key is not None else (settings.QDRANT_API_KEY or None)
+
+        if not target_key and not api_key:
             if settings.APP_ENV == "production":
                 logger.error("QDRANT_API_KEY is not configured in production environment.")
                 raise ValueError("Missing QDRANT_API_KEY in production")
             else:
                 logger.warning("QDRANT_API_KEY is not configured. Running without Vector DB authentication.")
 
-        qdrant_api_key = settings.QDRANT_API_KEY if settings.QDRANT_API_KEY else None
-
         try:
             self._client = QdrantClient(
-                url=settings.QDRANT_URL,
-                api_key=qdrant_api_key,
+                url=target_url,
+                api_key=target_key,
                 timeout=settings.QDRANT_TIMEOUT,
             )
             self._async_client = AsyncQdrantClient(
-                url=settings.QDRANT_URL,
-                api_key=qdrant_api_key,
+                url=target_url,
+                api_key=target_key,
                 timeout=settings.QDRANT_TIMEOUT,
             )
-            logger.info("Qdrant sync/async clients initialized.")
+            logger.info("Qdrant sync/async clients initialized for URL %s.", target_url)
         except Exception as e:
             logger.error("Failed to initialize Qdrant client: %s", e)
             raise RuntimeError("Vector store client initialization failed") from e

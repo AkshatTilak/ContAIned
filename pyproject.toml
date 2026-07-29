@@ -50,6 +50,8 @@ syntraflow = [
     "confluent-kafka (>=2.4.0,<3.0.0)",
     "ffmpeg-python (>=0.2.0,<1.0.0)",
     "pydub (>=0.25.1,<1.0.0)",
+    "cryptography (>=42.0.0,<43.0.0)",
+    "opensearch-py (>=2.4.0,<3.0.0)",
 ]
 
 guardroute = [
