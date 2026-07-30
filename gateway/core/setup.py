@@ -130,6 +130,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     except Exception as e:
         logger.error("Failed to auto-register internal SyntraFlow MCP server: %s", e)
 
+    # Reconcile orphaned workflow runs left in queued/running state on startup (S6-06d)
+    try:
+        from common.clients.postgres import get_sessionmaker
+        from projects.guardroute.src.workflows.run_service import reconcile_orphaned_runs
+        session_factory = get_sessionmaker()
+        async with session_factory() as session:
+            count = await reconcile_orphaned_runs(session)
+            if count > 0:
+                logger.info("Reconciled %d orphaned workflow run(s) left from previous process.", count)
+    except Exception as e:
+        logger.error("Failed to reconcile orphaned workflow runs: %s", e)
+
     for project in settings.ACTIVE_PROJECTS:
         module_path = f"projects.{project}.setup"
         try:
