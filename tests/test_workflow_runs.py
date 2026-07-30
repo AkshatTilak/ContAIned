@@ -105,6 +105,12 @@ async def test_published_run_execution(db_setup):
     session.add_all([hub, wf, ver])
     await session.commit()
 
+    from projects.guardroute.src.workflows.run_service import global_trace_collector
+    if global_trace_collector._is_running:
+        await global_trace_collector.stop()
+    global_trace_collector.db_session_factory = sf
+    await global_trace_collector.start()
+
     run = await start_run(
         session,
         hub_id="hub-wf-exec",
@@ -118,8 +124,8 @@ async def test_published_run_execution(db_setup):
     assert run.id is not None
     assert run.status == "queued"
 
-    # Wait for execution task to complete
-    await asyncio.sleep(0.5)
+    # Wait for execution task & trace collector queue processing to complete
+    await asyncio.sleep(0.8)
 
     async with sf() as verify_session:
         run_db = (await verify_session.execute(
