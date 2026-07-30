@@ -7,9 +7,10 @@ export interface UserProfile {
   email: string;
   display_name?: string;
   avatar_url?: string;
-  provider: string;
-  role: string;
-  is_active: boolean;
+  provider?: string;
+  role?: string;
+  platform_role?: string;
+  is_active?: boolean;
 }
 
 export interface AuthSlice {
@@ -18,6 +19,7 @@ export interface AuthSlice {
   isAuthenticated: boolean;
   isAuthEnabled: boolean;
   authLoading: boolean;
+  isPlatformAdmin: boolean;
   setUser: (user: UserProfile | null) => void;
   setToken: (token: string | null) => void;
   logout: () => Promise<void>;
@@ -35,8 +37,12 @@ export const createAuthSlice: StateCreator<
   isAuthenticated: false,
   isAuthEnabled: false,
   authLoading: true,
+  isPlatformAdmin: false,
 
-  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  setUser: (user) => {
+    const isAdmin = !!(user && (user.platform_role === "admin" || user.role === "admin"));
+    set({ user, isAuthenticated: !!user, isPlatformAdmin: isAdmin });
+  },
   setToken: (token) => {
     if (token) {
       localStorage.setItem("contained_auth_token", token);
@@ -53,7 +59,7 @@ export const createAuthSlice: StateCreator<
       // ignore
     }
     localStorage.removeItem("contained_auth_token");
-    set({ user: null, token: null, isAuthenticated: false });
+    set({ user: null, token: null, isAuthenticated: false, isPlatformAdmin: false });
   },
 
   checkAuth: async () => {
@@ -66,11 +72,12 @@ export const createAuthSlice: StateCreator<
       const token = localStorage.getItem("contained_auth_token");
       if (token || !authEnabled) {
         const user = await api.getMe();
-        set({ user, isAuthenticated: true });
+        const isAdmin = !!(user && (user.platform_role === "admin" || user.role === "admin"));
+        set({ user, isAuthenticated: true, isPlatformAdmin: isAdmin });
       }
     } catch (e) {
       console.warn("Auth check error:", e);
-      set({ user: null, isAuthenticated: false });
+      set({ user: null, isAuthenticated: false, isPlatformAdmin: false });
     } finally {
       set({ authLoading: false });
     }

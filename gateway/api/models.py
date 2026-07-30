@@ -21,6 +21,8 @@ class ModelSelectRequest(BaseModel):
     model_id: str
 
 
+@router.get("")
+@router.get("/")
 @router.get("/registry")
 async def get_full_registry(db: AsyncSession = Depends(get_async_db)) -> dict:
     """Fetch all models in the database registry grouped by role, indicating active status."""

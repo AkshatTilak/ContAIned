@@ -114,10 +114,10 @@ export function HubShell() {
   const [hubRole, setHubRole] = useState<HubRole | null>(null);
   const [status, setStatus] = useState<FetchStatus>("idle");
 
+  const user = useStore((state) => state.user);
   const setActiveHub = useStore((state) => state.setActiveHub);
-  const isPlatformAdmin = useStore(
-    (s) => ((s as unknown) as Record<string, unknown>).isPlatformAdmin as boolean | undefined
-  ) || false;
+  const isPlatformAdminStore = useStore((state) => state.isPlatformAdmin);
+  const isPlatformAdmin = isPlatformAdminStore || user?.platform_role === "admin" || user?.role === "admin";
 
   const fetchHub = async () => {
     if (!hubType || !hubId) {
@@ -127,9 +127,13 @@ export function HubShell() {
     setStatus("loading");
     try {
       const data = await api.hubs.get(hubType, hubId);
-      setHub(data.hub);
-      setHubRole(data.membership?.hub_role ?? null);
-      setActiveHub(data.hub.id);
+      const hubObj = data?.hub || (data as unknown as Hub);
+      const role = data?.membership?.hub_role ?? (data as any)?.my_role ?? null;
+      setHub(hubObj);
+      setHubRole(role);
+      if (hubObj?.id) {
+        setActiveHub(hubObj.id);
+      }
       setStatus("success");
     } catch (err: any) {
       if (err instanceof HubApiError && err.status === 404) {

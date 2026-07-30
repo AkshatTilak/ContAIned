@@ -200,12 +200,44 @@ async def check_slug_available(
     return {"available": available, "suggestion": suggestion}
 
 
-@router.get("/{hub_id}", response_model=HubRead)
+@router.get("/{hub_id}")
+@router.get("/{hub_type:regex('^(ingestion|agent|workflow|eval)$')}/{hub_id}")
 async def get_hub_detail(
+    hub_id: str,
+    hub_type: Optional[str] = None,
     ctx: HubContext = Depends(require_hub(min_role=HUB_ROLE_VIEWER)),
+    db: AsyncSession = Depends(get_async_db),
 ):
-    """Fetch hub metadata by ID."""
-    return ctx.hub
+    """Fetch hub metadata by ID or by (hub_type, hub_id)."""
+    if hub_type and ctx.hub.hub_type != hub_type:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Hub not found",
+        )
+    mem = await get_membership(db, hub_id=ctx.hub_id, user_id=ctx.user_id)
+    membership_dict = None
+    if mem:
+        membership_dict = {
+            "id": mem.id,
+            "hub_id": mem.hub_id,
+            "user_id": mem.user_id,
+            "hub_role": mem.hub_role,
+            "created_at": mem.created_at.isoformat() if mem.created_at else None,
+        }
+    elif ctx.is_platform_admin:
+        membership_dict = {
+            "id": f"admin-{ctx.user_id}",
+            "hub_id": ctx.hub_id,
+            "user_id": ctx.user_id,
+            "hub_role": HUB_ROLE_OWNER,
+            "created_at": ctx.hub.created_at.isoformat() if ctx.hub.created_at else None,
+        }
+
+    hub_read = HubRead.model_validate(ctx.hub)
+    return {
+        "hub": hub_read.model_dump(mode="json"),
+        "membership": membership_dict,
+    }
 
 
 @router.patch("/{hub_id}", response_model=HubRead)

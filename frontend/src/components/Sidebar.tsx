@@ -38,9 +38,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenHubSwitcher }) => {
   const hubsByType = useStore((state) => state.hubsByType);
   const hubsById = useStore((state) => state.hubsById);
   const activeHubId = useStore((state) => state.activeHubId);
-  const isPlatformAdmin = useStore(
-    (s) => ((s as unknown) as Record<string, unknown>).isPlatformAdmin as boolean | undefined
-  ) || false;
+  const user = useStore((state) => state.user);
+  const isPlatformAdminStore = useStore((state) => state.isPlatformAdmin);
+  const isPlatformAdmin = isPlatformAdminStore || user?.platform_role === "admin" || user?.role === "admin";
 
   const [expandedTypes, setExpandedTypes] = useState<Record<HubType, boolean>>({
     ingestion: true,
