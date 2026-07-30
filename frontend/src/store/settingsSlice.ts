@@ -5,6 +5,7 @@ export interface SettingsState {
   apiKey: string;
   vramBudgetMb: number;
   sidebarCollapsed: boolean;
+  density: "comfortable" | "compact";
 }
 
 export interface SettingsActions {
@@ -12,6 +13,7 @@ export interface SettingsActions {
   setApiKey: (key: string) => void;
   setVramBudgetMb: (mb: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  setDensity: (density: "comfortable" | "compact") => void;
   updateSettings: (settings: Partial<SettingsState>) => void;
   resetSettings: () => void;
 }
@@ -25,6 +27,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   apiKey: "sk_live_default_key",
   vramBudgetMb: 8000,
   sidebarCollapsed: false,
+  density: "comfortable",
 };
 
 const loadPersistedSettings = (): SettingsState => {
@@ -77,13 +80,24 @@ export const createSettingsSlice: StateCreator<SettingsSlice, [], [], SettingsSl
         persistSettings(next);
         return next;
       }),
+    setDensity: (density) =>
+      set((state) => {
+        document.body.setAttribute("data-density", density);
+        const next = { ...state, density };
+        persistSettings(next);
+        return next;
+      }),
     updateSettings: (partial) =>
       set((state) => {
+        if (partial.density) {
+          document.body.setAttribute("data-density", partial.density);
+        }
         const next = { ...state, ...partial };
         persistSettings(next);
         return next;
       }),
     resetSettings: () => {
+      document.body.setAttribute("data-density", DEFAULT_SETTINGS.density);
       persistSettings(DEFAULT_SETTINGS);
       return set(DEFAULT_SETTINGS);
     },

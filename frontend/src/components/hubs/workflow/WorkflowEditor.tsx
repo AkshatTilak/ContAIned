@@ -45,7 +45,7 @@ export function WorkflowEditor() {
     try {
       const data = await api.workflows.get(hubId, workflowId);
       setWorkflow(data);
-      const graph = data.graph_json || { nodes: [], edges: [] };
+      const graph = (data as any).graph_json || { nodes: [], edges: [] };
       setNodes(graph.nodes || []);
       setEdges(graph.edges || []);
       setIsDirty(false);
@@ -90,7 +90,7 @@ export function WorkflowEditor() {
       await api.workflows.update(hubId, workflowId, {
         name: workflow.name,
         graph_json: { nodes, edges },
-      });
+      } as any);
       setIsDirty(false);
       setSaveStatus("saved");
     } catch (err: any) {

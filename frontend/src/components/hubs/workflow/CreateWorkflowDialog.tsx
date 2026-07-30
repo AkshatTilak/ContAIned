@@ -32,7 +32,6 @@ export function CreateWorkflowDialog({
       const newWf = await api.workflows.create(hubId, {
         name: name.trim(),
         description,
-        graph_json: { nodes: [], edges: [] },
       });
       onSuccess(newWf.id);
     } catch (err: any) {

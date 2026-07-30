@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 
 export interface ConfirmModalProps {
@@ -8,6 +8,7 @@ export interface ConfirmModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   isDanger?: boolean;
+  confirmText?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -19,23 +20,36 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   isDanger = false,
+  confirmText,
   onConfirm,
   onCancel,
 }) => {
+  const [inputVal, setInputVal] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) {
+      setInputVal("");
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
       if (e.key === 'Escape') {
         onCancel();
       } else if (e.key === 'Enter') {
-        onConfirm();
+        if (!confirmText || inputVal === confirmText) {
+          onConfirm();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onConfirm, onCancel]);
+  }, [isOpen, onConfirm, onCancel, confirmText, inputVal]);
 
   if (!isOpen) return null;
+
+  const isConfirmedDisabled = confirmText ? inputVal !== confirmText : false;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fadeIn">
@@ -65,13 +79,27 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <AlertTriangle className="w-6 h-6" />
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 space-y-2">
             <h3 className="text-lg font-semibold text-[var(--text-primary)] font-display">
               {title}
             </h3>
-            <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
               {message}
             </p>
+            {confirmText && (
+              <div className="pt-2">
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">
+                  Type <span className="font-mono text-rose-400 font-bold">{confirmText}</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={inputVal}
+                  onChange={(e) => setInputVal(e.target.value)}
+                  placeholder={confirmText}
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-default)] text-xs text-[var(--text-primary)] font-mono focus:outline-none focus:border-rose-500"
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -83,8 +111,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             {cancelLabel}
           </button>
           <button
+            disabled={isConfirmedDisabled}
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-semibold rounded-lg shadow-md transition-all flex items-center gap-2"
+            className="px-4 py-2 text-sm font-semibold rounded-lg shadow-md transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               backgroundColor: isDanger ? 'var(--accent-rose)' : 'var(--accent-indigo)',
               color: '#FFFFFF',
