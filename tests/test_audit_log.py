@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from common.clients.postgres import get_async_db
-from common.models.database import AuditLog, Base, User
+from common.models.database import Base, User
 from common.services.audit import client_ip, record_audit, redact
 from gateway.api.admin_audit import router as admin_audit_router
 
@@ -62,8 +62,8 @@ async def async_session():
         engine, class_=AsyncSession, expire_on_commit=False
     )
     async with async_session_factory() as session:
-        admin_u = User(id="u-admin", email="admin@example.com", provider="local", provider_id="a1", platform_role="admin")
-        member_u = User(id="u-member", email="member@example.com", provider="local", provider_id="m1", platform_role="member")
+        admin_u = User(id="u-admin", email="admin@example.com", platform_role="admin")
+        member_u = User(id="u-member", email="member@example.com", platform_role="member")
         session.add_all([admin_u, member_u])
         await session.commit()
 

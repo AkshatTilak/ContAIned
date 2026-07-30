@@ -6,7 +6,7 @@ from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.schemas.agent_types import AgentCreate, AgentUpdate, AgentResponse
+from common.schemas.agent_types import AgentCreate, AgentUpdate
 from gateway.api.agent_crud import router as agent_crud_router, slugify
 from gateway.api.agent_invoke import router as agent_invoke_router
 

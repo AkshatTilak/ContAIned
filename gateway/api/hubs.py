@@ -15,7 +15,6 @@ from common.constants.roles import (
     PLATFORM_ROLE_ADMIN,
     hub_role_satisfies,
     is_link_direction_allowed,
-    link_access_satisfies,
 )
 from common.models.database import AuditLog, HubLink, User
 from common.schemas.hubs import (
@@ -30,16 +29,13 @@ from common.schemas.hubs import (
 )
 from common.services.hub_repository import (
     DuplicateSlugError,
-    HubArchivedError,
     HubNotEmptyError,
-    HubNotFoundError,
     LastOwnerError,
     archive_hub,
     count_owners,
     create_hub,
     create_link,
     delete_hub_if_empty,
-    get_hub,
     get_hub_by_slug,
     get_link,
     get_membership,
@@ -51,11 +47,11 @@ from common.services.hub_repository import (
     upsert_member,
 )
 from common.services.hub_resolver import validate_link_creation
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from gateway.auth.dependencies import get_current_user
 from gateway.auth.hub_context import HubContext, require_hub
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/hubs", tags=["hubs"])

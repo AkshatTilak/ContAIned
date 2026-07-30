@@ -5,7 +5,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from common.models.database import Base, Hub, User, WorkflowDefinition, WorkflowVersion
+from common.models.database import Base, Hub, User
 from projects.guardroute.src.workflows.version_service import (
     compute_etag,
     diff_versions,
@@ -14,9 +14,7 @@ from projects.guardroute.src.workflows.version_service import (
     publish,
     restore,
     duplicate,
-    list_versions,
     DraftConflict,
-    ETagRequiredError,
     HubArchivedError,
 )
 from projects.guardroute.src.core.graph_parser import GraphValidationError

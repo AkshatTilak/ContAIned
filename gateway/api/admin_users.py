@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
@@ -26,13 +26,12 @@ from common.models.database import (
     User,
     UserIdentity,
     UserInvite,
-    UserSession,
 )
 from common.observability.limiter import limiter
 from common.schemas.hubs import AuditLogRead
 from common.services.audit import client_ip, record_audit
 from gateway.auth.dependencies import get_current_user, require_platform_admin
-from gateway.auth.utils import normalize_email, revoke_sessions
+from gateway.auth.utils import revoke_sessions
 
 from gateway.auth.invites import (
     InviteResult,

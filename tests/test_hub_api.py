@@ -13,9 +13,6 @@ from common.models.database import (
     AuditLog,
     Base,
     DatastoreBinding,
-    Hub,
-    HubLink,
-    HubMember,
     User,
 )
 from gateway.api.hubs import router as hubs_router

@@ -6,7 +6,7 @@ from typing import List
 from common.config.settings import get_settings
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
-from gateway.auth.utils import hash_token, verify_access_token
+from gateway.auth.utils import verify_access_token
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 logger = logging.getLogger("gateway.auth.middleware")

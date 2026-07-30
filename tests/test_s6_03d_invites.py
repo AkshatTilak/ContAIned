@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from common.clients.postgres import get_async_db
 from common.config.settings import get_settings
-from common.models.database import Base, Hub, HubMember, User, UserIdentity, UserInvite
+from common.models.database import Base, Hub, HubMember, User, UserInvite
 from gateway.auth.invites import (
     create_invites,
     generate_invite_token,

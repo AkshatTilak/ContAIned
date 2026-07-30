@@ -1,4 +1,3 @@
-import pytest
 from common.models import Base, HUB_SCOPED_MODELS, INHERITED_SCOPE_TABLES
 from projects.syntraflow.src.database.models import SyntraFlowCollection, build_physical_name
 

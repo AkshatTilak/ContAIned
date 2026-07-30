@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from common.models.database import Base, Hub, User
 from projects.syntraflow.src.collections.manager import CollectionManager, physical_collection_name
-from projects.syntraflow.src.database.models import SyntraFlowCollection, SyntraFlowDocument, SyntraFlowChunk
+from projects.syntraflow.src.database.models import SyntraFlowDocument
 
 # Setup in-memory test DB engine
 test_engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
@@ -207,7 +207,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from common.clients.postgres import get_async_db
 from gateway.api.ingestion_hub import router as ingestion_hub_router
-from gateway.auth.middleware import AuthMiddleware
 from projects.syntraflow.src.datastores.crypto import encrypt_credentials, decrypt_credentials, mask_uri
 
 

@@ -1,12 +1,11 @@
 """Hub Repository Layer — Structurally hub-scoped data access helpers (hubs.md §3, §4.2, §5.3)."""
 
 from typing import Optional, TypeVar, Sequence
-from sqlalchemy import select, func, delete, or_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.models.database import Hub, HubMember, HubLink, DatastoreBinding, AuditLog, Base
 from common.models.hub_enums import is_link_direction_allowed, HUB_ROLE_OWNER
-from common.models import HUB_SCOPED_MODELS
 from common.schemas.hubs import HubCreate, HubUpdate
 
 T = TypeVar("T", bound=Base)

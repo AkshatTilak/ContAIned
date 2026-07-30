@@ -1,21 +1,14 @@
 """Master acceptance test suite for B6-07: Eval Hub — Polymorphic Targets & Flow Tracing."""
 
-import json
 import pytest
 import pytest_asyncio
-from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from common.clients.postgres import get_async_db
 from common.models.database import (
     AgentDefinition,
     Base,
     EvalFlowTrace,
-    EvalMetricResult,
-    EvalRunHistory,
-    EvalTestCase,
-    EvalTestSuite,
     Hub,
     HubLink,
     HubMember,
@@ -23,10 +16,8 @@ from common.models.database import (
     WorkflowDefinition,
 )
 from common.schemas.evalops import EvalTarget
-from gateway.api.eval_hub import router as eval_hub_router
-from gateway.auth.hub_context import HubContext, require_hub
 from projects.evalops.src.datasets import manager
-from projects.evalops.src.runner import block_assertion_engine, dispatch, trace_reader
+from projects.evalops.src.runner import block_assertion_engine
 
 
 @pytest_asyncio.fixture

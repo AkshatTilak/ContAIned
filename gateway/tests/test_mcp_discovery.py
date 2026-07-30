@@ -1,7 +1,6 @@
 """Tests for Tool Discovery & Caching (S5-05b)."""
 
 import pytest
-from unittest.mock import AsyncMock
 from common.models.database import MCPServer
 from gateway.services.mcp_client import discover_tools
 

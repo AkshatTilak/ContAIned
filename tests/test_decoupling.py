@@ -1,6 +1,5 @@
 """Unit tests for microservice architectural decoupling."""
 
-import sys
 from pathlib import Path
 
 

@@ -10,18 +10,18 @@ import json
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.inference import InferenceClient
 from common.clients.litellm import completion_with_fallback
-from common.constants.roles import PLATFORM_ROLE_ADMIN, hub_role_satisfies
-from common.models.database import AgentDefinition, AgentInvocationLog, Hub, HubMember, ModelRegistryModel, User
+from common.constants.roles import PLATFORM_ROLE_ADMIN
+from common.models.database import AgentDefinition, Hub, HubMember, ModelRegistryModel, User
 from common.schemas.agent_types import CollectionBinding
 from gateway.api.external_resolution import resolve_qualified_agent
 from gateway.api.agent_invoke import log_invocation_background

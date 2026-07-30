@@ -6,7 +6,7 @@ Delegates all operations to projects.evalops services.
 
 import logging
 import uuid
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, List, Literal, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -24,7 +24,6 @@ from common.schemas.evalops import (
     EvalTestCaseCreate,
     EvalTestCaseResponse,
 )
-from common.services import hub_resolver
 from gateway.auth.hub_context import HubContext, require_hub
 from projects.evalops.src.api import dashboard
 from projects.evalops.src.datasets import manager

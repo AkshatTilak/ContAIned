@@ -8,7 +8,6 @@ import asyncio
 import time
 from typing import Any, Optional
 
-from common.config.settings import settings
 from common.observability.logger import get_logger
 
 logger = get_logger("vram-manager")

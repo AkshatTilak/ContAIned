@@ -3,10 +3,9 @@ S5-11a & S5-11b: httpx Async Reverse Proxy with RBAC Authorization and Header Mo
 """
 
 import logging
-from typing import Optional
 import httpx
 from fastapi import APIRouter, Depends, Request, Response, status
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse
 
 from common.config.settings import settings
 from gateway.auth.dependencies import require_role

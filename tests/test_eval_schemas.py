@@ -7,12 +7,8 @@ from common.schemas.evalops import (
     EvalTarget,
     EvalSuiteCreate,
     EvalTestCaseCreate,
-    EvalRunRequest,
 )
 from common.models.database import (
-    EvalTestSuite,
-    EvalTestCase,
-    EvalRunHistory,
     EVAL_TARGET_TYPES,
     NODE_ASSERTION_TYPES,
 )

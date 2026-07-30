@@ -9,7 +9,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 """add_eval_attribution_tables
@@ -19,11 +18,7 @@ Revises: 7d3140d819a9
 Create Date: 2026-07-20 19:16:05.895343
 
 """
-from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '85e2f0c51f71'

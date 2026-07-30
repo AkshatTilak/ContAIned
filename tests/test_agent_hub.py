@@ -1,6 +1,5 @@
 """Integration test suite for B6-05 Agent Hub — Scoped Agent Lifecycle."""
 
-import asyncio
 from datetime import datetime, timezone
 import pytest
 import pytest_asyncio
@@ -12,9 +11,7 @@ from common.clients.postgres import get_async_db
 from common.models.database import (
     APIKeyModel,
     AgentDefinition,
-    AgentInvocationLog,
     Base,
-    DatastoreBinding,
     Hub,
     HubLink,
     HubMember,

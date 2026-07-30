@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, model_validator
 
-from common.models.database import EVAL_TARGET_TYPES, NODE_ASSERTION_TYPES
+from common.models.database import NODE_ASSERTION_TYPES
 
 
 class EvalTarget(BaseModel):

@@ -66,4 +66,4 @@ def test_hub_query_guard():
                         if not any(loc.startswith(entry.split("::")[0]) for entry in allowlist):
                             violations.append(f"{loc} -> session.get({node.args[0].id}, ...)")
 
-    assert not violations, f"Unscoped hub model query violations found:\n" + "\n".join(violations)
+    assert not violations, "Unscoped hub model query violations found:\n" + "\n".join(violations)

@@ -10,8 +10,6 @@ from common.models.database import (
     AgentDefinition,
     Base,
     EvalRunHistory,
-    EvalTestCase,
-    EvalTestSuite,
     Hub,
     HubLink,
     HubMember,
@@ -144,7 +142,7 @@ async def test_csv_json_import_export_roundtrip(async_session: AsyncSession):
     target = EvalTarget(type="workflow", target_hub_id="wf-hub-1", target_id="wf-100")
     suite = await manager.create_suite(session, hub_id="eval-hub-1", name="Import Export Suite", target=target)
 
-    csv_data = f"""input_query,expected_output,node_id,assertion_type,expected_value
+    csv_data = """input_query,expected_output,node_id,assertion_type,expected_value
 What is ContAIned?,Platform docs,node-router,contains,Platform
 """
     imported_count = await manager.import_cases_from_csv(session, hub_id="eval-hub-1", suite_id=suite.id, csv_content=csv_data)
@@ -169,7 +167,7 @@ async def test_import_foreign_suite_id_rejected(async_session: AsyncSession):
     target = EvalTarget(type="agent", target_hub_id="agent-hub-1", target_id="agt-100")
     suite = await manager.create_suite(session, hub_id="eval-hub-1", name="Foreign Suite Test", target=target)
 
-    csv_foreign = f"""suite_id,input_query,expected_output
+    csv_foreign = """suite_id,input_query,expected_output
 foreign-suite-999,What is AI?,Artificial Intelligence
 """
     with pytest.raises(ValueError) as exc:

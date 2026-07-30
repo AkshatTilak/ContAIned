@@ -1,6 +1,5 @@
 """Unit tests for Agent Invocation, Smart Routing, and Logging Endpoints (S5-02a, S5-02b, S5-02c)."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

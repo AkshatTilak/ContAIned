@@ -1,6 +1,5 @@
 """Integration tests for S6-06e: Workflow Hub REST API Routes."""
 
-import json
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -10,9 +9,6 @@ from common.models.database import (
     Base,
     Hub,
     User,
-    WorkflowDefinition,
-    WorkflowVersion,
-    AuditLog,
 )
 from gateway.main import app
 from common.clients.postgres import get_async_db

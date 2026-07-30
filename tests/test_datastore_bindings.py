@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from common.models.database import Base, Hub, User, AuditLog, DatastoreBinding
+from common.models.database import Base, Hub, User, AuditLog
 from projects.syntraflow.src.database.models import SyntraFlowCollection
 from projects.syntraflow.src.datastores import (
     DatastoreBindingManager,
@@ -15,8 +15,6 @@ from projects.syntraflow.src.datastores import (
     encrypt_credentials,
     invalidate_hub_clients,
     mask_uri,
-    resolve_graph_client,
-    resolve_relational_engine,
     resolve_vector_client,
 )
 from projects.syntraflow.src.datastores.schemas import DatastoreBindingResponse

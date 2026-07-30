@@ -1,8 +1,8 @@
 """Unit tests for S6-03a: User, Identity & Invite Models + Schemas."""
 
 import pytest
-from common.models.database import User, UserIdentity, UserInvite, PasswordResetToken, USER_STATUSES, IDENTITY_PROVIDERS, INVITE_STATUSES, PLATFORM_ROLES
-from common.schemas.api import UserDetail, UserSummary, InviteSummary, InviteCreate
+from common.models.database import User, UserIdentity, UserInvite
+from common.schemas.api import UserDetail
 
 
 def test_user_detail_schema_excludes_password_hash():

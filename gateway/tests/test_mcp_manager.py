@@ -1,7 +1,5 @@
 """Tests for MCP Server Registry CRUD & Health Checks (S5-05a)."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from common.models.database import MCPServer
 from gateway.services.mcp_client import encrypt_token, decrypt_token
 

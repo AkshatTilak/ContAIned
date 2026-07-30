@@ -1,11 +1,9 @@
 """Unit tests for S6-03e Mailer Abstraction, SMTP & Templates."""
 
 import pytest
-from common.config.settings import get_settings
 from gateway.services.mailer import (
     NullMailer,
     SMTPMailer,
-    get_mailer,
     send_template,
     _get_jinja_env,
 )

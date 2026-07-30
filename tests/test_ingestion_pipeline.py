@@ -11,7 +11,6 @@ from projects.syntraflow.src.database.models import (
     SyntraFlowCollection,
     SyntraFlowDocument,
     SyntraFlowChunk,
-    SyntraFlowJob,
 )
 from projects.syntraflow.src.ingestion.pipeline import (
     assert_collection_in_hub,

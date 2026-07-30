@@ -3,7 +3,6 @@
 Covers S5-04a, S5-04b, S5-04c.
 """
 
-import asyncio
 import json
 import logging
 import os

@@ -5,7 +5,6 @@ All routes are nested under /hubs/{hub_id}/... and guarded by require_hub(hub_ty
 
 import asyncio
 import hashlib
-import json
 import logging
 import os
 import uuid
@@ -13,18 +12,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
-from common.config.settings import get_settings
-from common.models.database import AuditLog, DatastoreBinding
+from common.models.database import AuditLog
 from common.schemas.api import (
     CollectionResponse,
     DatastoreBindingResponse,
-    DocumentResponse,
     IngestionJobResponse,
     SearchHit,
     SearchResponse,
@@ -33,23 +30,15 @@ from gateway.auth.hub_context import HubContext, require_hub
 from projects.syntraflow.src.collections.manager import (
     CollectionManager,
     CollectionProvisioningError,
-    validate_collection_name,
 )
-from projects.syntraflow.src.collections.schemas import CollectionRetrievalConfig
 from projects.syntraflow.src.database.models import (
     SyntraFlowChunk,
-    SyntraFlowCollection,
     SyntraFlowDocument,
     SyntraFlowJob,
-    SyntraFlowVideoSegment,
 )
 from projects.syntraflow.src.datastores.binding_manager import DatastoreBindingManager
-from projects.syntraflow.src.datastores.health import test_store_connection
-from projects.syntraflow.src.datastores.schemas import ConnectionTestResult
 from projects.syntraflow.src.ingestion.pipeline import (
     assert_collection_in_hub,
-    ingest_document_pipeline,
-    ingest_video_pipeline,
 )
 from projects.syntraflow.src.retrieval import RetrievalEngine
 

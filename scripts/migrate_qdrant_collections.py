@@ -7,8 +7,6 @@ Usage:
 import argparse
 import asyncio
 import logging
-import sys
-from typing import Any, Dict
 
 from sqlalchemy import select
 

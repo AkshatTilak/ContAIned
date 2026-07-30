@@ -1,7 +1,6 @@
 """Unit tests for S6-06d: Run Orchestration, Persistence & SSE."""
 
 import asyncio
-import uuid
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
@@ -11,8 +10,6 @@ from common.models.database import (
     Base,
     Hub,
     User,
-    AgentDefinition,
-    HubLink,
     WorkflowDefinition,
     WorkflowVersion,
     WorkflowRun,
@@ -20,13 +17,11 @@ from common.models.database import (
 )
 from projects.guardroute.src.workflows.run_service import (
     start_run,
-    stream_run,
     cancel_run,
     get_run,
     list_runs,
     reconcile_orphaned_runs,
     redact_secrets,
-    WorkflowNotFoundError,
     WorkflowNotPublishedError,
     RunNotFoundError,
     RunNotCancellableError,

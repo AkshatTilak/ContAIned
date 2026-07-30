@@ -1,6 +1,5 @@
 """Unit tests for Inference API contract models and InferenceClient validation."""
 
-import pytest
 from common.schemas.inference_contracts import (
     EmbeddingsRequest,
     EmbeddingsResponse,

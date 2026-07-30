@@ -1,7 +1,7 @@
 """Inference embeddings router."""
 
 import base64
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel

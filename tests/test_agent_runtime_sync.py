@@ -2,7 +2,6 @@
 
 import pytest
 from common.services.agent_runtime import AgentRuntimeManager
-from common.schemas.agent_types import AgentCreate, AgentUpdate
 
 
 @pytest.mark.asyncio

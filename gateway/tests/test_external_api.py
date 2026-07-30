@@ -1,7 +1,7 @@
 """Tests for OpenAI-compatible External API Gateway endpoints (`/v1/*`)."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from common.models.database import APIKeyModel

@@ -5,7 +5,6 @@ Reports active projects and inference server connectivity.
 
 from fastapi import APIRouter
 
-from common.clients.inference import InferenceClient
 from common.config.settings import settings
 
 router = APIRouter(tags=["health"])
@@ -15,8 +14,6 @@ import asyncio
 import time
 from fastapi import APIRouter
 
-from common.clients.inference import InferenceClient
-from common.config.settings import settings
 
 router = APIRouter(tags=["health"])
 

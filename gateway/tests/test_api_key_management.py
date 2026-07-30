@@ -1,10 +1,9 @@
 """Tests for API Key Management CRUD & Usage endpoints (`/api/settings/api-keys`)."""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
-from common.models.database import APIKeyModel
 from gateway.auth.dependencies import get_db
 from gateway.main import app
 

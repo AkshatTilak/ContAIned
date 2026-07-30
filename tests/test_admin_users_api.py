@@ -16,7 +16,6 @@ from common.models.database import (
     HubMember,
     User,
     UserIdentity,
-    UserInvite,
     UserSession,
 )
 from gateway.auth.utils import create_access_token

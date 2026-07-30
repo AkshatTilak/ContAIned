@@ -15,12 +15,10 @@ Options:
 """
 
 import argparse
-import os
 import pathlib
 import socket
 import subprocess
 import sys
-import time
 import urllib.request
 from typing import Dict, List, Tuple
 

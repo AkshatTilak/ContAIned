@@ -7,16 +7,15 @@ from typing import Any, Dict, List, Optional
 from common.clients.postgres import get_async_db
 from common.config.settings import get_settings
 from common.constants.roles import (
-    PLATFORM_ROLES,
     PLATFORM_ROLE_ADMIN,
     PLATFORM_ROLE_MEMBER,
 )
 from common.models.database import User, UserSession, UserIdentity, PasswordResetToken, AuditLog
-from common.observability.exceptions import AccountLockedError, PasswordPolicyError
+from common.observability.exceptions import AccountLockedError
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
-from gateway.auth.dependencies import get_current_user, require_role
-from gateway.auth.identities import fetch_profile, resolve_identity, gate_status
+from gateway.auth.dependencies import get_current_user
+from gateway.auth.identities import fetch_profile, resolve_identity
 from gateway.auth.invites import get_invite_preview, redeem_invite, InvitePreview
 from gateway.auth.passwords import (
 
@@ -29,8 +28,8 @@ from common.observability.limiter import limiter
 from gateway.auth.signup_service import resolve_signup
 from gateway.auth.utils import create_access_token, hash_token, normalize_email, revoke_sessions
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
-from sqlalchemy import func, select
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -194,7 +193,7 @@ async def oauth_callback(
     await db.commit()
 
     target_redirect = custom_redirect or f"{public_url}/auth/callback?token={jwt_token}"
-    if not ("token=" in target_redirect):
+    if "token=" not in target_redirect:
         sep = "&" if "?" in target_redirect else "?"
         target_redirect = f"{target_redirect}{sep}token={jwt_token}"
 

@@ -9,14 +9,11 @@ from common.models.database import (
     Base,
     EvalFlowTrace,
     EvalTestCase,
-    EvalTestSuite,
     Hub,
-    HubMember,
     User,
 )
-from projects.evalops.src.runner import block_assertion_engine, trace_reader
 from projects.evalops.src.runner.block_assertion_engine import BlockAssertionEngine, evaluate_node_assertions
-from projects.evalops.src.runner.trace_reader import TraceRecord, load_run_traces, index_by_node
+from projects.evalops.src.runner.trace_reader import TraceRecord, load_run_traces
 
 
 @pytest_asyncio.fixture

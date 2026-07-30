@@ -1,10 +1,9 @@
 import pytest
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 
 from gateway.auth.utils import create_access_token, verify_access_token, hash_token
-from gateway.auth.dependencies import get_current_user, require_role, require_platform_role
-from common.constants.roles import PLATFORM_ROLE_ADMIN, PLATFORM_ROLE_MEMBER, PLATFORM_ROLES
+from gateway.auth.dependencies import require_role
 
 
 def test_create_and_verify_access_token():

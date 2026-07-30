@@ -15,7 +15,6 @@ from typing import Any, Callable, Dict, Mapping, Optional
 
 from common.config.settings import get_settings
 from common.models.database import AuditLog
-from common.models.hub_enums import AUDIT_ACTIONS, AUDIT_RESOURCE_TYPES
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -5,21 +5,14 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from common.clients.postgres import get_async_db
 from common.config.settings import get_settings
 from common.models.database import (
-    AuditLog,
     Base,
     Hub,
-    HubMember,
-    PasswordResetToken,
     User,
-    UserIdentity,
-    UserInvite,
-    UserSession,
 )
 from common.observability.limiter import limiter
 from gateway.auth.passwords import hash_password

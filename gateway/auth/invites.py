@@ -5,12 +5,11 @@ import hmac
 import logging
 import secrets
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import func, select
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 

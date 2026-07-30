@@ -5,16 +5,13 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from common.models.database import Base, Hub, HubMember, AgentDefinition, User, ModelRegistryModel
+from common.models.database import Base, AgentDefinition, User, ModelRegistryModel
 from common.schemas.hubs import (
     HubCreate,
-    HubUpdate,
     DatastoreBindingRead,
-    HubMemberCreate,
 )
 from common.services.hub_repository import (
     get_scoped,
-    list_scoped,
     create_hub,
     list_hubs_for_user,
     delete_hub_if_empty,
@@ -40,8 +37,8 @@ async def async_session():
     )
     async with async_session_factory() as session:
         # Seed a test user
-        user = User(id="user-1", email="user1@example.com", display_name="User One", provider="local", provider_id="user-1")
-        admin_user = User(id="admin-1", email="admin1@example.com", display_name="Admin One", provider="local", provider_id="admin-1")
+        user = User(id="user-1", email="user1@example.com", display_name="User One")
+        admin_user = User(id="admin-1", email="admin1@example.com", display_name="Admin One")
         session.add_all([user, admin_user])
         await session.commit()
         yield session

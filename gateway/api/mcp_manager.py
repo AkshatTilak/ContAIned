@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select, delete
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
@@ -13,7 +13,6 @@ from common.models.database import MCPServer, MCPToolCache
 from common.observability.logger import get_logger
 from gateway.services.mcp_client import (
     check_server_health,
-    decrypt_token,
     discover_tools,
     encrypt_token,
     invoke_tool,

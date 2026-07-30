@@ -9,10 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from common.clients.postgres import get_async_db
 from common.config.settings import get_settings
-from common.models.database import Base, User, UserIdentity, UserInvite
+from common.models.database import Base, User, UserIdentity
 from gateway.auth.identities import (
     OAuthProfile,
-    fetch_profile,
     resolve_identity,
     gate_status,
 )

@@ -8,8 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,10 +22,9 @@ from projects.guardroute.src.agents.agent_repository import (
     delete_agent as repo_delete_agent,
     generate_unique_slug,
     get_agent as repo_get_agent,
-    get_agent_by_slug as repo_get_agent_by_slug,
     list_agents as repo_list_agents,
-    slugify,
     update_agent as repo_update_agent,
+    slugify,
 )
 from projects.guardroute.src.agents.collection_binding import (
     inspect_binding_statuses,

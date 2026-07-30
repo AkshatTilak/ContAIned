@@ -6,7 +6,6 @@ from sqlalchemy.exc import IntegrityError
 from common.models.database import Base, Hub, HubMember, HubLink, User
 from common.models.hub_enums import (
     HUB_TYPES,
-    HUB_ROLES,
     HUB_TYPE_INGESTION,
     HUB_TYPE_AGENT,
     HUB_TYPE_WORKFLOW,

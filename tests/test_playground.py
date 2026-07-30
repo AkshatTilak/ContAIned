@@ -2,7 +2,6 @@
 
 import io
 from unittest.mock import AsyncMock, patch
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -10,8 +9,6 @@ from gateway.api.playground import (
     router as playground_router,
     PlaygroundChatRequest,
     PlaygroundMessage,
-    AttachmentInfo,
-    ATTACHMENT_STORE,
 )
 
 app = FastAPI()

@@ -16,16 +16,12 @@ from common.models.database import (
     User,
     WorkflowDefinition,
 )
-from common.services.hub_repository import create_link, create_hub
 from common.services.hub_resolver import (
     HUB_LINK_INSUFFICIENT,
     HUB_LINK_REQUIRED,
     HUB_LINK_REVOKED,
     HubLinkError,
-    assert_link,
-    list_linked_hub_ids,
     resolve_linked,
-    resolve_linked_many,
     validate_link_creation,
 )
 
@@ -41,9 +37,9 @@ async def async_session():
     )
     async with async_session_factory() as session:
         # Seed users
-        u1 = User(id="user-owner-1", email="owner1@example.com", provider="local", provider_id="u1", platform_role="member")
-        u2 = User(id="user-owner-2", email="owner2@example.com", provider="local", provider_id="u2", platform_role="member")
-        admin = User(id="user-admin", email="admin@example.com", provider="local", provider_id="u3", platform_role="admin")
+        u1 = User(id="user-owner-1", email="owner1@example.com", platform_role="member")
+        u2 = User(id="user-owner-2", email="owner2@example.com", platform_role="member")
+        admin = User(id="user-admin", email="admin@example.com", platform_role="admin")
         session.add_all([u1, u2, admin])
         await session.commit()
 
@@ -67,7 +63,7 @@ async def async_session():
         # Seed resources
         ds1 = DatastoreBinding(id="binding-1", hub_id="hub-i1", name="qdrant-main", store_type="qdrant", connection_uri="http://qdrant:6333")
         ag1 = AgentDefinition(id="agent-1", hub_id="hub-a1", name="Support Agent", role="assistant", system_prompt="Hello", model_id="gpt-4o")
-        wf1 = WorkflowDefinition(id="wf-1", hub_id="hub-w1", name="RAG Pipeline", graph_json={})
+        wf1 = WorkflowDefinition(id="wf-1", hub_id="hub-w1", name="RAG Pipeline", slug="rag-pipeline")
         session.add_all([ds1, ag1, wf1])
         await session.commit()
 

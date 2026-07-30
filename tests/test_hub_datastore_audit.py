@@ -7,7 +7,6 @@ from common.models.database import Base, Hub, User, DatastoreBinding, AuditLog
 from common.models.hub_enums import (
     HUB_TYPE_INGESTION,
     STORE_TYPES,
-    HEALTH_STATUSES,
     platform_default_binding,
 )
 from common.security.crypto import (
@@ -91,7 +90,7 @@ def test_platform_default_binding_helper():
 
 def test_datastore_binding_constraints(db_session):
     """Test DatastoreBinding unique constraints and validations."""
-    user = User(email="owner@example.com", provider="local", provider_id="p1", display_name="Owner")
+    user = User(email="owner@example.com", display_name="Owner")
     db_session.add(user)
     db_session.commit()
 
@@ -121,7 +120,7 @@ def test_datastore_binding_constraints(db_session):
 
 def test_hub_deletion_audit_log_and_bindings(db_session):
     """Test deleting Hub cascades datastore_bindings but sets audit_log.hub_id to NULL."""
-    user = User(email="actor@example.com", provider="local", provider_id="p2", display_name="Actor")
+    user = User(email="actor@example.com", display_name="Actor")
     db_session.add(user)
     db_session.commit()
 

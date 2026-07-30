@@ -1,6 +1,5 @@
 """Integration tests for S6-03b password authentication routes."""
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 

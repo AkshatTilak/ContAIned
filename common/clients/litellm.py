@@ -4,7 +4,6 @@ Implements provider abstraction across Google Gemini, OpenRouter, Groq, and Cere
 Also sets up tracing automatically if configured in settings.
 """
 
-import logging
 from typing import Any, Optional
 
 import litellm

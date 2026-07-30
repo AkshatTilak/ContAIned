@@ -2,22 +2,20 @@
 
 import pytest
 import pytest_asyncio
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from common.clients.postgres import get_async_db
 from common.models.database import (
-    AgentDefinition,
     Base,
     DatastoreBinding,
     Hub,
     HubMember,
     User,
-    WorkflowDefinition,
 )
-from gateway.auth.hub_context import HubContext, require_hub, RequireIngestionHub, RequireAgentHub, RequireWorkflowHub
+from gateway.auth.hub_context import HubContext, RequireIngestionHub
 
 
 @pytest_asyncio.fixture

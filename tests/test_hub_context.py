@@ -14,8 +14,6 @@ from gateway.auth.hub_context import (
     require_hub,
     RequireIngestionHub,
     RequireAgentHub,
-    RequireWorkflowHub,
-    RequireEvalHub,
 )
 
 
@@ -34,24 +32,18 @@ async def async_session():
             id="admin-id",
             email="admin@example.com",
             display_name="Admin",
-            provider="local",
-            provider_id="admin-id",
             platform_role="admin",
         )
         member_user = User(
             id="member-id",
             email="member@example.com",
             display_name="Member",
-            provider="local",
-            provider_id="member-id",
             platform_role="member",
         )
         outsider_user = User(
             id="outsider-id",
             email="outsider@example.com",
             display_name="Outsider",
-            provider="local",
-            provider_id="outsider-id",
             platform_role="member",
         )
         session.add_all([admin_user, member_user, outsider_user])
