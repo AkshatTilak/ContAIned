@@ -94,7 +94,7 @@ def test_is_link_direction_allowed_matrix():
 def test_hub_unique_constraint(db_session):
     """Test (hub_type, slug) uniqueness and distinct types with same slug."""
     # Create test user
-    user = User(email="owner@example.com", provider="local", provider_id="p1", display_name="Owner User")
+    user = User(email="owner@example.com", display_name="Owner User")
     db_session.add(user)
     db_session.commit()
 
@@ -118,7 +118,7 @@ def test_hub_unique_constraint(db_session):
 
 def test_hub_member_unique_constraint(db_session):
     """Test duplicate (hub_id, user_id) raises IntegrityError."""
-    user = User(email="user@example.com", provider="local", provider_id="p2", display_name="Test User")
+    user = User(email="user@example.com", display_name="Test User")
     db_session.add(user)
     db_session.commit()
 
@@ -139,8 +139,8 @@ def test_hub_member_unique_constraint(db_session):
 
 def test_hub_cascade_delete(db_session):
     """Test deleting a Hub cascades to hub_members and hub_links."""
-    user1 = User(email="user1@example.com", provider="local", provider_id="p3", display_name="User 1")
-    user2 = User(email="user2@example.com", provider="local", provider_id="p4", display_name="User 2")
+    user1 = User(email="user1@example.com", display_name="User 1")
+    user2 = User(email="user2@example.com", display_name="User 2")
     db_session.add_all([user1, user2])
     db_session.commit()
 
@@ -167,7 +167,7 @@ def test_hub_cascade_delete(db_session):
 
 def test_model_validations(db_session):
     """Test model field validations (@validates hooks)."""
-    user = User(email="val@example.com", provider="local", provider_id="p5", display_name="Val User")
+    user = User(email="val@example.com", display_name="Val User")
     db_session.add(user)
     db_session.commit()
 

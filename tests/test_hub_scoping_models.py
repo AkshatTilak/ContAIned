@@ -4,11 +4,12 @@ from projects.syntraflow.src.database.models import SyntraFlowCollection, build_
 
 
 def test_hub_scoped_models_registry():
-    """Assert HUB_SCOPED_MODELS contains exactly the 11 NOT NULL tables from hubs.md §3.6."""
+    """Assert HUB_SCOPED_MODELS contains exactly the 12 NOT NULL tables from hubs.md §3.6 and S6-06a."""
     expected_tables = {
         "agent_definitions",
         "agent_invocation_log",
         "workflows",
+        "workflow_runs",
         "eval_test_suites",
         "eval_run_history",
         "eval_flow_traces",
@@ -66,7 +67,7 @@ def test_syntraflow_collection_schema():
 
 def test_build_physical_name_helper():
     """Assert build_physical_name constructs canonical {hub_slug}__{name} string."""
-    assert build_physical_name("support-kb", "faqs") == "support-kb__faqs"
+    assert build_physical_name("support_kb", "faqs") == "support_kb__faqs"
 
 
 def test_composite_unique_constraints_exist():
@@ -81,7 +82,7 @@ def test_composite_unique_constraints_exist():
         "uq_agent_definitions_hub_slug",
         "uq_syntraflow_collections_hub_name",
         "uq_syntraflow_collections_physical_name",
-        "uq_workflows_hub_name",
+        "uq_workflows_hub_slug",
         "uq_eval_test_suites_hub_name",
     }
     assert expected_constraint_names.issubset(all_constraints)
