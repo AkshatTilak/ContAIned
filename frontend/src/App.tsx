@@ -32,10 +32,21 @@ import { HubNotFound } from "./components/hubs/HubNotFound";
 import { MembersPanel } from "./components/hubs/MembersPanel";
 import { HubLinksPanel } from "./components/hubs/HubLinksPanel";
 
-// Workspace placeholders (full implementations in S6-09 / S6-10)
+// Ingestion Workspace
+import { IngestionOverview } from "./components/hubs/ingestion/IngestionOverview";
+import { CollectionsWorkspace } from "./components/hubs/ingestion/CollectionsWorkspace";
+import { CollectionDetail } from "./components/hubs/ingestion/CollectionDetail";
+import { DatastoresWorkspace } from "./components/hubs/ingestion/DatastoresWorkspace";
+import { DocumentsWorkspace } from "./components/hubs/ingestion/DocumentsWorkspace";
+import { JobsWorkspace } from "./components/hubs/ingestion/JobsWorkspace";
+
+// Agent Workspace
+import { AgentOverview } from "./components/hubs/agent/AgentOverview";
+import { AgentLibrary } from "./components/hubs/agent/AgentLibrary";
+import { AgentDetail } from "./components/hubs/agent/AgentDetail";
+
+// Workspace placeholders (full implementations in S6-10)
 import {
-  IngestionHubOverview,
-  AgentHubOverview,
   WorkflowHubOverview,
   EvalHubOverview,
 } from "./components/hubs/HubWorkspacePlaceholders";
@@ -206,41 +217,41 @@ export default function App() {
                       {/* Ingestion hub child routes */}
                       <Route
                         path="collections"
-                        element={<IngestionHubOverview />}
+                        element={<CollectionsWorkspace />}
                       />
                       <Route
                         path="collections/:collectionId"
-                        element={<IngestionHubOverview />}
+                        element={<CollectionDetail />}
                       />
                       <Route
                         path="datastores"
-                        element={<IngestionHubOverview />}
+                        element={<DatastoresWorkspace />}
                       />
                       <Route
                         path="documents"
-                        element={<IngestionHubOverview />}
+                        element={<DocumentsWorkspace />}
                       />
                       <Route
                         path="jobs"
-                        element={<IngestionHubOverview />}
+                        element={<JobsWorkspace />}
                       />
                       <Route
                         path="search"
-                        element={<IngestionHubOverview />}
+                        element={<CollectionsWorkspace />}
                       />
 
                       {/* Agent hub child routes */}
                       <Route
                         path="agents"
-                        element={<AgentHubOverview />}
+                        element={<AgentLibrary />}
                       />
                       <Route
                         path="agents/:agentId"
-                        element={<AgentHubOverview />}
+                        element={<AgentDetail />}
                       />
                       <Route
                         path="agents/:agentId/playground"
-                        element={<AgentHubOverview />}
+                        element={<AgentDetail />}
                       />
 
                       {/* Workflow hub child routes */}
