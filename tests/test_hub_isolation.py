@@ -118,7 +118,7 @@ def test_static_guard_hub_isolation():
     import os
     import re
 
-    models = ["WorkflowDefinition", "WorkflowRun", "EvalFlowTrace"]
+    models = ["WorkflowDefinition", "WorkflowRun", "EvalFlowTrace", "EvalTestSuite", "EvalTestCase", "EvalRunHistory", "EvalMetricResult"]
     target_dirs = ["gateway", "projects"]
 
     pk_only_pattern = re.compile(
