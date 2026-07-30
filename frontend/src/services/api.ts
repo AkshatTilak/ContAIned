@@ -171,13 +171,10 @@ export const api = {
       body: JSON.stringify({ prompt, session_id: sessionId }),
     }),
 
-  // Visual Workflows
-  getWorkflows: () => request<WorkflowResponse[]>("/api/guardroute/workflows"),
-  getActiveWorkflow: () => request<WorkflowResponse>("/api/guardroute/workflows/active"),
-  createWorkflow: (data: WorkflowCreatePayload) =>
-    request<WorkflowResponse>("/api/guardroute/workflows", { method: "POST", body: JSON.stringify(data) }),
-  activateWorkflow: (id: string) =>
-    request<WorkflowResponse>(`/api/guardroute/workflows/${id}/activate`, { method: "PUT" }),
+  // Visual Workflows (Hub Scoped)
+  getWorkflows: (hubId: string) => request<any[]>(`/api/hubs/${hubId}/workflows`),
+  createWorkflow: (hubId: string, data: { name: str; description?: string }) =>
+    request<any>(`/api/hubs/${hubId}/workflows`, { method: "POST", body: JSON.stringify(data) }),
 
   // SyntraFlow Ingestion & Documents
   ingestDocument: async (formData: FormData): Promise<IngestionResponse> => {

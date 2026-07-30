@@ -157,7 +157,6 @@ export const WorkflowCanvas: React.FC = () => {
   const drawerOpen = useStore((state) => state.drawerOpen);
   const setSelectedNodeId = useStore((state) => state.setSelectedNodeId);
   const setDrawerOpen = useStore((state) => state.setDrawerOpen);
-  const setActiveWorkflow = useStore((state) => state.setActiveWorkflow);
 
   const nodeTypes: NodeTypes = useMemo(
     () => ({
@@ -201,7 +200,7 @@ export const WorkflowCanvas: React.FC = () => {
 
   const loadWorkflows = async () => {
     try {
-      const list = await api.getWorkflows();
+      const list = await api.getWorkflows("default");
       setSavedWorkflows(list);
     } catch {
       // ignore fetch error if backend offline
@@ -305,15 +304,11 @@ export const WorkflowCanvas: React.FC = () => {
 
   const handleSaveWorkflow = async () => {
     try {
-      const graph_json = formatGraphJson();
-      const saved = await api.createWorkflow({
+      const saved = await api.createWorkflow("default", {
         name: workflowName,
-        description: "Configured via V5 Workflow Builder Canvas",
-        graph_json,
-        is_active: true,
+        description: "Configured via Workflow Builder Canvas",
       });
-      await api.activateWorkflow(saved.id);
-      toast.success("Workflow Saved & Activated", `Topology '${saved.name}' is now live.`);
+      toast.success("Workflow Saved", `Workflow '${saved.name || workflowName}' created.`);
       loadWorkflows();
     } catch (err: any) {
       toast.error("Save Failed", err.message || "Failed to save workflow.");

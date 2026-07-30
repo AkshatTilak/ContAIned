@@ -111,3 +111,42 @@ async def test_hub_isolation_positive_and_negative_controls(async_session: Async
 
     # 4. Assert body 2 and body 3 are byte-identical
     assert r2.json() == r3.json()
+
+
+def test_static_guard_hub_isolation():
+    """Static guard checking Workflow models under gateway/ and projects/ enforce hub scoping."""
+    import os
+    import re
+
+    models = ["WorkflowDefinition", "WorkflowRun", "EvalFlowTrace"]
+    target_dirs = ["gateway", "projects"]
+
+    pk_only_pattern = re.compile(
+        r"select\((?:%s)\)\s*\.\s*where\(\s*(?:%s)\.id\s*=="
+        % ("|".join(models), "|".join(models)),
+        re.IGNORECASE
+    )
+
+    violations = []
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+    for tdir in target_dirs:
+        dir_path = os.path.join(base_dir, tdir)
+        if not os.path.exists(dir_path):
+            continue
+        for root, _, files in os.walk(dir_path):
+            for file in files:
+                if not file.endswith(".py"):
+                    continue
+                file_path = os.path.join(root, file)
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()
+
+                # Check for select(Model).where(Model.id == ...) without hub_id in the statement
+                for line_no, line in enumerate(content.splitlines(), start=1):
+                    for model in models:
+                        if f"select({model})" in line and f"{model}.id ==" in line and "hub_id" not in line:
+                            violations.append(f"{file_path}:{line_no} -> {line.strip()}")
+
+    assert not violations, f"Primary-key-only query violations found without hub_id: {violations}"
+
