@@ -45,11 +45,16 @@ import { AgentOverview } from "./components/hubs/agent/AgentOverview";
 import { AgentLibrary } from "./components/hubs/agent/AgentLibrary";
 import { AgentDetail } from "./components/hubs/agent/AgentDetail";
 
-// Workspace placeholders (full implementations in S6-10)
-import {
-  WorkflowHubOverview,
-  EvalHubOverview,
-} from "./components/hubs/HubWorkspacePlaceholders";
+// Workflow Workspace
+import { WorkflowHubOverview } from "./components/hubs/workflow/WorkflowHubOverview";
+import { WorkflowLibrary } from "./components/hubs/workflow/WorkflowLibrary";
+import { WorkflowEditor } from "./components/hubs/workflow/WorkflowEditor";
+import { WorkflowRuns } from "./components/hubs/workflow/WorkflowRuns";
+
+// Eval Workspace
+import { EvalHubOverview } from "./components/hubs/eval/EvalHubOverview";
+import { SuiteManager } from "./components/hubs/eval/SuiteManager";
+import { EvalResultsDashboard } from "./components/hubs/eval/EvalResultsDashboard";
 
 // Admin
 import { AdminConsole } from "./components/admin/AdminConsole";
@@ -257,37 +262,37 @@ export default function App() {
                       {/* Workflow hub child routes */}
                       <Route
                         path="workflows"
-                        element={<WorkflowHubOverview />}
+                        element={<WorkflowLibrary />}
                       />
                       <Route
                         path="workflows/:workflowId/editor"
-                        element={<WorkflowHubOverview />}
+                        element={<WorkflowEditor />}
                       />
                       <Route
                         path="workflows/:workflowId/runs"
-                        element={<WorkflowHubOverview />}
+                        element={<WorkflowRuns />}
                       />
 
                       {/* Eval hub child routes */}
                       <Route
                         path="suites"
-                        element={<EvalHubOverview />}
+                        element={<SuiteManager />}
                       />
                       <Route
                         path="suites/:suiteId"
-                        element={<EvalHubOverview />}
+                        element={<EvalResultsDashboard />}
                       />
                       <Route
                         path="runs"
-                        element={<EvalHubOverview />}
+                        element={<EvalResultsDashboard />}
                       />
                       <Route
                         path="runs/:runId/traces"
-                        element={<EvalHubOverview />}
+                        element={<EvalResultsDashboard />}
                       />
                       <Route
                         path="dashboard"
-                        element={<EvalHubOverview />}
+                        element={<EvalResultsDashboard />}
                       />
 
                       {/* Cross-hub shared panels (all hub types) */}
