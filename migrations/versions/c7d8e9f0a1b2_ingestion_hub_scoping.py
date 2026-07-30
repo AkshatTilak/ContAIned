@@ -104,7 +104,7 @@ def upgrade() -> None:
             )
             op.alter_column(t, "hub_id", nullable=False)
 
-    if _has_table("syntraflow_documents"):
+    if _has_table("syntraflow_documents") and _has_column("syntraflow_documents", "collection_id"):
         conn.execute(
             sa.text(
                 """

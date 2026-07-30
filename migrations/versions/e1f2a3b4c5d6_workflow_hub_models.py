@@ -55,7 +55,7 @@ def upgrade() -> None:
             sa.Column("version_number", sa.Integer(), nullable=False),
             sa.Column("graph_json", sa.JSON(), nullable=False),
             sa.Column("change_note", sa.String(255), nullable=True),
-            sa.Column("is_valid", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+            sa.Column("is_valid", sa.Boolean(), nullable=False, server_default=sa.text("false")),
             sa.Column("validation_json", sa.JSON(), nullable=True),
             sa.Column("created_by", sa.String(36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
             sa.Column("created_at", sa.DateTime(), default=datetime.utcnow),
@@ -227,7 +227,7 @@ def downgrade() -> None:
     if not _has_column("workflows", "graph_json"):
         op.add_column("workflows", sa.Column("graph_json", sa.JSON(), nullable=True))
     if not _has_column("workflows", "is_active"):
-        op.add_column("workflows", sa.Column("is_active", sa.Boolean(), server_default=sa.text("0")))
+        op.add_column("workflows", sa.Column("is_active", sa.Boolean(), server_default=sa.text("false")))
 
     if _has_table("workflow_versions"):
         conn = op.get_bind()

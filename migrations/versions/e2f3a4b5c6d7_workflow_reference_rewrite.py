@@ -29,6 +29,13 @@ def _has_table(name: str) -> bool:
     return name in _inspector().get_table_names()
 
 
+def _has_column(table: str, column: str) -> bool:
+    if not _has_table(table):
+        return False
+    cols = [c["name"] for c in _inspector().get_columns(table)]
+    return column in cols
+
+
 def upgrade() -> None:
     conn = op.get_bind()
 
@@ -194,7 +201,7 @@ def upgrade() -> None:
                     })
                     conn.execute(
                         sa.text(
-                            "UPDATE workflow_versions SET graph_json = :g, validation_json = :v, is_valid = 0 WHERE id = :id"
+                            "UPDATE workflow_versions SET graph_json = :g, validation_json = :v, is_valid = false WHERE id = :id"
                         ),
                         {"g": dumped_graph, "v": validation_val, "id": version_id},
                     )
@@ -206,11 +213,13 @@ def upgrade() -> None:
 
         # Audit log entry
         if _has_table("audit_log"):
+            actor_col = "actor_user_id" if _has_column("audit_log", "actor_user_id") else ("actor_id" if _has_column("audit_log", "actor_id") else "user_id")
+            summary_col = "summary" if _has_column("audit_log", "summary") else "details_json"
             conn.execute(
                 sa.text(
-                    """
-                    INSERT INTO audit_log (id, hub_id, actor_id, action, resource_type, resource_id, details_json, created_at)
-                    VALUES (:id, :hub_id, 'system', 'migrate', 'workflow', :wf_hub_id, :details, :now)
+                    f"""
+                    INSERT INTO audit_log (id, hub_id, {actor_col}, action, resource_type, resource_id, {summary_col}, created_at)
+                    VALUES (:id, :hub_id, NULL, 'migrate', 'workflow', :wf_hub_id, :details, :now)
                     """
                 ),
                 {

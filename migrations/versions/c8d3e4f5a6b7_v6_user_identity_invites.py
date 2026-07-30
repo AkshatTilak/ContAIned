@@ -137,7 +137,7 @@ def upgrade() -> None:
     if _has_column("users", "is_active"):
         bind.execute(sa.text("""
             UPDATE users SET status = CASE
-                WHEN is_active = true OR is_active = 1 THEN 'active'
+                WHEN is_active IS TRUE OR CAST(is_active AS VARCHAR) = '1' THEN 'active'
                 ELSE 'suspended'
             END WHERE status IS NULL;
         """))
