@@ -1,14 +1,38 @@
 """Pydantic v2 schemas for Workflow Hub definitions, versions, graphs, and run execution."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from typing import Any, Dict, List, Literal, Optional
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from common.models.hub_enums import (
     WORKFLOW_STATUSES,
     WORKFLOW_RUN_STATUSES,
     WORKFLOW_RUN_TRIGGERS,
 )
+
+
+class NodeReference(BaseModel):
+    """Qualified cross-hub resource reference on a workflow node."""
+    model_config = ConfigDict(from_attributes=True)
+
+    type: Literal["agent", "collection", "workflow", "mcp_tool"]
+    hub_id: str
+    resource_id: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_resource_id(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            res_id = (
+                data.get("resource_id")
+                or data.get("agent_id")
+                or data.get("collection_id")
+                or data.get("workflow_id")
+                or data.get("mcp_tool_id")
+            )
+            if res_id and not data.get("resource_id"):
+                data["resource_id"] = res_id
+        return data
 
 
 class WorkflowGraph(BaseModel):
@@ -25,8 +49,12 @@ class ValidationIssue(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     node_id: Optional[str] = None
+    node_type: Optional[str] = None
+    code: Optional[str] = None
     level: str = Field(default="error", description="error | warning")
     message: str
+    field: Optional[str] = None
+    reference: Optional[Dict[str, Any]] = None
 
 
 class ValidationResult(BaseModel):
