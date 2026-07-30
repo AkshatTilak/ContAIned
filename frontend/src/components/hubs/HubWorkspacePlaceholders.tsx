@@ -8,7 +8,7 @@
  */
 
 import { motion } from "framer-motion";
-import { useHubContext } from "./HubShell";
+import { useHubContext } from "./HubContext";
 
 function WorkspacePlaceholder({
   hubType,

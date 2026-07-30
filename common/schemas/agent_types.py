@@ -79,6 +79,7 @@ class CollectionBindingResponse(CollectionBinding):
 class AgentCreate(BaseModel):
     """Schema for creating a new Agent Definition."""
 
+    hub_id: Optional[str] = Field(default=None, description="Target Agent Hub ID")
     name: str = Field(..., min_length=1, max_length=100, description="Unique display name of the agent")
     role: str = Field(..., min_length=1, max_length=100, description="Agent domain role")
     system_prompt: str = Field(..., min_length=1, description="System prompt instructions")
@@ -105,6 +106,7 @@ class AgentCreate(BaseModel):
 class AgentUpdate(BaseModel):
     """Schema for updating an existing Agent Definition."""
 
+    hub_id: Optional[str] = Field(default=None, description="Target Agent Hub ID")
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     role: Optional[str] = Field(default=None, min_length=1, max_length=100)
     system_prompt: Optional[str] = Field(default=None, min_length=1)

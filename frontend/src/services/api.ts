@@ -207,7 +207,7 @@ async function request<T>(
 export const api = {
   // System & Health
   getSystemHealth: () => request<SystemHealthResponse>("/health", {}, 1, 5000),
-  getModels: () => request<ModelRegistryResponse>("/api/agents/models"),
+  getModels: () => request<ModelRegistryResponse>("/api/models"),
 
   // Hubs API Namespace
   hubs: {
@@ -355,6 +355,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify(inputData),
       }),
+    runs: {
+      list: (hubId: string, workflowId: string) =>
+        request<any[]>(`/api/hubs/${hubId}/workflows/${workflowId}/runs`),
+    },
   },
 
   // Eval Hub API Namespace
@@ -503,7 +507,7 @@ export const api = {
     request<any>(`/api/playground/sessions/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deletePlaygroundSession: (id: string) => request<any>(`/api/playground/sessions/${id}`, { method: "DELETE" }),
 
-  // MCP Integration Hub APIs
+  // MCP Registry APIs
   getMCPServers: () => request<MCPServer[]>("/api/mcp/servers"),
   createMCPServer: (payload: MCPServerCreatePayload) =>
     request<MCPServer>("/api/mcp/servers", { method: "POST", body: JSON.stringify(payload) }),

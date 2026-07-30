@@ -1,4 +1,4 @@
-import { StateCreator } from "zustand";
+import type { StateCreator } from "zustand";
 import type { Hub, HubMember, HubLink, HubType } from "../types/api";
 
 export interface HubSliceState {

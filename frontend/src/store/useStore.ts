@@ -22,7 +22,7 @@ export const useStore = create<StoreState>()((set, get, api) => ({
 }));
 
 export type { Agent } from './agentSlice';
-export type { WorkflowNode, WorkflowEdge, Workflow } from './workflowSlice';
+export type { WorkflowNode, WorkflowEdge } from './workflowSlice';
 export type { SettingsState } from './settingsSlice';
 export type { Notification } from './notificationSlice';
 export type { UserProfile } from './authSlice';

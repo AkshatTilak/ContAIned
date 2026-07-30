@@ -113,8 +113,40 @@ export interface ModelRegistryResponse {
   };
 }
 
+export type PlatformRole = "admin" | "member";
+export type UserStatus = "pending" | "active" | "suspended" | "rejected";
+
+export interface UserInvite {
+  id: string;
+  email: string;
+  platform_role: PlatformRole;
+  hub_grants: { hub_id: string; hub_role: HubRole }[];
+  invited_by: string;
+  status: "pending" | "accepted" | "revoked" | "expired";
+  resend_count: number;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  hub_id: string | null;
+  actor_user_id: string | null;
+  actor_email?: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  summary: string | null;
+  before_json: Record<string, unknown> | null;
+  after_json: Record<string, unknown> | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
 export interface AgentResponse {
   id: string;
+  hub_id: string;
+  hub_slug?: string;
   name: string;
   role: string;
   system_prompt: string;
@@ -129,6 +161,7 @@ export interface AgentResponse {
 }
 
 export interface AgentCreatePayload {
+  hub_id?: string;
   name: string;
   role: string;
   system_prompt: string;
@@ -139,6 +172,7 @@ export interface AgentCreatePayload {
 }
 
 export interface AgentUpdatePayload {
+  hub_id?: string;
   name?: string;
   role?: string;
   system_prompt?: string;
@@ -150,9 +184,14 @@ export interface AgentUpdatePayload {
 
 export interface WorkflowResponse {
   id: string;
+  hub_id: string;
   name: string;
-  graph_json: Record<string, any>;
-  is_active: boolean;
+  slug: string;
+  description: string | null;
+  tags_json: string[];
+  status: string;
+  published_version_id: string | null;
+  draft_version_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -160,8 +199,7 @@ export interface WorkflowResponse {
 export interface WorkflowCreatePayload {
   name: string;
   description?: string;
-  graph_json: Record<string, any>;
-  is_active?: boolean;
+  tags_json?: string[];
 }
 
 export interface IngestionResponse {
@@ -177,6 +215,7 @@ export interface IngestionResponse {
 
 export interface IngestionJobResponse {
   job_id: string;
+  hub_id: string;
   document_id: string | null;
   status: string;
   progress: number;
@@ -195,6 +234,7 @@ export interface PaginatedJobsResponse {
 
 export interface SyntraFlowDocument {
   id: string;
+  hub_id: string;
   filename: string;
   file_hash: string;
   file_type: string;
@@ -227,18 +267,50 @@ export interface PaginatedChunksResponse {
   items: DocumentChunk[];
 }
 
+export interface EvalSuite {
+  id: string;
+  hub_id: string;
+  name: string;
+  description: string | null;
+  target_type: "agent" | "workflow" | "ingestion_retrieval";
+  target_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EvalCase {
+  id: string;
+  suite_id: string;
+  input_prompt: string;
+  expected_output: string | null;
+  assertions_json: Record<string, unknown>[];
+  created_at: string;
+}
+
+export interface EvalRun {
+  id: string;
+  hub_id: string;
+  suite_id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  pass_rate: number;
+  avg_faithfulness: number;
+  avg_relevance: number;
+  created_at: string;
+}
+
 export interface EvalDashboardResponse {
-  total_test_cases: number;
+  total_suites: number;
+  total_runs: number;
   avg_faithfulness: number;
   avg_relevance: number;
   pass_rate: number;
-  recent_runs_count: number;
+  recent_runs: EvalRun[];
 }
 
 export interface EvalRunResponse {
   id: string;
-  agent_id: string;
-  suite_id?: string;
+  hub_id: string;
+  suite_id: string;
   total_cases: number;
   passed_cases: number;
   avg_faithfulness: number;
@@ -249,12 +321,9 @@ export interface EvalRunResponse {
 
 export interface TestCaseResponse {
   id: string;
-  agent_id: string;
+  suite_id: string;
   query: string;
   expected_output: string;
-  context?: string;
-  faithfulness_score?: number;
-  answer_relevance_score?: number;
   status?: "pass" | "fail" | "pending";
 }
 

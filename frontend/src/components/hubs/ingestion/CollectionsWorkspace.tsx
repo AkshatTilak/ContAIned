@@ -47,7 +47,7 @@ export function CollectionsWorkspace() {
     setError(null);
     try {
       const res = await api.ingestion.collections.list(hubId);
-      setCollections(res.collections || res.items || []);
+      setCollections(res.collections || (res as any).items || []);
     } catch (err: any) {
       setError(err?.message || "Failed to load collections");
     } finally {

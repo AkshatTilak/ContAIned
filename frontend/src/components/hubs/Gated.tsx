@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { useHubPermissions } from "../../hooks/useHubPermissions";
 import type { HubAction } from "./HubContext";
 

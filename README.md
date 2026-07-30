@@ -151,7 +151,7 @@ V5 shifts ContAIned into a production-grade operations platform, emphasizing com
 - **Multi-Agent Workflows & Strict Terminations:** Workflows now support instantiating multiple specialized agents passing state dynamically. Every flow must strictly terminate in an `ActionNode` or `FinalMessageNode`.
 - **EvalOps Flow Tracing:** DeepEval and RAGAS integrations now hook into LangGraph state changes, allowing precise evaluation and mocking of intermediate flow blocks and terminal side-effects.
 - **Embedded Infrastructure Dashboards:** View your Qdrant vector spaces and Neo4j graphs directly inside the ContAIned frontend via authenticated reverse proxies in the API Gateway.
-- **Platform Polish:** Full OAuth RBAC, Model Playground, and MCP Integration Hub to manage all external connections in one unified view.
+- **Platform Polish:** Full OAuth RBAC, Model Playground, and MCP Registry to manage all external connections in one unified view.
 
 ---
 

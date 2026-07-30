@@ -254,7 +254,7 @@ export const MCPHubPage: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-wide font-display flex items-center gap-2">
-              MCP Integration Hub
+              MCP Registry
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                 Model Context Protocol
               </span>

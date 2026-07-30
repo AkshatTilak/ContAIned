@@ -12,7 +12,7 @@ interface RouteInfo {
 const platformRouteMap: Record<string, RouteInfo> = {
   "/system": { category: "Dashboard", title: "System Metrics & Health" },
   "/playground": { category: "Playground", title: "Model Playground" },
-  "/mcp": { category: "Integrations", title: "MCP Hub" },
+  "/mcp": { category: "Integrations", title: "MCP Registry" },
   "/infrastructure": { category: "Infrastructure", title: "Infrastructure & Telemetry" },
   "/settings": { category: "System", title: "Gateway & Settings" },
   "/hubs": { category: "Hubs", title: "Hub Directory" },

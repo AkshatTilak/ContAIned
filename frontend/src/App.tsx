@@ -298,7 +298,7 @@ export default function App() {
                       {/* Cross-hub shared panels (all hub types) */}
                       <Route path="members" element={<MembersPanel />} />
                       <Route path="links" element={<HubLinksPanel />} />
-                      <Route path="settings" element={<IngestionHubOverview />} />
+                      <Route path="settings" element={<IngestionOverview />} />
 
                       {/* Hub-level index: redirect to the type's default child */}
                       <Route

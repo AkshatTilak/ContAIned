@@ -1,4 +1,4 @@
-"""API router for MCP Integration Hub (S5-05a, S5-05b, S5-05c, S5-05d)."""
+"""API router for MCP Registry (S5-05a, S5-05b, S5-05c, S5-05d)."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -21,7 +21,7 @@ from gateway.services.mcp_client import (
 
 logger = get_logger("gateway.api.mcp_manager")
 
-router = APIRouter(prefix="/mcp", tags=["MCP Integration Hub"])
+router = APIRouter(prefix="/mcp", tags=["MCP Registry"])
 
 
 # --- Pydantic Schemas ---

@@ -11,7 +11,7 @@ export function UserDirectory() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.admin.users.list();
+      const data = await api.listUsers();
       setUsers(data || []);
     } catch (err: any) {
       setError(err?.message || "Failed to load user directory");

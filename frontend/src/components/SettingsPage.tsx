@@ -7,7 +7,6 @@ import { api } from "../services/api";
 import { APIKeysPanel } from "./settings/APIKeysPanel";
 import { APIDocsPanel } from "./settings/APIDocsPanel";
 import { RoleGuard } from "./auth/RoleGuard";
-import { UserManagement } from "./settings/UserManagement";
 
 export const SettingsPage: React.FC = () => {
   const gatewayUrl = useStore((state) => state.gatewayUrl);
@@ -205,11 +204,6 @@ export const SettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Admin User Management Section */}
-      <RoleGuard roles={["admin"]}>
-        <UserManagement />
-      </RoleGuard>
 
       {/* Platform Information Box */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-3 shadow-sm">

@@ -60,7 +60,7 @@ export function DocumentsWorkspace() {
     if (!hubId) return;
     try {
       const res = await api.ingestion.collections.list(hubId);
-      setCollections(res.collections || res.items || []);
+      setCollections(res.collections || (res as any).items || []);
     } catch {
       // ignore
     }

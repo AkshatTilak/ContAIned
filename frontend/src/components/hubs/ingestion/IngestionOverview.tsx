@@ -41,7 +41,7 @@ export function IngestionOverview() {
           api.ingestion.datastores.list(hubId).catch(() => []),
         ]);
 
-        const cols = colRes.collections || colRes.items || [];
+        const cols = (colRes as any).collections || (colRes as any).items || [];
         const healthy = datastores.filter((d: any) => d.health_status === "healthy").length;
         const degraded = datastores.filter((d: any) => d.health_status === "degraded").length;
         const unreachable = datastores.filter((d: any) => d.health_status === "unreachable").length;
