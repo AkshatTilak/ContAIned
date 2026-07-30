@@ -16,7 +16,6 @@ from common.schemas.api import (
     ErrorResponse,
     PaginatedResponse,
 )
-
 from common.schemas.hubs import (
     HubType,
     HubRole,
@@ -36,6 +35,16 @@ from common.schemas.hubs import (
     DatastoreBindingRead,
     AuditLogRead,
     AuditLogFilter,
+)
+from common.schemas.evalops import (
+    EvalTarget,
+    EvalSuiteCreate,
+    EvalSuiteUpdate,
+    EvalSuiteResponse,
+    EvalTestCaseCreate,
+    EvalTestCaseResponse,
+    EvalRunRequest,
+    EvalRunResponse,
 )
 
 __all__ = [
@@ -67,7 +76,12 @@ __all__ = [
     "DatastoreBindingRead",
     "AuditLogRead",
     "AuditLogFilter",
+    "EvalTarget",
+    "EvalSuiteCreate",
+    "EvalSuiteUpdate",
+    "EvalSuiteResponse",
+    "EvalTestCaseCreate",
+    "EvalTestCaseResponse",
+    "EvalRunRequest",
+    "EvalRunResponse",
 ]
-
-
-

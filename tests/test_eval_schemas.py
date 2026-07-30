@@ -1,82 +1,83 @@
-"""Unit tests for EvalOps attribution database schemas."""
+"""Unit tests for Eval Hub polymorphic schemas and database models."""
 
-import uuid
 import pytest
-from sqlalchemy import select
+from pydantic import ValidationError
 
-from common.clients.postgres import get_sessionmaker, close_postgres
-from common.models.database import AgentDefinition, EvalTestSuite, EvalTestCase, EvalRunHistory
+from common.schemas.evalops import (
+    EvalTarget,
+    EvalSuiteCreate,
+    EvalTestCaseCreate,
+    EvalRunRequest,
+)
+from common.models.database import (
+    EvalTestSuite,
+    EvalTestCase,
+    EvalRunHistory,
+    EVAL_TARGET_TYPES,
+    NODE_ASSERTION_TYPES,
+)
 
 
-@pytest.mark.asyncio
-async def test_eval_attribution_schema_crud():
-    """Verify CRUD operations and foreign key cascades on Eval attribution models."""
-    await close_postgres()
-    SessionLocal = get_sessionmaker()
+def test_eval_target_schema_valid():
+    target = EvalTarget(type="agent", target_hub_id="hub-1", target_id="agt-1")
+    assert target.type == "agent"
+    assert target.target_hub_id == "hub-1"
 
-    try:
-        async with SessionLocal() as db:
-            agent_id = str(uuid.uuid4())
-            agent = AgentDefinition(
-                id=agent_id,
-                name="Eval Test Agent",
-                role="assistant",
-                system_prompt="You evaluate test data.",
-                model_id="gemini-3.5-flash",
-            )
-            db.add(agent)
-            await db.commit()
-    except Exception as e:
-        pytest.skip(f"Database connection unavailable for live integration test: {e}")
+    wf_target = EvalTarget(type="workflow", target_hub_id="hub-2", target_id="wf-1")
+    assert wf_target.type == "workflow"
 
-        # 1. Create EvalTestSuite
-        suite = EvalTestSuite(
-            agent_id=agent_id,
-            name="RAG Quality Benchmark",
-            description="Test suite for evaluating retrieval relevance.",
+
+def test_eval_target_schema_invalid_type():
+    with pytest.raises(ValidationError):
+        EvalTarget(type="invalid_target", target_hub_id="hub-1", target_id="id-1")
+
+
+def test_eval_suite_create_schema():
+    suite_req = EvalSuiteCreate(
+        name="Regression Suite",
+        description="Eval suite for workflow",
+        target=EvalTarget(type="workflow", target_hub_id="hub-wf", target_id="wf-123")
+    )
+    assert suite_req.name == "Regression Suite"
+    assert suite_req.target.type == "workflow"
+
+
+def test_eval_test_case_create_node_assertion_validation():
+    # 1. Whole-response test case (no node assertion) -> Valid
+    c1 = EvalTestCaseCreate(input_query="Hello", expected_output="Hi")
+    assert c1.node_id is None
+
+    # 2. Complete node assertion -> Valid
+    c2 = EvalTestCaseCreate(
+        input_query="Hello",
+        node_id="node-agent-1",
+        assertion_type="contains",
+        expected_value="success"
+    )
+    assert c2.node_id == "node-agent-1"
+    assert c2.assertion_type == "contains"
+
+    # 3. Incomplete node assertion (missing expected_value) -> Invalid
+    with pytest.raises(ValidationError) as excinfo:
+        EvalTestCaseCreate(
+            input_query="Hello",
+            node_id="node-agent-1",
+            assertion_type="contains"
         )
-        db.add(suite)
-        await db.commit()
-        await db.refresh(suite)
+    assert "INCOMPLETE_NODE_ASSERTION" in str(excinfo.value)
 
-        assert suite.id is not None
-        assert suite.agent_id == agent_id
-
-        # 2. Create EvalTestCase
-        case = EvalTestCase(
-            suite_id=suite.id,
-            input_query="What is SyntraFlow?",
-            expected_output="SyntraFlow is a dynamic RAG ingestion engine.",
-            expected_context="SyntraFlow RAG docs.",
+    # 4. Invalid assertion type -> Invalid
+    with pytest.raises(ValidationError):
+        EvalTestCaseCreate(
+            input_query="Hello",
+            node_id="node-agent-1",
+            assertion_type="invalid_assertion",
+            expected_value="val"
         )
-        db.add(case)
-        await db.commit()
-        await db.refresh(case)
 
-        assert case.id is not None
-        assert case.suite_id == suite.id
 
-        # 3. Create EvalRunHistory
-        run = EvalRunHistory(
-            agent_id=agent_id,
-            suite_id=suite.id,
-            faithfulness_score=0.92,
-            relevance_score=0.88,
-            duration_sec=1.45,
-            run_status="completed",
-            details_json={"total_cases": 1, "passed": 1},
-        )
-        db.add(run)
-        await db.commit()
-        await db.refresh(run)
-
-        assert run.id is not None
-        assert run.faithfulness_score == 0.92
-
-        # 4. Clean up
-        await db.delete(agent)
-        await db.commit()
-
-        # Verify cascade deletion
-        res = await db.execute(select(EvalTestSuite).where(EvalTestSuite.id == suite.id))
-        assert res.scalar_one_or_none() is None
+def test_eval_constants():
+    assert "agent" in EVAL_TARGET_TYPES
+    assert "workflow" in EVAL_TARGET_TYPES
+    assert "contains" in NODE_ASSERTION_TYPES
+    assert "latency_under" in NODE_ASSERTION_TYPES
