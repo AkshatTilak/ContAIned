@@ -1,23 +1,52 @@
 import { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
+
+// Layout & chrome
 import { Sidebar } from "./components/Sidebar";
 import { HeaderBar } from "./components/layout/HeaderBar";
 import { PageTransition } from "./components/layout/PageTransition";
 import { CommandPalette } from "./components/layout/CommandPalette";
+import { HubSwitcher } from "./components/layout/HubSwitcher";
+import { ErrorBoundary, ToastProvider } from "./components/shared";
+
+// Auth
+import { LoginPage } from "./components/auth/LoginPage";
+import { AuthCallback } from "./components/auth/AuthCallback";
+import { AuthGuard } from "./components/auth/AuthGuard";
+import { AdminGuard } from "./components/auth/AdminGuard";
+
+// Platform surfaces (retained from V5)
 import { SystemMetrics } from "./components/SystemMetrics";
-import { IngestionPanel } from "./components/IngestionPanel";
-import { WorkflowCanvas } from "./components/WorkflowCanvas";
-import { AgentHub } from "./components/AgentHub";
-import { EvalPanel } from "./components/EvalPanel";
 import { PlaygroundPage } from "./components/PlaygroundPage";
 import { MCPHubPage } from "./components/MCPHubPage";
 import { InfrastructurePage } from "./components/InfrastructurePage";
 import { SettingsPage } from "./components/SettingsPage";
 import { NotFound } from "./components/NotFound";
-import { ErrorBoundary, ToastProvider } from "./components/shared";
 
+// Hub shell & directory
+import { HubShell } from "./components/hubs/HubShell";
+import { HubDirectory } from "./components/hubs/HubDirectory";
+import { HubCreate } from "./components/hubs/HubCreate";
+import { HubNotFound } from "./components/hubs/HubNotFound";
+import { MembersPanel } from "./components/hubs/MembersPanel";
+import { HubLinksPanel } from "./components/hubs/HubLinksPanel";
 
+// Workspace placeholders (full implementations in S6-09 / S6-10)
+import {
+  IngestionHubOverview,
+  AgentHubOverview,
+  WorkflowHubOverview,
+  EvalHubOverview,
+} from "./components/hubs/HubWorkspacePlaceholders";
+
+// Admin
+import { AdminConsole } from "./components/admin/AdminConsole";
+
+// Typed route patterns
+import { ROUTE_PATTERNS, routes } from "./routes";
+
+// Services & store
 import { telemetryService } from "./services/telemetry";
 import { api } from "./services/api";
 import { useStore } from "./store/useStore";
@@ -39,13 +68,10 @@ const FALLBACK_SYSTEM_HEALTH: SystemHealthResponse = {
   },
 };
 
-import { LoginPage } from "./components/auth/LoginPage";
-import { AuthCallback } from "./components/auth/AuthCallback";
-import { AuthGuard } from "./components/auth/AuthGuard";
-
 export default function App() {
   const location = useLocation();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isHubSwitcherOpen, setIsHubSwitcherOpen] = useState(false);
   const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(null);
   const [modelRegistry, setModelRegistry] = useState<ModelRegistryResponse | null>(null);
 
@@ -67,7 +93,9 @@ export default function App() {
       setSystemHealth(health);
     } catch (err) {
       console.warn("Using offline fallback system data:", err);
-      setSystemHealth((prev) => (prev?.status === "healthy" ? prev : FALLBACK_SYSTEM_HEALTH));
+      setSystemHealth((prev) =>
+        prev?.status === "healthy" ? prev : FALLBACK_SYSTEM_HEALTH
+      );
     }
 
     try {
@@ -78,23 +106,29 @@ export default function App() {
     }
   };
 
-  // Global Ctrl+K / Cmd+K listener
+  // Global Keyboard Shortcuts (Cmd+K for Hub Switcher, Cmd+Shift+P for Command Palette)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+      if (isCmdOrCtrl && e.shiftKey && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
+        setIsHubSwitcherOpen(false);
         setIsCommandPaletteOpen((prev) => !prev);
+      } else if (isCmdOrCtrl && e.key === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen(false);
+        setIsHubSwitcherOpen((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  if (location.pathname === "/login") {
+  // Auth-only routes rendered outside the main app shell
+  if (location.pathname === routes.login) {
     return <LoginPage />;
   }
-
-  if (location.pathname === "/auth/callback") {
+  if (location.pathname === routes.authCallback) {
     return <AuthCallback />;
   }
 
@@ -103,61 +137,188 @@ export default function App() {
       <AuthGuard>
         <div className="flex h-screen bg-[#080809] text-[var(--text-primary)] font-sans antialiased overflow-hidden">
           {/* Sidebar Navigation */}
-          <Sidebar />
+          <Sidebar
+            onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+            onOpenHubSwitcher={() => setIsHubSwitcherOpen(true)}
+          />
 
           {/* Main Application Container */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top Header Bar with Breadcrumbs & Actions */}
-            <HeaderBar onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
+            <HeaderBar
+              onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+              onOpenHubSwitcher={() => setIsHubSwitcherOpen(true)}
+            />
 
             {/* Page Viewport */}
             <main className="flex-1 overflow-y-auto p-6 lg:p-10 pb-16 custom-scrollbar flex flex-col min-h-0">
               <ErrorBoundary>
+                {/*
+                 * AnimatePresence key = top-level segment so platform↔hub
+                 * transitions animate. Within a hub the HubShell manages its
+                 * own AnimatePresence keyed to the sub-path (tab switches).
+                 */}
                 <AnimatePresence mode="wait">
-                  <Routes location={location} key={location.pathname}>
-                    <Route path="/" element={<Navigate to="/system" replace />} />
+                  <Routes location={location} key={location.pathname.split("/").slice(0, 3).join("/")}>
+
+                    {/* ── Root redirect ─────────────────────────────────── */}
                     <Route
-                      path="/system"
+                      path={ROUTE_PATTERNS.root}
+                      element={<Navigate to={routes.hubs.directory()} replace />}
+                    />
+
+                    {/* ── Hub Directory & Creation ───────────────────────── */}
+                    <Route
+                      path={ROUTE_PATTERNS.hubDirectory}
                       element={
                         <PageTransition>
-                          <SystemMetrics systemHealth={systemHealth} modelRegistry={modelRegistry} onRefresh={fetchSystemData} />
+                          <HubDirectory />
                         </PageTransition>
                       }
                     />
                     <Route
-                      path="/ingestion"
+                      path={ROUTE_PATTERNS.hubCreate}
                       element={
                         <PageTransition>
-                          <IngestionPanel />
+                          <HubCreate />
                         </PageTransition>
                       }
                     />
                     <Route
-                      path="/workflow"
+                      path={ROUTE_PATTERNS.hubNotFound}
                       element={
                         <PageTransition>
-                          <WorkflowCanvas />
+                          <HubNotFound />
+                        </PageTransition>
+                      }
+                    />
+
+                    {/* ── Hub Shell (layout route) ───────────────────────── */}
+                    {/*
+                     * HubShell fetches the hub once and injects HubContext.
+                     * Child routes are relative — they resolve under /hubs/:hubType/:hubId/.
+                     * HubShell renders its own AnimatePresence keyed to the sub-path.
+                     */}
+                    <Route
+                      path={ROUTE_PATTERNS.hubShell}
+                      element={<HubShell />}
+                    >
+                      {/* Ingestion hub child routes */}
+                      <Route
+                        path="collections"
+                        element={<IngestionHubOverview />}
+                      />
+                      <Route
+                        path="collections/:collectionId"
+                        element={<IngestionHubOverview />}
+                      />
+                      <Route
+                        path="datastores"
+                        element={<IngestionHubOverview />}
+                      />
+                      <Route
+                        path="documents"
+                        element={<IngestionHubOverview />}
+                      />
+                      <Route
+                        path="jobs"
+                        element={<IngestionHubOverview />}
+                      />
+                      <Route
+                        path="search"
+                        element={<IngestionHubOverview />}
+                      />
+
+                      {/* Agent hub child routes */}
+                      <Route
+                        path="agents"
+                        element={<AgentHubOverview />}
+                      />
+                      <Route
+                        path="agents/:agentId"
+                        element={<AgentHubOverview />}
+                      />
+                      <Route
+                        path="agents/:agentId/playground"
+                        element={<AgentHubOverview />}
+                      />
+
+                      {/* Workflow hub child routes */}
+                      <Route
+                        path="workflows"
+                        element={<WorkflowHubOverview />}
+                      />
+                      <Route
+                        path="workflows/:workflowId/editor"
+                        element={<WorkflowHubOverview />}
+                      />
+                      <Route
+                        path="workflows/:workflowId/runs"
+                        element={<WorkflowHubOverview />}
+                      />
+
+                      {/* Eval hub child routes */}
+                      <Route
+                        path="suites"
+                        element={<EvalHubOverview />}
+                      />
+                      <Route
+                        path="suites/:suiteId"
+                        element={<EvalHubOverview />}
+                      />
+                      <Route
+                        path="runs"
+                        element={<EvalHubOverview />}
+                      />
+                      <Route
+                        path="runs/:runId/traces"
+                        element={<EvalHubOverview />}
+                      />
+                      <Route
+                        path="dashboard"
+                        element={<EvalHubOverview />}
+                      />
+
+                      {/* Cross-hub shared panels (all hub types) */}
+                      <Route path="members" element={<MembersPanel />} />
+                      <Route path="links" element={<HubLinksPanel />} />
+                      <Route path="settings" element={<IngestionHubOverview />} />
+
+                      {/* Hub-level index: redirect to the type's default child */}
+                      <Route
+                        index
+                        element={<HubShellIndexRedirect />}
+                      />
+
+                      {/* Unknown segments inside a valid hub → in-shell not-found */}
+                      <Route path="*" element={<HubNotFound />} />
+                    </Route>
+
+                    {/* ── Admin routes (platform-admin only) ───────────────── */}
+                    <Route
+                      path={ROUTE_PATTERNS.admin}
+                      element={
+                        <AdminGuard>
+                          <AdminConsole />
+                        </AdminGuard>
+                      }
+                    />
+
+                    {/* ── Platform surfaces ─────────────────────────────── */}
+                    <Route
+                      path={ROUTE_PATTERNS.system}
+                      element={
+                        <PageTransition>
+                          <SystemMetrics
+                            systemHealth={systemHealth}
+                            modelRegistry={modelRegistry}
+                            onRefresh={fetchSystemData}
+                          />
                         </PageTransition>
                       }
                     />
                     <Route
-                      path="/agents"
-                      element={
-                        <PageTransition>
-                          <AgentHub />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/evalops"
-                      element={
-                        <PageTransition>
-                          <EvalPanel />
-                        </PageTransition>
-                      }
-                    />
-                    <Route
-                      path="/playground"
+                      path={ROUTE_PATTERNS.playground}
                       element={
                         <PageTransition>
                           <PlaygroundPage />
@@ -165,7 +326,7 @@ export default function App() {
                       }
                     />
                     <Route
-                      path="/mcp"
+                      path={ROUTE_PATTERNS.mcp}
                       element={
                         <PageTransition>
                           <MCPHubPage />
@@ -173,21 +334,27 @@ export default function App() {
                       }
                     />
                     <Route
-                      path="/infrastructure"
+                      path={ROUTE_PATTERNS.infrastructure}
                       element={
                         <PageTransition>
-                          <InfrastructurePage systemHealth={systemHealth} modelRegistry={modelRegistry} onRefresh={fetchSystemData} />
+                          <InfrastructurePage
+                            systemHealth={systemHealth}
+                            modelRegistry={modelRegistry}
+                            onRefresh={fetchSystemData}
+                          />
                         </PageTransition>
                       }
                     />
                     <Route
-                      path="/settings"
+                      path={ROUTE_PATTERNS.settings}
                       element={
                         <PageTransition>
                           <SettingsPage />
                         </PageTransition>
                       }
                     />
+
+                    {/* ── Global fallback ───────────────────────────────── */}
                     <Route
                       path="*"
                       element={
@@ -206,9 +373,43 @@ export default function App() {
           <CommandPalette
             isOpen={isCommandPaletteOpen}
             onClose={() => setIsCommandPaletteOpen(false)}
+            onOpenHubSwitcher={() => setIsHubSwitcherOpen(true)}
+          />
+
+          {/* Global Hub Switcher Dialog */}
+          <HubSwitcher
+            isOpen={isHubSwitcherOpen}
+            onClose={() => setIsHubSwitcherOpen(false)}
           />
         </div>
       </AuthGuard>
     </ToastProvider>
   );
 }
+
+/**
+ * Hub shell index redirect — resolves the correct first-tab path for each hub type.
+ *
+ * When the user navigates to /hubs/:hubType/:hubId with no sub-path, we redirect
+ * them to the hub shell root which will show the hub overview. The full
+ * type-aware tab default is implemented in S6-08b.
+ */
+function HubShellIndexRedirect() {
+  const { hubType, hubId } = useParams<{ hubType: string; hubId: string }>();
+
+  if (!hubType || !hubId) {
+    return <Navigate to={routes.hubs.directory()} replace />;
+  }
+
+  // Default first tab by type — the hub shell root shows the overview
+  const defaultPaths: Record<string, string> = {
+    ingestion: "collections",
+    agent: "agents",
+    workflow: "workflows",
+    eval: "suites",
+  };
+
+  const defaultTab = defaultPaths[hubType] ?? "collections";
+  return <Navigate to={`/hubs/${hubType}/${hubId}/${defaultTab}`} replace />;
+}
+

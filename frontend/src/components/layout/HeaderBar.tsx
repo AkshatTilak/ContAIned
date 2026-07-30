@@ -6,9 +6,10 @@ import { useStore } from "../../store/useStore";
 
 interface HeaderBarProps {
   onOpenCommandPalette: () => void;
+  onOpenHubSwitcher?: () => void;
 }
 
-export const HeaderBar: React.FC<HeaderBarProps> = ({ onOpenCommandPalette }) => {
+export const HeaderBar: React.FC<HeaderBarProps> = ({ onOpenCommandPalette, onOpenHubSwitcher }) => {
   const isConnected = useStore((state) => state.isConnected);
   const telemetryStatus = useStore((state) => state.telemetry.status);
 
@@ -22,18 +23,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({ onOpenCommandPalette }) =>
 
       {/* Header Actions */}
       <div className="flex items-center gap-3">
-        {/* Command Palette Trigger */}
-        <button
-          onClick={onOpenCommandPalette}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-elevated)] border border-[var(--border-default)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all group shadow-sm"
-          title="Open Command Palette"
-        >
-          <Search className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-emerald-400 transition-colors" />
-          <span className="hidden sm:inline">Search or command...</span>
-          <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-surface-alt)] border border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] font-mono font-semibold ml-1">
-            {isMac ? "⌘K" : "Ctrl+K"}
-          </kbd>
-        </button>
+        {/* Hub Switcher Quick Trigger */}
+        {onOpenHubSwitcher && (
+          <button
+            onClick={onOpenHubSwitcher}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-elevated)] border border-[var(--border-default)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all group shadow-sm"
+            title="Switch Active Hub"
+          >
+            <Search className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-indigo-400 transition-colors" />
+            <span className="hidden sm:inline">Switch Hub...</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-[var(--bg-surface-alt)] border border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] font-mono font-semibold ml-1">
+              {isMac ? "⌘K" : "Ctrl+K"}
+            </kbd>
+          </button>
+        )}
 
         {/* Telemetry Status Indicator */}
         <div

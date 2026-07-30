@@ -6,8 +6,9 @@ import { createSettingsSlice, type SettingsSlice } from './settingsSlice';
 import { createNotificationSlice, type NotificationSlice } from './notificationSlice';
 import { createIngestionSlice, type IngestionSlice } from './ingestionSlice';
 import { createAuthSlice, type AuthSlice, type UserProfile } from './authSlice';
+import { createHubSlice, type HubSlice } from './hubSlice';
 
-export type StoreState = MetricsSlice & AgentSlice & WorkflowSlice & SettingsSlice & NotificationSlice & IngestionSlice & AuthSlice;
+export type StoreState = MetricsSlice & AgentSlice & WorkflowSlice & SettingsSlice & NotificationSlice & IngestionSlice & AuthSlice & HubSlice;
 
 export const useStore = create<StoreState>()((set, get, api) => ({
   ...createMetricsSlice(set),
@@ -17,6 +18,7 @@ export const useStore = create<StoreState>()((set, get, api) => ({
   ...createNotificationSlice(set, get, api),
   ...createIngestionSlice(set, get, api),
   ...createAuthSlice(set, get, api),
+  ...createHubSlice(set, get, api),
 }));
 
 export type { Agent } from './agentSlice';

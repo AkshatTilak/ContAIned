@@ -2,6 +2,82 @@
  * API Response & Request DTO Interfaces matching backend Pydantic models.
  */
 
+export type HubType = "ingestion" | "agent" | "workflow" | "eval";
+export type HubRole = "owner" | "maintainer" | "contributor" | "viewer";
+export type HubAccessLevel = "read" | "use";
+
+export interface Hub {
+  id: string;
+  slug: string;
+  name: string;
+  hub_type: HubType;
+  description: string | null;
+  accent: string | null;
+  icon: string | null;
+  owner_id: string;
+  is_archived: boolean;
+  my_role: HubRole;
+  resource_counts: Record<string, number>;
+  member_count: number;
+  last_activity_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HubMember {
+  id: string;
+  hub_id: string;
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  hub_role: HubRole;
+  invited_by: string | null;
+  created_at: string;
+}
+
+export interface HubLink {
+  id: string;
+  source_hub_id: string;
+  target_hub_id: string;
+  target_hub_name: string;
+  target_hub_type: HubType;
+  access_level: HubAccessLevel;
+  created_by: string;
+  created_at: string;
+}
+
+export interface DatastoreBinding {
+  id: string;
+  hub_id: string;
+  name: string;
+  store_type: "qdrant" | "neo4j" | "postgres" | "opensearch";
+  connection_uri_masked: string;
+  is_default: boolean;
+  is_platform_default: boolean;
+  health_status: "healthy" | "degraded" | "unreachable" | "unknown";
+  last_health_check: string | null;
+  config_json: Record<string, unknown>;
+}
+
+export interface HubCreatePayload {
+  hub_type: HubType;
+  name: string;
+  slug?: string;
+  description?: string;
+  accent?: string;
+  icon?: string;
+  initial_members?: { user_id: string; hub_role: HubRole }[];
+  initial_links?: { target_hub_id: string; access_level: HubAccessLevel }[];
+}
+
+export interface HubUpdatePayload {
+  name?: string;
+  description?: string;
+  accent?: string;
+  icon?: string;
+}
+
+
 export interface SystemHealthResponse {
   status: string;
   platform_version?: string;

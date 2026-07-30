@@ -1,6 +1,6 @@
 /**
  * REST API Client Layer for ContAIned Platform Gateway.
- * Interacts with /api/* routes (System health, Ingestion, Agent Hub CRUD, Workflows, EvalOps).
+ * Interacts with /api/* and /hubs/* routes.
  */
 
 import { useStore } from "../store/useStore";
@@ -25,9 +25,41 @@ import type {
   MCPServerUpdatePayload,
   MCPTool,
   MCPTestResult,
+  Hub,
+  HubMember,
+  HubLink,
+  HubType,
+  HubRole,
+  HubAccessLevel,
+  HubCreatePayload,
+  HubUpdatePayload,
+  DatastoreBinding,
 } from "../types/api";
 
 const STORAGE_KEY = "contained-settings";
+
+export type HubErrorCode =
+  | "HUB_NOT_FOUND"
+  | "HUB_ROLE_INSUFFICIENT"
+  | "HUB_ARCHIVED"
+  | "HUB_LINK_REQUIRED"
+  | "HUB_LINK_REVOKED";
+
+export class HubApiError extends Error {
+  code: HubErrorCode;
+  hubId?: string;
+  targetHubId?: string;
+  status: number;
+
+  constructor(message: string, code: HubErrorCode, status: number, hubId?: string, targetHubId?: string) {
+    super(message);
+    this.name = "HubApiError";
+    this.code = code;
+    this.status = status;
+    this.hubId = hubId;
+    this.targetHubId = targetHubId;
+  }
+}
 
 function getClientConfig(): { baseUrl: string; apiKey: string } {
   try {
@@ -68,7 +100,7 @@ async function request<T>(
   const headers: Record<string, string> = {
     "X-API-Key": config.apiKey,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers as Record<string, string> || {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
   if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
@@ -92,11 +124,26 @@ async function request<T>(
 
       if (!response.ok) {
         let errorMsg = `HTTP Error ${response.status}: ${response.statusText}`;
+        let errorCode: HubErrorCode | undefined;
+        let hubId: string | undefined;
+        let targetHubId: string | undefined;
+
         try {
           const errJson = await response.json();
-          errorMsg = errJson.detail || errJson.message || errorMsg;
+          if (errJson.error) {
+            errorMsg = errJson.error.message || errorMsg;
+            errorCode = errJson.error.code as HubErrorCode;
+            hubId = errJson.error.hub_id;
+            targetHubId = errJson.error.target_hub_id;
+          } else if (errJson.detail) {
+            errorMsg = typeof errJson.detail === "string" ? errJson.detail : JSON.stringify(errJson.detail);
+          }
         } catch {
           // ignore json parse error
+        }
+
+        if (errorCode) {
+          throw new HubApiError(errorMsg, errorCode, response.status, hubId, targetHubId);
         }
 
         // Retry on 5xx status codes only
@@ -119,9 +166,16 @@ async function request<T>(
         throw err;
       }
 
+      if (response.status === 240 || response.status === 204) {
+        return {} as T;
+      }
+
       return await response.json();
     } catch (err: any) {
       clearTimeout(timer);
+      if (err instanceof HubApiError) {
+        throw err;
+      }
       const isAbort = err?.name === "AbortError";
       const errorMsg = isAbort
         ? `Request timed out after ${timeoutMs / 1000}s`
@@ -155,137 +209,225 @@ export const api = {
   getSystemHealth: () => request<SystemHealthResponse>("/health", {}, 1, 5000),
   getModels: () => request<ModelRegistryResponse>("/api/agents/models"),
 
-  // Agent Hub CRUD & Invocation
-  getAgents: () => request<AgentResponse[]>("/api/agents"),
-  getAgent: (id: string) => request<AgentResponse>(`/api/agents/${id}`),
-  createAgent: (data: AgentCreatePayload) =>
-    request<AgentResponse>("/api/agents", { method: "POST", body: JSON.stringify(data) }),
-  updateAgent: (id: string, data: AgentUpdatePayload) =>
-    request<AgentResponse>(`/api/agents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteAgent: (id: string) => request<{ status: string; message: string }>(`/api/agents/${id}`, { method: "DELETE" }),
-  toggleAgentActive: (id: string) => request<AgentResponse>(`/api/agents/${id}/toggle`, { method: "PATCH" }),
-  getAgentStats: (id: string) => request<any>(`/api/agents/${id}/stats`),
-  invokeAgent: (idOrSlug: string, prompt: string, sessionId?: string) =>
-    request<any>(`/api/agents/${idOrSlug}/invoke`, {
-      method: "POST",
-      body: JSON.stringify({ prompt, session_id: sessionId }),
-    }),
+  // Hubs API Namespace
+  hubs: {
+    list: (opts?: { includeArchived?: boolean }) =>
+      request<Hub[]>(`/api/hubs${opts?.includeArchived ? "?include_archived=true" : ""}`),
+    get: (hubType: string, hubId: string) =>
+      request<{ hub: Hub; membership: HubMember | null }>(`/api/hubs/${hubType}/${hubId}`),
+    create: (payload: HubCreatePayload) =>
+      request<Hub>("/api/hubs", { method: "POST", body: JSON.stringify(payload) }),
+    update: (hubId: string, payload: HubUpdatePayload) =>
+      request<Hub>(`/api/hubs/${hubId}`, { method: "PUT", body: JSON.stringify(payload) }),
+    archive: (hubId: string) =>
+      request<Hub>(`/api/hubs/${hubId}/archive`, { method: "POST" }),
+    unarchive: (hubId: string) =>
+      request<Hub>(`/api/hubs/${hubId}/unarchive`, { method: "POST" }),
+    checkSlug: (hubType: HubType, slug: string) =>
+      request<{ available: boolean }>(`/api/hubs/check-slug?hub_type=${hubType}&slug=${encodeURIComponent(slug)}`),
+    members: {
+      list: (hubId: string) => request<HubMember[]>(`/api/hubs/${hubId}/members`),
+      invite: (hubId: string, payload: { email: string; hub_role: HubRole }) =>
+        request<HubMember>(`/api/hubs/${hubId}/members`, { method: "POST", body: JSON.stringify(payload) }),
+      updateRole: (hubId: string, userId: string, hub_role: HubRole) =>
+        request<HubMember>(`/api/hubs/${hubId}/members/${userId}`, {
+          method: "PUT",
+          body: JSON.stringify({ hub_role }),
+        }),
+      remove: (hubId: string, userId: string) =>
+        request<void>(`/api/hubs/${hubId}/members/${userId}`, { method: "DELETE" }),
+    },
+    links: {
+      list: (hubId: string) => request<HubLink[]>(`/api/hubs/${hubId}/links`),
+      create: (hubId: string, payload: { target_hub_id: string; access_level: HubAccessLevel }) =>
+        request<HubLink>(`/api/hubs/${hubId}/links`, { method: "POST", body: JSON.stringify(payload) }),
+      revoke: (hubId: string, linkId: string) =>
+        request<void>(`/api/hubs/${hubId}/links/${linkId}`, { method: "DELETE" }),
+      dependents: (hubId: string) => request<HubLink[]>(`/api/hubs/${hubId}/dependents`),
+    },
+  },
 
-  // Visual Workflows (Hub Scoped)
-  getWorkflows: (hubId: string) => request<any[]>(`/api/hubs/${hubId}/workflows`),
-  createWorkflow: (hubId: string, data: { name: str; description?: string }) =>
-    request<any>(`/api/hubs/${hubId}/workflows`, { method: "POST", body: JSON.stringify(data) }),
-
-  // SyntraFlow Ingestion & Documents
-  ingestDocument: async (formData: FormData): Promise<IngestionResponse> => {
-    const config = getClientConfig();
-    const url = `${config.baseUrl}/api/syntraflow/ingest`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60000); // 60s for file uploads
-
-    try {
-      const res = await fetch(url, {
+  // Ingestion Hub API Namespace
+  ingestion: {
+    collections: {
+      list: (hubId: string) =>
+        request<{ status: string; collections: any[]; count: number }>(`/api/hubs/${hubId}/ingestion/collections`),
+      create: (hubId: string, payload: any) =>
+        request<{ status: string; collection: any }>(`/api/hubs/${hubId}/ingestion/collections`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }),
+      get: (hubId: string, collectionId: string) =>
+        request<{ status: string; collection: any }>(`/api/hubs/${hubId}/ingestion/collections/${collectionId}`),
+      delete: (hubId: string, collectionId: string) =>
+        request<{ status: string; message: string }>(`/api/hubs/${hubId}/ingestion/collections/${collectionId}`, {
+          method: "DELETE",
+        }),
+    },
+    datastores: {
+      list: (hubId: string) => request<DatastoreBinding[]>(`/api/hubs/${hubId}/ingestion/datastores`),
+      create: (hubId: string, payload: any) =>
+        request<DatastoreBinding>(`/api/hubs/${hubId}/ingestion/datastores`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }),
+    },
+    documents: {
+      list: (hubId: string, limit: number = 10, offset: number = 0) =>
+        request<PaginatedDocumentsResponse>(`/api/hubs/${hubId}/ingestion/documents?limit=${limit}&offset=${offset}`),
+      delete: (hubId: string, docId: string) =>
+        request<{ status: string; message: string }>(`/api/hubs/${hubId}/ingestion/documents/${docId}`, {
+          method: "DELETE",
+        }),
+      ingest: async (hubId: string, formData: FormData): Promise<IngestionResponse> => {
+        const config = getClientConfig();
+        const url = `${config.baseUrl}/api/hubs/${hubId}/ingestion/documents`;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 60000);
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "X-API-Key": config.apiKey },
+            body: formData,
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({ detail: res.statusText }));
+            const msg = err.detail || "Ingestion failed";
+            throw new Error(msg);
+          }
+          return res.json();
+        } catch (err: any) {
+          clearTimeout(timer);
+          throw err;
+        }
+      },
+    },
+    jobs: {
+      list: (hubId: string, status?: string, limit: number = 10, offset: number = 0) =>
+        request<PaginatedJobsResponse>(
+          `/api/hubs/${hubId}/ingestion/jobs?limit=${limit}&offset=${offset}${status ? `&status=${status}` : ""}`
+        ),
+      get: (hubId: string, jobId: string) =>
+        request<IngestionJobResponse>(`/api/hubs/${hubId}/ingestion/jobs/${jobId}`),
+    },
+    search: (hubId: string, payload: any) =>
+      request<any>(`/api/hubs/${hubId}/ingestion/search`, {
         method: "POST",
-        headers: { "X-API-Key": config.apiKey },
-        body: formData,
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        const msg = err.detail || "Ingestion request failed";
-        useStore.getState().addNotification({
-          type: "error",
-          title: "Ingestion Failed",
-          message: msg,
-        });
-        throw new Error(msg);
-      }
-      return res.json();
-    } catch (err: any) {
-      clearTimeout(timer);
-      throw err;
-    }
+        body: JSON.stringify(payload),
+      }),
   },
 
-  getDocuments: (limit: number = 10, offset: number = 0) =>
-    request<PaginatedDocumentsResponse>(`/api/syntraflow/documents?limit=${limit}&offset=${offset}`),
-  getJobs: (status?: string, limit: number = 10, offset: number = 0) => {
-    const statusParam = status ? `&status=${status}` : "";
-    return request<PaginatedJobsResponse>(`/api/syntraflow/jobs?limit=${limit}&offset=${offset}${statusParam}`);
+  // Agent Hub API Namespace
+  agents: {
+    list: (hubId: string) => request<AgentResponse[]>(`/api/hubs/${hubId}/agents`),
+    get: (hubId: string, agentId: string) => request<AgentResponse>(`/api/hubs/${hubId}/agents/${agentId}`),
+    create: (hubId: string, data: AgentCreatePayload) =>
+      request<AgentResponse>(`/api/hubs/${hubId}/agents`, { method: "POST", body: JSON.stringify(data) }),
+    update: (hubId: string, agentId: string, data: AgentUpdatePayload) =>
+      request<AgentResponse>(`/api/hubs/${hubId}/agents/${agentId}`, { method: "PUT", body: JSON.stringify(data) }),
+    delete: (hubId: string, agentId: string) =>
+      request<{ status: string; message: string }>(`/api/hubs/${hubId}/agents/${agentId}`, { method: "DELETE" }),
+    invoke: (hubId: string, agentId: string, payload: { prompt: string; session_id?: string }) =>
+      request<any>(`/api/hubs/${hubId}/agents/${agentId}/invoke`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
   },
-  getJobStatus: (jobId: string) =>
-    request<IngestionJobResponse>(`/api/syntraflow/jobs/${jobId}`),
-  getDocumentChunks: (docId: string, limit: number = 20, offset: number = 0) =>
-    request<PaginatedChunksResponse>(`/api/syntraflow/documents/${docId}/chunks?limit=${limit}&offset=${offset}`),
-  deleteDocument: (docId: string) =>
-    request<{ status: string; message: string; deleted_counts: Record<string, number> }>(
-      `/api/syntraflow/documents/${docId}`,
-      { method: "DELETE" }
-    ),
 
-  // EvalOps & Synthetic Generation
-  getEvalDashboard: () => request<EvalDashboardResponse>("/api/evalops/dashboard"),
-  getDashboardStats: (agentId?: string) =>
-    request<any>(`/api/evalops/dashboard/stats${agentId ? `?agent_id=${agentId}` : ""}`),
-  getDashboardTrends: (agentId?: string, days: number = 30) =>
-    request<any>(`/api/evalops/dashboard/trends?days=${days}${agentId ? `&agent_id=${agentId}` : ""}`),
-  getDashboardComparison: () => request<any>("/api/evalops/dashboard/comparison"),
+  // Workflow Hub API Namespace
+  workflows: {
+    list: (hubId: string) => request<WorkflowResponse[]>(`/api/hubs/${hubId}/workflows`),
+    get: (hubId: string, workflowId: string) =>
+      request<WorkflowResponse>(`/api/hubs/${hubId}/workflows/${workflowId}`),
+    create: (hubId: string, data: WorkflowCreatePayload) =>
+      request<WorkflowResponse>(`/api/hubs/${hubId}/workflows`, { method: "POST", body: JSON.stringify(data) }),
+    update: (hubId: string, workflowId: string, data: Partial<WorkflowCreatePayload>) =>
+      request<WorkflowResponse>(`/api/hubs/${hubId}/workflows/${workflowId}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    delete: (hubId: string, workflowId: string) =>
+      request<any>(`/api/hubs/${hubId}/workflows/${workflowId}`, { method: "DELETE" }),
+    run: (hubId: string, workflowId: string, inputData: any) =>
+      request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/runs`, {
+        method: "POST",
+        body: JSON.stringify(inputData),
+      }),
+  },
 
-  // EvalOps Test Suite & Case Management (S5-01g)
-  listSuites: (agentId?: string) =>
-    request<any>(`/api/evalops/suites${agentId ? `?agent_id=${agentId}` : ""}`),
-  getSuite: (suiteId: string) => request<any>(`/api/evalops/suites/${suiteId}`),
-  createSuite: (data: { agent_id: string; name: string; description?: string }) =>
-    request<any>("/api/evalops/suites", { method: "POST", body: JSON.stringify(data) }),
-  updateSuite: (suiteId: string, data: { name?: string; description?: string }) =>
-    request<any>(`/api/evalops/suites/${suiteId}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteSuite: (suiteId: string) => request<any>(`/api/evalops/suites/${suiteId}`, { method: "DELETE" }),
-  cloneSuite: (suiteId: string, newName?: string) =>
-    request<any>(`/api/evalops/suites/${suiteId}/clone${newName ? `?new_name=${encodeURIComponent(newName)}` : ""}`, {
-      method: "POST",
-    }),
-
-  addTestCase: (suiteId: string, data: { input_query: string; expected_output?: string; expected_context?: string }) =>
-    request<any>(`/api/evalops/suites/${suiteId}/cases`, { method: "POST", body: JSON.stringify(data) }),
-  listTestCases: (suiteId: string) => request<any>(`/api/evalops/suites/${suiteId}/cases`),
-  updateTestCase: (caseId: string, data: { input_query?: string; expected_output?: string; expected_context?: string }) =>
-    request<any>(`/api/evalops/cases/${caseId}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteTestCase: (caseId: string) => request<any>(`/api/evalops/cases/${caseId}`, { method: "DELETE" }),
-  importSuiteCasesJson: (suiteId: string, jsonPayload: any[]) =>
-    request<any>(`/api/evalops/suites/${suiteId}/import`, { method: "POST", body: JSON.stringify(jsonPayload) }),
-  exportSuiteCases: (suiteId: string) => request<any>(`/api/evalops/suites/${suiteId}/export`),
-
-  // Enhanced Eval Run Trigger & Metric Drill-Down (S5-01h)
-  generateSyntheticCases: (agentId: string, count: number = 10) =>
-    request<{ status: string; cases: TestCaseResponse[] }>("/api/evalops/generate", {
-      method: "POST",
-      body: JSON.stringify({ agent_id: agentId, count }),
-    }),
-  triggerEvalRunEnhanced: (data: {
-    agent_id: string;
-    suite_id?: string;
-    framework?: string;
-    metrics?: string[];
-    thresholds?: Record<string, number>;
-  }) =>
-    request<any>("/api/evalops/run", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
-  triggerEvalRun: (agentId: string, suiteId?: string) =>
-    request<EvalRunResponse>("/api/evalops/run", {
-      method: "POST",
-      body: JSON.stringify({ agent_id: agentId, suite_id: suiteId }),
-    }),
-  getEvalRuns: (agentId: string) => request<EvalRunResponse[]>(`/api/evalops/runs/${agentId}`),
-  getRunMetrics: (runId: string) => request<any>(`/api/evalops/runs/detail/${runId}/metrics`),
-  getEvalTestCases: (agentId: string) => request<TestCaseResponse[]>(`/api/evalops/test-cases/${agentId}`),
+  // Eval Hub API Namespace
+  evals: {
+    suites: {
+      list: (hubId: string, params?: { target_type?: string; target_id?: string; q?: string }) => {
+        const query = new URLSearchParams();
+        if (params?.target_type) query.append("target_type", params.target_type);
+        if (params?.target_id) query.append("target_id", params.target_id);
+        if (params?.q) query.append("q", params.q);
+        const qs = query.toString();
+        return request<any[]>(`/api/hubs/${hubId}/eval/suites${qs ? `?${qs}` : ""}`);
+      },
+      get: (hubId: string, suiteId: string) => request<any>(`/api/hubs/${hubId}/eval/suites/${suiteId}`),
+      create: (hubId: string, data: any) =>
+        request<any>(`/api/hubs/${hubId}/eval/suites`, { method: "POST", body: JSON.stringify(data) }),
+      update: (hubId: string, suiteId: string, data: any) =>
+        request<any>(`/api/hubs/${hubId}/eval/suites/${suiteId}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (hubId: string, suiteId: string) =>
+        request<any>(`/api/hubs/${hubId}/eval/suites/${suiteId}`, { method: "DELETE" }),
+      clone: (hubId: string, suiteId: string) =>
+        request<any>(`/api/hubs/${hubId}/eval/suites/${suiteId}/clone`, { method: "POST" }),
+    },
+    cases: {
+      list: (hubId: string, suiteId: string) =>
+        request<any[]>(`/api/hubs/${hubId}/eval/suites/${suiteId}/cases`),
+      add: (hubId: string, suiteId: string, data: any) =>
+        request<any>(`/api/hubs/${hubId}/eval/suites/${suiteId}/cases`, {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      update: (hubId: string, suiteId: string, caseId: string, data: any) =>
+        request<any>(`/api/hubs/${hubId}/eval/suites/${suiteId}/cases/${caseId}`, {
+          method: "PUT",
+          body: JSON.stringify(data),
+        }),
+      delete: (hubId: string, suiteId: string, caseId: string) =>
+        request<any>(`/api/hubs/${hubId}/eval/suites/${suiteId}/cases/${caseId}`, { method: "DELETE" }),
+    },
+    runs: {
+      create: (hubId: string, payload: { suite_id: string; framework?: string; async?: boolean }) =>
+        request<any>(`/api/hubs/${hubId}/eval/runs`, { method: "POST", body: JSON.stringify(payload) }),
+      list: (hubId: string, params?: any) => {
+        const query = new URLSearchParams(params || {}).toString();
+        return request<any[]>(`/api/hubs/${hubId}/eval/runs${query ? `?${query}` : ""}`);
+      },
+      get: (hubId: string, runId: string) => request<any>(`/api/hubs/${hubId}/eval/runs/${runId}`),
+      traces: (hubId: string, runId: string) => request<any>(`/api/hubs/${hubId}/eval/runs/${runId}/traces`),
+    },
+    dashboard: {
+      stats: (hubId: string, params?: any) => {
+        const query = new URLSearchParams(params || {}).toString();
+        return request<EvalDashboardResponse>(
+          `/api/hubs/${hubId}/eval/dashboard/stats${query ? `?${query}` : ""}`
+        );
+      },
+      trends: (hubId: string, days: number = 30) =>
+        request<any>(`/api/hubs/${hubId}/eval/dashboard/trends?days=${days}`),
+      comparison: (hubId: string) => request<any>(`/api/hubs/${hubId}/eval/dashboard/comparison`),
+    },
+  },
 
   // Auth & RBAC
   getMe: () => request<any>("/auth/me"),
   logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
-  listUsers: (params?: { status?: string; platform_role?: string; hub_id?: string; q?: string; limit?: number; offset?: number }) => {
+  listUsers: (params?: {
+    status?: string;
+    platform_role?: string;
+    hub_id?: string;
+    q?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
     const query = new URLSearchParams();
     if (params?.status) query.append("status", params.status);
     if (params?.platform_role) query.append("platform_role", params.platform_role);
@@ -320,8 +462,7 @@ export const api = {
       body: JSON.stringify({ reason }),
     }),
 
-
-  // Playground API (S5-04a, S5-04b, S5-04c)
+  // Playground API
   playgroundChat: (payload: {
     model_id: string;
     messages: any[];
@@ -362,7 +503,7 @@ export const api = {
     request<any>(`/api/playground/sessions/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deletePlaygroundSession: (id: string) => request<any>(`/api/playground/sessions/${id}`, { method: "DELETE" }),
 
-  // --- MCP Integration Hub APIs ---
+  // MCP Integration Hub APIs
   getMCPServers: () => request<MCPServer[]>("/api/mcp/servers"),
   createMCPServer: (payload: MCPServerCreatePayload) =>
     request<MCPServer>("/api/mcp/servers", { method: "POST", body: JSON.stringify(payload) }),
@@ -380,48 +521,4 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ parameters }),
     }),
-
-  // Global Data Store & Dynamic Collections APIs (S5-08)
-  getCollections: (tenantId?: string) =>
-    request<{ status: string; collections: any[]; count: number }>(
-      tenantId ? `/api/syntraflow/collections?tenant_id=${tenantId}` : "/api/syntraflow/collections"
-    ),
-  createCollection: (payload: {
-    name: string;
-    tenant_id?: string;
-    embedding_model?: string;
-    vector_dimension?: number;
-    description?: string;
-  }) =>
-    request<{ status: string; collection: any }>("/api/syntraflow/collections", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-  getCollectionDetails: (id: string) =>
-    request<{ status: string; collection: any }>(`/api/syntraflow/collections/${id}`),
-  deleteCollection: (id: string) =>
-    request<{ status: string; message: string }>(`/api/syntraflow/collections/${id}`, {
-      method: "DELETE",
-    }),
-  queryRetrievalEngine: (payload: {
-    query: string;
-    collection_name?: string;
-    strategy?: string;
-    limit?: number;
-    filters?: Record<string, any>;
-  }) =>
-    request<{ status: string; query: string; strategy: string; results: any[]; count: number }>(
-      "/api/syntraflow/query",
-      {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }
-    ),
-
-  // Multi-Agent Flow Evaluation Tracing API (S5-10)
-  getRunFlowTraces: (runId: string) =>
-    request<{ run_id: string; count: number; traces: any[] }>(`/api/evalops/runs/${runId}/traces`),
 };
-
-
-
