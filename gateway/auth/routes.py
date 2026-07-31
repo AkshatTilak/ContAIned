@@ -27,6 +27,7 @@ from gateway.auth.passwords import (
 from common.observability.limiter import limiter
 from gateway.auth.signup_service import resolve_signup
 from gateway.auth.utils import create_access_token, hash_token, normalize_email, revoke_sessions
+from gateway.auth.providers import oauth, build_state, parse_state
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
@@ -126,7 +127,7 @@ async def oauth_login(
             )
 
     signed_state = build_state({"invite_token": invite_token, "redirect": redirect})
-    redirect_uri = request.url_for("oauth_callback", provider=provider)
+    redirect_uri = str(request.url_for("oauth_callback", provider=provider))
     return await client.authorize_redirect(request, redirect_uri, state=signed_state)
 
 
@@ -157,13 +158,16 @@ async def oauth_callback(
 
     try:
         profile = await fetch_profile(provider, client, token)
+        client_ip = request.client.host if request.client else None
+        user, is_new = await resolve_identity(db, profile, invite_token=invite_token, ip_address=client_ip)
     except HTTPException as exc:
         if exc.status_code == 400 and "email" in str(exc.detail).lower():
             return RedirectResponse(url=f"{public_url}/login?error=email_not_verified")
-        raise exc
-
-    client_ip = request.client.host if request.client else None
-    user, is_new = await resolve_identity(db, profile, invite_token=invite_token, ip_address=client_ip)
+        detail_str = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        return RedirectResponse(url=f"{public_url}/login?error=auth_failed&detail={detail_str}")
+    except Exception as exc:
+        logger.error(f"OAuth identity resolution failed for {provider}: {exc}")
+        return RedirectResponse(url=f"{public_url}/login?error=auth_failed&detail={str(exc)}")
 
     if user.status != "active":
         reason_map = {
@@ -174,7 +178,7 @@ async def oauth_callback(
         reason_code = reason_map.get(user.status, "ACCOUNT_NOT_ACTIVE")
         return RedirectResponse(url=f"{public_url}/auth/pending?reason={reason_code}&email={user.email}")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     user.last_login = now
     await db.commit()
 
@@ -278,7 +282,7 @@ async def unlink_identity(
 
     await db.delete(target_identity)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     client_ip = request.client.host if request.client else None
     audit = AuditLog(
         id=str(uuid.uuid4()),
@@ -352,7 +356,7 @@ async def register_user(
 
     initial_status, initial_role, invite = await resolve_signup(db, norm_email)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     user_id = str(uuid.uuid4())
 
     user = User(
@@ -405,7 +409,7 @@ async def login_user(
     user = res.scalar_one_or_none()
 
     password_valid = verify_password(payload.password, user.password_hash if user else None)
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     if user and user.locked_until:
         locked_until_utc = user.locked_until.replace(tzinfo=timezone.utc) if user.locked_until.tzinfo is None else user.locked_until
@@ -500,7 +504,7 @@ async def change_password(
 
     validate_password_policy(payload.new_password, user.email)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     user.password_hash = hash_password(payload.new_password)
     user.password_updated_at = now
 
@@ -543,7 +547,7 @@ async def forgot_password(
     user = res.scalar_one_or_none()
 
     if user:
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         del_stmt = select(PasswordResetToken).where(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
         old_tokens = (await db.execute(del_stmt)).scalars().all()
         for t in old_tokens:
@@ -576,7 +580,7 @@ async def reset_password(
 ):
     """Reset password using a single-use reset token."""
     token_hash = hashlib.sha256(payload.token.encode("utf-8")).hexdigest()
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     stmt = select(PasswordResetToken).where(
         PasswordResetToken.token_hash == token_hash,
@@ -648,7 +652,7 @@ async def accept_invite(
     )
 
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     jwt_token = create_access_token(user_id=user.id, email=user.email, platform_role=user.platform_role)
     token_h = hash_token(jwt_token)
     expires_at = now + timedelta(hours=24)

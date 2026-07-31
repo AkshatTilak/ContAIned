@@ -42,7 +42,7 @@ from projects.syntraflow.src.ingestion.pipeline import (
 )
 from projects.syntraflow.src.retrieval import RetrievalEngine
 
-router = APIRouter(prefix="/hubs/{hub_id}", tags=["ingestion-hub"])
+router = APIRouter(prefix="/hubs/{hub_id}/ingestion", tags=["ingestion-hub"])
 logger = logging.getLogger("gateway.api.ingestion_hub")
 
 # Upload constraints

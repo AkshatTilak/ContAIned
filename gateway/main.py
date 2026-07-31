@@ -156,8 +156,19 @@ from gateway.api.proxy import router as proxy_router
 from gateway.api.external import router as external_v1_router
 from gateway.api.admin_users import router as admin_users_router
 
+from starlette.middleware.sessions import SessionMiddleware
+
 init_oauth()
 
+is_prod = getattr(settings, "APP_ENV", "development") == "production"
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=getattr(settings, "JWT_SECRET_KEY", "default-dev-secret-key-change-in-prod"),
+    session_cookie="contained_session",
+    max_age=14400,
+    same_site="lax",
+    https_only=is_prod,
+)
 app.add_middleware(APIKeyMiddleware)
 app.add_middleware(AuthMiddleware)
 

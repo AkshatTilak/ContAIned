@@ -13,6 +13,7 @@ COPY pyproject.toml poetry.lock* ./
 
 # Configure poetry to install to a local virtualenv
 RUN poetry config virtualenvs.in-project true \
+    && poetry env use python3.11 \
     && (poetry check || poetry lock) \
     && poetry install --no-interaction --no-ansi --no-root \
     --extras "syntraflow" --extras "guardroute" --extras "evalops"
@@ -31,22 +32,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN groupadd -g 10001 appgroup && \
     useradd -u 10001 -g appgroup -d /app -s /bin/bash appuser
 
-# Copy virtualenv and application files from builder
-COPY --from=builder /app/.venv /app/.venv
-COPY common/ common/
-COPY gateway/ gateway/
-COPY projects/ projects/
-COPY inference/__init__.py inference/__init__.py
-COPY alembic.ini alembic.ini
-COPY migrations/ migrations/
-COPY .env.example .env.example
+# Copy virtualenv and application files from builder with proper ownership
+COPY --chown=appuser:appgroup --from=builder /app/.venv /app/.venv
+COPY --chown=appuser:appgroup common/ common/
+COPY --chown=appuser:appgroup gateway/ gateway/
+COPY --chown=appuser:appgroup projects/ projects/
+COPY --chown=appuser:appgroup inference/__init__.py inference/__init__.py
+COPY --chown=appuser:appgroup alembic.ini alembic.ini
+COPY --chown=appuser:appgroup migrations/ migrations/
+COPY --chown=appuser:appgroup .env.example .env.example
 
 # Set path to use virtualenv binaries
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
-
-# Change ownership of app files to non-root user
-RUN chown -R appuser:appgroup /app
 
 USER appuser
 

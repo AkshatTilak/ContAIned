@@ -26,22 +26,26 @@ class ModelSelectRequest(BaseModel):
 @router.get("/registry")
 async def get_full_registry(db: AsyncSession = Depends(get_async_db)) -> dict:
     """Fetch all models in the database registry grouped by role, indicating active status."""
-    roles = ["ocr", "asr", "embedding", "classifier", "completion"]
-    registry_data = {}
-    for role in roles:
-        available = await list_available(role, db=db)
-        try:
-            active = await get_active_model(role, db=db)
-            active_dump = active.model_dump() if active else None
-        except Exception as e:
-            logger.warning("No active model resolved for role %s: %s", role, e)
-            active_dump = None
-            
-        registry_data[role] = {
-            "active": active_dump,
-            "available": [m.model_dump() for m in available]
-        }
-    return registry_data
+    try:
+        roles = ["ocr", "asr", "embedding", "classifier", "completion"]
+        registry_data = {}
+        for role in roles:
+            available = await list_available(role, db=db)
+            try:
+                active = await get_active_model(role, db=db)
+                active_dump = active.model_dump(mode="json") if active else None
+            except Exception as e:
+                logger.warning("No active model resolved for role %s: %s", role, e)
+                active_dump = None
+                
+            registry_data[role] = {
+                "active": active_dump,
+                "available": [m.model_dump(mode="json") for m in available]
+            }
+        return registry_data
+    except Exception as e:
+        logger.error("Error in get_full_registry: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to fetch model registry: {str(e)}")
 
 
 @router.post("/select")

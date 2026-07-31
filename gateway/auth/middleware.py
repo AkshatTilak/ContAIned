@@ -58,20 +58,31 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path
 
+        # Bypass OPTIONS requests (CORS preflights)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Skip exempt endpoints
         for prefix in WHITELIST_PREFIXES:
             if path.startswith(prefix):
                 return await call_next(request)
 
-        # Extract token from Authorization header or cookie
+        # Extract token from Authorization header, cookie, or query parameter
         token: str = ""
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header[7:].strip()
         elif "auth_token" in request.cookies:
             token = request.cookies["auth_token"]
+        elif "token" in request.query_params:
+            token = request.query_params["token"]
+        elif "auth_token" in request.query_params:
+            token = request.query_params["auth_token"]
 
         if not token:
+            # If X-API-Key is provided, delegate authentication to verify_api_key / APIKeyMiddleware
+            if request.headers.get("X-API-Key") or request.headers.get("x-api-key"):
+                return await call_next(request)
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Missing authentication credentials"},
@@ -83,10 +94,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
             if user_id:
                 try:
-                    from common.clients.postgres import get_async_db
+                    from common.clients.postgres import get_sessionmaker
                     from common.models.database import User
-                    db_gen = request.app.dependency_overrides.get(get_async_db, get_async_db)
-                    async for db in db_gen():
+                    session_factory = get_sessionmaker()
+                    async with session_factory() as db:
                         user_obj = await db.get(User, user_id)
                         if user_obj and user_obj.status != "active":
                             reason_map = {
@@ -99,7 +110,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
                                 status_code=403,
                                 content={"detail": {"reason": reason_code, "status": user_obj.status}},
                             )
-                        break
                 except Exception as exc:
                     logger.debug(f"User status DB re-verification skipped: {exc}")
 

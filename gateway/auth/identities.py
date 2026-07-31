@@ -30,9 +30,16 @@ async def fetch_profile(provider: str, client: Any, token: Dict[str, Any]) -> OA
     """Fetch and normalise profile data from an OAuth provider."""
     if provider == "google":
         user_info = token.get("userinfo") or {}
+        if not user_info or not user_info.get("email"):
+            try:
+                resp = await client.get("https://www.googleapis.com/oauth2/v3/userinfo", token=token)
+                user_info = resp.json() if hasattr(resp, "json") else resp
+            except Exception as e:
+                logger.warning(f"Failed to fetch Google userinfo directly: {e}")
+
         email = (user_info.get("email") or "").strip().lower()
-        provider_id = str(user_info.get("sub") or "")
-        email_verified = bool(user_info.get("email_verified", False))
+        provider_id = str(user_info.get("sub") or user_info.get("id") or "")
+        email_verified = bool(user_info.get("email_verified", True))
         display_name = user_info.get("name")
         avatar_url = user_info.get("picture")
 
@@ -124,7 +131,7 @@ async def resolve_identity(
 
     Returns (user, is_new_account).
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     # 1. Match existing (provider, provider_id) in user_identities
     stmt = select(UserIdentity).where(
@@ -188,8 +195,8 @@ async def resolve_identity(
 
     settings = get_settings()
 
-    # 4. Bootstrap check
-    count_stmt = select(func.count(User.id))
+    # 4. Bootstrap check (exclude internal system account)
+    count_stmt = select(func.count(User.id)).where(User.email != "system@contained.local")
     user_count = (await db.execute(count_stmt)).scalar() or 0
 
     if user_count == 0:

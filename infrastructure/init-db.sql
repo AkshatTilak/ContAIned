@@ -1,8 +1,9 @@
 -- Database Initialization Script for ContAIned Platform
--- This script runs automatically inside the postgres container on startup.
+-- Note: Dynamic initialization with environment variables is handled via init-db.sh in docker-entrypoint-initdb.d
+-- This SQL file serves as standard documentation of default schema permissions.
 
 -- Create a dedicated non-superuser application user
-CREATE USER contained_app_user WITH PASSWORD 'app_pass_changeme';
+-- CREATE USER contained_app_user WITH PASSWORD '${POSTGRES_PASSWORD}';
 
 -- Grant connection permissions
 GRANT CONNECT ON DATABASE contained_platform TO contained_app_user;

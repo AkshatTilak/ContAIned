@@ -128,7 +128,7 @@ async def create_invites(
     settings = get_settings()
     default_ttl = getattr(settings, "INVITE_TTL_HOURS", 72)
     effective_ttl = ttl_hours if ttl_hours is not None else default_ttl
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     expires_at = now + timedelta(hours=effective_ttl)
 
     # Deduplicate input emails
@@ -234,7 +234,7 @@ async def get_invite_preview(db: AsyncSession, raw_token: str) -> InvitePreview:
             detail="Invite already accepted",
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     exp_utc = invite.expires_at.replace(tzinfo=timezone.utc) if invite.expires_at.tzinfo is None else invite.expires_at
 
     if invite.status in ("revoked", "expired") or exp_utc <= now:
@@ -317,7 +317,7 @@ async def redeem_invite(
             detail="Invite already accepted",
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     exp_utc = invite.expires_at.replace(tzinfo=timezone.utc) if invite.expires_at.tzinfo is None else invite.expires_at
 
     if invite.status in ("revoked", "expired") or exp_utc <= now:
@@ -415,7 +415,7 @@ async def resend_invite(
     raw_token, token_h = generate_invite_token()
     settings = get_settings()
     ttl = getattr(settings, "INVITE_TTL_HOURS", 72)
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
 
     invite.token_hash = token_h
     invite.expires_at = now + timedelta(hours=ttl)
@@ -459,7 +459,7 @@ async def revoke_invite(
             detail="Pending invite not found",
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     invite.status = "revoked"
 
     audit = AuditLog(
@@ -477,7 +477,7 @@ async def revoke_invite(
 
 async def sweep_expired_invites(db: AsyncSession) -> int:
     """Background task to transition past-due pending invites to expired."""
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     stmt = select(UserInvite).where(
         UserInvite.status == "pending",
         UserInvite.expires_at < now,

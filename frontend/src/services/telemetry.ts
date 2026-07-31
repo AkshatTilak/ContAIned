@@ -26,13 +26,17 @@ function getGatewayUrls(): { wsUrl: string; sseUrl: string } {
   try {
     const parsedUrl = new URL(baseUrl);
     const wsProtocol = parsedUrl.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${wsProtocol}//${parsedUrl.host}/api/telemetry/ws`;
-    const sseUrl = `${parsedUrl.protocol}//${parsedUrl.host}/api/telemetry/stream`;
+    const token = localStorage.getItem("contained_auth_token");
+    const query = token ? `?token=${encodeURIComponent(token)}` : "";
+    const wsUrl = `${wsProtocol}//${parsedUrl.host}/api/telemetry/ws${query}`;
+    const sseUrl = `${parsedUrl.protocol}//${parsedUrl.host}/api/telemetry/stream${query}`;
     return { wsUrl, sseUrl };
   } catch {
+    const token = localStorage.getItem("contained_auth_token");
+    const query = token ? `?token=${encodeURIComponent(token)}` : "";
     return {
-      wsUrl: "ws://localhost:8000/api/telemetry/ws",
-      sseUrl: "http://localhost:8000/api/telemetry/stream",
+      wsUrl: `ws://localhost:8000/api/telemetry/ws${query}`,
+      sseUrl: `http://localhost:8000/api/telemetry/stream${query}`,
     };
   }
 }

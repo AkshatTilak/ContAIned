@@ -23,6 +23,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     """Middleware for validating API keys and rate limits on `/v1/*` routes."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        # Bypass OPTIONS requests (CORS preflights)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Only apply to /v1/* endpoints
         path = request.url.path
         if not path.startswith("/v1"):

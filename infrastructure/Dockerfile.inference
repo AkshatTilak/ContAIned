@@ -1,42 +1,39 @@
 # --- Builder Stage ---
-FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS builder
-
-ENV DEBIAN_FRONTEND=noninteractive
+FROM python:3.11.9-slim AS builder
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 python3.11-venv python3-pip python3.11-dev \
     build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir poetry==2.0.1
+RUN pip install --no-cache-dir poetry==2.0.1 poetry-plugin-export
 
 COPY pyproject.toml poetry.lock* ./
 
 # Configure poetry to install to a local virtualenv
 RUN poetry config virtualenvs.in-project true \
+    && poetry env use python3.11 \
     && (poetry check || poetry lock) \
-    && poetry install --no-interaction --no-ansi --no-root --extras "inference"
+    && poetry export --without-hashes --format=requirements.txt --extras=inference -o requirements.txt \
+    && sed -i '/nvidia-/d' requirements.txt \
+    && sed -i '/torch/d' requirements.txt \
+    && .venv/bin/pip install --no-cache-dir -r requirements.txt \
+    && .venv/bin/pip install --no-cache-dir torch==2.3.0 --index-url https://download.pytorch.org/whl/cpu
 
 # --- Final Runner Stage ---
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runner
+FROM python:3.11.9-slim AS runner
 
-ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.11 python3.11-venv python3-pip \
-    && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user and group
 RUN groupadd -g 10001 appgroup && \
     useradd -u 10001 -g appgroup -d /app -s /bin/bash appuser
 
-# Copy virtualenv and application files from builder
-COPY --from=builder /app/.venv /app/.venv
-COPY common/ common/
-COPY inference/ inference/
+# Copy virtualenv and application files from builder with proper ownership
+COPY --chown=appuser:appgroup --from=builder /app/.venv /app/.venv
+COPY --chown=appuser:appgroup common/ common/
+COPY --chown=appuser:appgroup inference/ inference/
 
 # Create models cache directory and assign ownership
 RUN mkdir -p /app/models && \
@@ -45,9 +42,6 @@ RUN mkdir -p /app/models && \
 # Set path to use virtualenv binaries
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
-
-# Change ownership of app files to non-root user
-RUN chown -R appuser:appgroup /app
 
 USER appuser
 

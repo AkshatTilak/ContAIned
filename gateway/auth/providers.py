@@ -77,7 +77,6 @@ def init_oauth():
                 server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
                 client_kwargs={
                     "scope": "openid email profile",
-                    "code_challenge_method": "S256",
                 },
             )
             logger.info("Google OAuth provider registered")

@@ -85,9 +85,30 @@ const UserBadge: React.FC = () => {
 
   if (!isAuthEnabled) {
     return (
-      <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-purple-950/30 border border-purple-800/40 text-purple-300 text-xs font-medium">
-        <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.6)]" />
-        <span>Local Admin</span>
+      <div className="relative">
+        <button
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-[var(--bg-input)] hover:bg-[var(--bg-elevated)] border border-[var(--border-default)] transition-all cursor-pointer"
+        >
+          <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.6)]" />
+          <span className="text-xs font-medium text-purple-300">Local Admin</span>
+        </button>
+
+        {isOpen && (
+          <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-xl shadow-xl p-2 z-50 flex flex-col gap-1 text-xs">
+            <div className="px-3 py-2 border-b border-slate-800/80 mb-1">
+              <p className="font-semibold text-slate-200">Authentication Disabled</p>
+              <p className="text-[10px] text-slate-400 mt-1">System is running in local mode.</p>
+            </div>
+            <Link
+              to="/settings"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-800/60 text-slate-300 hover:text-slate-200 text-left transition-colors cursor-pointer"
+            >
+              Gateway Settings
+            </Link>
+          </div>
+        )}
       </div>
     );
   }

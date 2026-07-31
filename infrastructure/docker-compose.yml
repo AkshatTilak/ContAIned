@@ -8,11 +8,14 @@ services:
     environment:
       POSTGRES_DB: contained_platform
       POSTGRES_USER: contained
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contained_pass}
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-contained_app_user}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-${POSTGRES_PASSWORD:-contained_pass}}
     ports: ["5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./init-db.sh:/docker-entrypoint-initdb.d/01-init-db.sh
+      - ./init-db.sql:/docker-entrypoint-initdb.d/02-init-db.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U contained -d contained_platform"]
       interval: 5s
@@ -73,12 +76,12 @@ services:
       - "7474:7474" # HTTP port
       - "7687:7687" # Bolt port
     environment:
-      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-changeme}
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-contained_pass}
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
     healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-changeme}", "RETURN 1"]
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${NEO4J_PASSWORD:-contained_pass}", "RETURN 1"]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -172,7 +175,7 @@ services:
     env_file: ../.env
     environment:
       INFERENCE_SERVER_URL: http://inference:8010
-      DATABASE_URL: postgresql+asyncpg://contained:${POSTGRES_PASSWORD:-changeme}@postgres:5432/contained_platform
+      DATABASE_URL: postgresql+asyncpg://contained:${POSTGRES_PASSWORD:-contained_pass}@postgres:5432/contained_platform
       QDRANT_URL: http://qdrant:6333
       NEO4J_URL: bolt://neo4j:7687
       REDIS_URL: redis://redis:6379
@@ -184,6 +187,9 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+    volumes:
+      - ../gateway:/app/gateway
+      - ../common:/app/common
     command: uvicorn gateway.main:app --host 0.0.0.0 --port 8000 --reload
     deploy:
       resources:
@@ -203,6 +209,14 @@ services:
     profiles: ["app"]
     ports: ["8010:8010"]
     env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://contained:${POSTGRES_PASSWORD:-contained_pass}@postgres:5432/contained_platform
+      QDRANT_URL: http://qdrant:6333
+      NEO4J_URL: bolt://neo4j:7687
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - ../models:/app/models
     command: uvicorn inference.main:app --host 0.0.0.0 --port 8010
@@ -219,12 +233,31 @@ services:
   # ──────────────────────────────────────────────
   otel-collector:
     image: otel/opentelemetry-collector:latest
+    ports:
+      - "4317:4317"
+      - "4318:4318"
     profiles: ["observability"]
     deploy:
       resources:
         limits:
           memory: 256m
     restart: unless-stopped
+    networks:
+      - contained_net
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    profiles: ["observability"]
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    restart: unless-stopped
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root /mlflow-artifacts
+    volumes:
+      - mlflow_data:/mlflow-artifacts
     networks:
       - contained_net
 
@@ -288,7 +321,7 @@ services:
     environment:
       GATEWAY_URL: http://gateway:8000
       INFERENCE_SERVER_URL: http://inference:8010
-      DATABASE_URL: postgresql+asyncpg://contained:${POSTGRES_PASSWORD:-changeme}@postgres:5432/contained_platform
+      DATABASE_URL: postgresql+asyncpg://contained:${POSTGRES_PASSWORD:-contained_pass}@postgres:5432/contained_platform
       QDRANT_URL: http://qdrant:6333
       NEO4J_URL: bolt://neo4j:7687
     depends_on: [gateway, inference]
@@ -312,3 +345,4 @@ volumes:
   neo4j_logs:
   redis_data:
   kafka_data:
+  mlflow_data:

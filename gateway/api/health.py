@@ -130,6 +130,7 @@ async def health_check() -> dict:
         "status": "healthy",
         "platform_version": getattr(settings, "PLATFORM_VERSION", "3.0.0"),
         "environment": settings.APP_ENV,
+        "auth_enabled": getattr(settings, "AUTH_ENABLED", False),
         "active_projects": settings.ACTIVE_PROJECTS,
         "services": {
             "gateway": "connected",
