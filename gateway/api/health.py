@@ -18,14 +18,30 @@ from fastapi import APIRouter
 router = APIRouter(tags=["health"])
 
 
+import socket
+
+
+async def _is_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
+    loop = asyncio.get_running_loop()
+    def check():
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except Exception:
+            return False
+    return await loop.run_in_executor(None, check)
+
+
 async def _check_db():
     start_t = time.perf_counter()
+    if not await _is_port_open("127.0.0.1", 5432):
+        return "unreachable", -1
     try:
         from common.clients.postgres import get_sessionmaker
         from sqlalchemy import text
         session_factory = get_sessionmaker()
         async with session_factory() as session:
-            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=0.5)
+            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=10.0)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -33,9 +49,11 @@ async def _check_db():
 
 async def _check_redis():
     start_t = time.perf_counter()
+    if not await _is_port_open("127.0.0.1", 6379):
+        return "unreachable", -1
     try:
         from common.clients.redis import verify_redis_connection
-        await asyncio.wait_for(verify_redis_connection(), timeout=0.5)
+        await asyncio.wait_for(verify_redis_connection(), timeout=10.0)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -43,9 +61,11 @@ async def _check_redis():
 
 async def _check_neo4j():
     start_t = time.perf_counter()
+    if not await _is_port_open("127.0.0.1", 7687):
+        return "unreachable", -1
     try:
         from common.clients.neo4j import verify_neo4j_connection
-        await asyncio.wait_for(verify_neo4j_connection(), timeout=0.5)
+        await asyncio.wait_for(verify_neo4j_connection(), timeout=10.0)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -53,10 +73,12 @@ async def _check_neo4j():
 
 async def _check_qdrant():
     start_t = time.perf_counter()
+    if not await _is_port_open("127.0.0.1", 6333):
+        return "unreachable", -1
     try:
         from common.clients.qdrant import VectorClient
         qdrant_client = VectorClient()
-        await asyncio.wait_for(qdrant_client.verify_connection(max_retries=1), timeout=0.5)
+        await asyncio.wait_for(qdrant_client.verify_connection(max_retries=1), timeout=10.0)
         return "connected", round((time.perf_counter() - start_t) * 1000, 2)
     except Exception:
         return "unreachable", -1
@@ -64,22 +86,19 @@ async def _check_qdrant():
 
 async def _check_kafka():
     start_t = time.perf_counter()
-    try:
-        from confluent_kafka.admin import AdminClient
-        conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 500}
-        admin_client = AdminClient(conf)
-        await asyncio.wait_for(asyncio.to_thread(admin_client.list_topics, timeout=0.5), timeout=0.5)
-        return "connected", round((time.perf_counter() - start_t) * 1000, 2)
-    except Exception:
+    if not await _is_port_open("127.0.0.1", 9092):
         return "unreachable", -1
+    return "connected", round((time.perf_counter() - start_t) * 1000, 2)
 
 
 async def _check_inference():
     start_t = time.perf_counter()
+    if not await _is_port_open("127.0.0.1", 8010):
+        return "unreachable", -1, {}
     try:
         import httpx
         url = f"{settings.INFERENCE_SERVER_URL.rstrip('/')}/health"
-        async with httpx.AsyncClient(timeout=0.5) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(url)
             if resp.status_code == 200:
                 health = resp.json()

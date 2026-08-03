@@ -20,7 +20,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({
     return <>{children}</>;
   }
 
-  const userRole = user?.role || "viewer";
+  const userRole = user?.platform_role || user?.role || "viewer";
 
   const hasAccess =
     userRole === "admin" || roles.includes(userRole);

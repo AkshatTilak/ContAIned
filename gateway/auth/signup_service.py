@@ -35,8 +35,10 @@ async def resolve_signup(db: AsyncSession, email: str) -> Tuple[str, str, UserIn
     if invite:
         return ("active", invite.platform_role or PLATFORM_ROLE_MEMBER, invite)
 
-    # 2. Check if first user in system
-    count_stmt = select(func.count(User.id))
+    # 2. Check if first human user in system (exclude system/synthetic account)
+    count_stmt = select(func.count(User.id)).where(
+        User.id != "00000000-0000-0000-0000-000000000000"
+    )
     count_res = await db.execute(count_stmt)
     user_count = count_res.scalar() or 0
 

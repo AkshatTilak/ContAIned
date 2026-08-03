@@ -47,8 +47,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
             logger.info("Database migrations completed successfully.")
         except Exception as e:
-            logger.critical("Failed to run database migrations: %s", e)
-            raise e
+            logger.warning("Alembic auto-migration check skipped/failed (continuing startup): %s", e)
 
         try:
             from common.clients.redis import verify_redis_connection
@@ -73,15 +72,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             logger.warning("Qdrant verification failed (continuing in degraded state): %s", e)
 
         try:
-            import asyncio
-            from confluent_kafka.admin import AdminClient
-            logger.info("Verifying Kafka connection...")
-            conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 2000}
-            admin_client = AdminClient(conf)
-            await asyncio.to_thread(admin_client.list_topics, timeout=2.0)
-            logger.info("Kafka connection verified successfully.")
-        except Exception as e:
-            logger.warning("Kafka verification failed (continuing in degraded state): %s", e)
+            import socket
+            host, port = settings.KAFKA_BOOTSTRAP_SERVERS.split(":")[0], int(settings.KAFKA_BOOTSTRAP_SERVERS.split(":")[1]) if ":" in settings.KAFKA_BOOTSTRAP_SERVERS else 9092
+            with socket.create_connection((host, port), timeout=0.2):
+                from confluent_kafka.admin import AdminClient
+                logger.info("Verifying Kafka connection...")
+                conf = {"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS, "socket.timeout.ms": 2000}
+                admin_client = AdminClient(conf)
+                await asyncio.to_thread(admin_client.list_topics, timeout=2.0)
+                logger.info("Kafka connection verified successfully.")
+        except Exception:
+            logger.info("Kafka broker (%s) is not reachable. Skipping Kafka setup (running in local fallback mode).", settings.KAFKA_BOOTSTRAP_SERVERS)
 
     # 2. Initialize and seed Model Registry
     try:

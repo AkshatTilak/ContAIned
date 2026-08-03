@@ -113,7 +113,7 @@ const UserBadge: React.FC = () => {
     );
   }
 
-  const role = user?.role || "viewer";
+  const role = user?.platform_role || user?.role || "viewer";
   const roleBadgeStyle =
     role === "admin"
       ? "bg-purple-950/60 border-purple-800/60 text-purple-300"

@@ -206,7 +206,7 @@ async function request<T>(
 
 export const api = {
   // System & Health
-  getSystemHealth: () => request<SystemHealthResponse>("/health", {}, 1, 5000),
+  getSystemHealth: () => request<SystemHealthResponse>("/health", {}, 1, 15000),
   getModels: () => request<ModelRegistryResponse>("/api/models"),
 
   // Hubs API Namespace
@@ -422,6 +422,16 @@ export const api = {
   },
 
   // Auth & RBAC
+  login: (credentials: { email: string; password: string }) =>
+    request<{ access_token: string; token_type: string; user: any }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    }),
+  register: (payload: { email: string; password: string; display_name?: string }) =>
+    request<{ status: string }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   getMe: () => request<any>("/auth/me"),
   logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
   listUsers: (params?: {

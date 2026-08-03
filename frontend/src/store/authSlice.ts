@@ -70,12 +70,23 @@ export const createAuthSlice: StateCreator<
       set({ isAuthEnabled: authEnabled });
 
       const token = localStorage.getItem("contained_auth_token");
-      if (token || !authEnabled) {
+      if (authEnabled && token) {
+        try {
+          const user = await api.getMe();
+          const isAdmin = !!(user && (user.platform_role === "admin" || user.role === "admin"));
+          set({ user, isAuthenticated: true, isPlatformAdmin: isAdmin });
+        } catch {
+          localStorage.removeItem("contained_auth_token");
+          set({ user: null, token: null, isAuthenticated: false, isPlatformAdmin: false });
+        }
+      } else if (!authEnabled) {
         const user = await api.getMe();
         const isAdmin = !!(user && (user.platform_role === "admin" || user.role === "admin"));
         set({ user, isAuthenticated: true, isPlatformAdmin: isAdmin });
+      } else {
+        set({ user: null, isAuthenticated: false, isPlatformAdmin: false });
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn("Auth check error:", e);
       set({ user: null, isAuthenticated: false, isPlatformAdmin: false });
     } finally {
