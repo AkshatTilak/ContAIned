@@ -109,8 +109,11 @@ async def _check_inference():
         return "unreachable", -1, {}
 
 
+from fastapi import APIRouter, Response, status
+
+
 @router.get("/health")
-async def health_check() -> dict:
+async def health_check(response: Response) -> dict:
     """System health check — reports active projects, connection status grid, and inference metrics concurrently."""
     results = await asyncio.gather(
         _check_db(),
@@ -145,8 +148,20 @@ async def health_check() -> dict:
         "inference_server": inf_lat,
     }
 
+    # Core services: database, redis, qdrant
+    core_healthy = all(s == "connected" for s in [db_status, redis_status, qdrant_status])
+    # Non-critical services: neo4j, kafka, inference_server
+    non_critical_healthy = all(s == "connected" for s in [neo4j_status, kafka_status, inf_status])
+
+    if core_healthy:
+        overall_status = "healthy" if non_critical_healthy else "degraded"
+        response.status_code = status.HTTP_200_OK
+    else:
+        overall_status = "unhealthy"
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
     return {
-        "status": "healthy",
+        "status": overall_status,
         "platform_version": getattr(settings, "PLATFORM_VERSION", "3.0.0"),
         "environment": settings.APP_ENV,
         "auth_enabled": getattr(settings, "AUTH_ENABLED", False),

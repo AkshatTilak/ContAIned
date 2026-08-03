@@ -68,22 +68,6 @@ import { api } from "./services/api";
 import { useStore } from "./store/useStore";
 import type { SystemHealthResponse, ModelRegistryResponse } from "./types/api";
 
-const FALLBACK_SYSTEM_HEALTH: SystemHealthResponse = {
-  status: "offline",
-  platform_version: "v3.0.0",
-  environment: "offline-mode",
-  active_projects: ["syntraflow", "guardroute", "evalops"],
-  services: {
-    gateway: "offline",
-    inference_server: "offline",
-    database: "offline",
-    redis: "offline",
-    neo4j: "offline",
-    qdrant: "offline",
-    kafka: "offline",
-  },
-};
-
 export default function App() {
   const location = useLocation();
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);

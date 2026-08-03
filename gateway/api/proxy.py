@@ -5,7 +5,7 @@ S5-11a & S5-11b: httpx Async Reverse Proxy with RBAC Authorization and Header Mo
 import logging
 import httpx
 from fastapi import APIRouter, Depends, Request, Response, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from common.config.settings import settings
 from gateway.auth.dependencies import require_role
@@ -70,11 +70,30 @@ async def _proxy_request(
             content=resp.content,
             status_code=resp.status_code,
             headers=response_headers,
-            media_type=resp.headers.get("content-type", "text/html")
+            media_type=resp.headers.get("content-type", "text/html"),
         )
-
     except (httpx.ConnectError, httpx.TimeoutException) as err:
         logger.warning(f"Reverse proxy to {service_name} at {url} failed: {err}")
+        accept_hdr = request.headers.get("accept", "").lower()
+        is_api_req = (
+            "application/json" in accept_hdr
+            or path.startswith("collections")
+            or path.startswith("telemetry")
+            or path.startswith("cluster")
+            or path.startswith("aliases")
+            or path.startswith("db/data")
+        )
+        if is_api_req:
+            svc_key = service_name.lower().split()[0]
+            return JSONResponse(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                content={
+                    "error_code": "PROXY_SERVICE_UNAVAILABLE",
+                    "message": f"Unable to connect to proxied {service_name} engine at {target_base_url}",
+                    "details": {"service": svc_key, "target_url": target_base_url},
+                },
+            )
+
         return HTMLResponse(
             content=f"""
             <!DOCTYPE html>
