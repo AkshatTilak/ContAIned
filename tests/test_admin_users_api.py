@@ -21,9 +21,6 @@ from common.models.database import (
 from gateway.auth.utils import create_access_token
 from gateway.main import app
 
-# Ensure AUTH_ENABLED
-get_settings().AUTH_ENABLED = True
-
 # Setup test DB engine
 test_engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 TestingSessionLocal = async_sessionmaker(test_engine, expire_on_commit=False, class_=AsyncSession)
@@ -48,8 +45,9 @@ client = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
-def reset_db_state():
+def reset_db_state(monkeypatch):
     """Reset database and actor state between tests."""
+    monkeypatch.setattr(get_settings(), "AUTH_ENABLED", True)
     app.dependency_overrides[get_async_db] = override_get_async_db
     async def _reset():
 

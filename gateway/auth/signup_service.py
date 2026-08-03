@@ -35,15 +35,7 @@ async def resolve_signup(db: AsyncSession, email: str) -> Tuple[str, str, UserIn
     if invite:
         return ("active", invite.platform_role or PLATFORM_ROLE_MEMBER, invite)
 
-    # 2. Check if first human user in system (exclude system/synthetic account)
-    count_stmt = select(func.count(User.id)).where(
-        User.id != "00000000-0000-0000-0000-000000000000"
-    )
-    count_res = await db.execute(count_stmt)
-    user_count = count_res.scalar() or 0
 
-    if user_count == 0:
-        return ("active", PLATFORM_ROLE_ADMIN, None)
 
     # 3. Check auto-approve email domains
     auto_domains = getattr(settings, "AUTO_APPROVE_EMAIL_DOMAINS", [])

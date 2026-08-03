@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Settings, Save, RotateCcw, CheckCircle, Shield, Globe, Server, Key, Terminal } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useToast } from "./shared";
@@ -9,8 +10,10 @@ import { APIDocsPanel } from "./settings/APIDocsPanel";
 import { RoleGuard } from "./auth/RoleGuard";
 
 export const SettingsPage: React.FC = () => {
+  const navigate = useNavigate();
   const gatewayUrl = useStore((state) => state.gatewayUrl);
   const apiKey = useStore((state) => state.apiKey);
+  const logout = useStore((state) => state.logout);
   const updateSettings = useStore((state) => state.updateSettings);
   const resetSettings = useStore((state) => state.resetSettings);
   const { success, info, error } = useToast();
@@ -19,6 +22,23 @@ export const SettingsPage: React.FC = () => {
   const [inputApiKey, setInputApiKey] = useState(apiKey);
   const [isTesting, setIsTesting] = useState(false);
   const [activeTab, setActiveTab] = useState<"general" | "keys" | "docs">("general");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      await api.deleteMe();
+      success("Account Deleted", "Your account has been soft-deleted.");
+      await logout();
+      navigate("/login", { replace: true });
+    } catch (err: any) {
+      error("Deletion Failed", err?.message || "Failed to delete account");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+    }
+  };
 
   useEffect(() => {
     setInputGatewayUrl(gatewayUrl);
@@ -201,9 +221,53 @@ export const SettingsPage: React.FC = () => {
                 Header key sent as <code className="text-zinc-300 font-mono">X-API-Key</code> on all REST & WebSocket requests.
               </p>
             </div>
+
+            {/* Self-service account deletion */}
+            <div className="pt-3 border-t border-[var(--border-subtle)]">
+              <span className="block text-xs font-semibold text-red-400 mb-1">Danger Zone</span>
+              <p className="text-[11px] text-[var(--text-muted)] mb-2">
+                Soft-delete your account and invalidate all active user sessions.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="px-3 py-1.5 rounded-lg bg-red-950/60 hover:bg-red-900/60 border border-red-800/60 text-xs text-red-300 font-medium transition-all cursor-pointer"
+              >
+                Delete Account
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-slate-100">Confirm Account Deletion</h3>
+            <p className="text-xs text-slate-400">
+              Are you sure you want to delete your platform account? Your account will be soft-deleted and all your active sessions will be terminated immediately.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="px-3.5 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-medium cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting..." : "Yes, Delete Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Platform Information Box */}
       <div className="bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-xl p-6 space-y-3 shadow-sm">

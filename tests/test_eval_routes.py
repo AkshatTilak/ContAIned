@@ -8,6 +8,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from common.clients.postgres import get_async_db
+from common.config.settings import get_settings
+
+
+@pytest.fixture(autouse=True)
+def disable_auth(monkeypatch):
+    monkeypatch.setattr(get_settings(), "AUTH_ENABLED", False)
 from common.models.database import (
     AgentDefinition,
     Base,

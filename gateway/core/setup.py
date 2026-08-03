@@ -95,8 +95,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     # Seed default API key if empty
     try:
         from common.clients.postgres import get_sessionmaker
-        from common.models.database import APIKeyModel
+        from common.models.database import APIKeyModel, User, UserIdentity
+        from gateway.auth.passwords import hash_password
+        from gateway.auth.utils import normalize_email
         from sqlalchemy import select
+        import uuid
+        from datetime import datetime
+
         session_factory = get_sessionmaker()
         async with session_factory() as session:
             res = await session.execute(select(APIKeyModel).limit(1))
@@ -109,8 +114,73 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
                 session.add(default_key)
                 await session.commit()
                 logger.info("Database API keys table seeded with default key 'sk_live_default_key'.")
+
+            # Bootstrap super admin account
+            admin_email = getattr(settings, "SUPER_ADMIN_EMAIL", "admin@contained.ai")
+            admin_pass = getattr(settings, "SUPER_ADMIN_PASSWORD", "AdminPass123!")
+            if admin_email and admin_pass:
+                norm_admin = normalize_email(admin_email)
+                res = await session.execute(select(User).where(User.email == norm_admin))
+                admin_user = res.scalar_one_or_none()
+                if not admin_user:
+                    now = datetime.utcnow()
+                    uid = str(uuid.uuid4())
+                    admin_user = User(
+                        id=uid,
+                        email=norm_admin,
+                        display_name="Platform Super Admin",
+                        platform_role="admin",
+                        status="active",
+                        password_hash=hash_password(admin_pass),
+                        created_at=now,
+                    )
+                    session.add(admin_user)
+                    identity = UserIdentity(
+                        id=str(uuid.uuid4()),
+                        user_id=uid,
+                        provider="password",
+                        provider_id=uid,
+                        email=norm_admin,
+                        created_at=now,
+                    )
+                    session.add(identity)
+                    await session.commit()
+                    logger.info("Bootstrapped environment super admin account: %s", norm_admin)
+
+            # Bootstrap test user account
+            test_email = getattr(settings, "TEST_USER_EMAIL", "testuser@contained.ai")
+            test_pass = getattr(settings, "TEST_USER_PASSWORD", "TestPass123!")
+            if test_email and test_pass:
+                norm_test = normalize_email(test_email)
+                res = await session.execute(select(User).where(User.email == norm_test))
+                test_user = res.scalar_one_or_none()
+                if not test_user:
+                    now = datetime.utcnow()
+                    uid = str(uuid.uuid4())
+                    test_user = User(
+                        id=uid,
+                        email=norm_test,
+                        display_name="Automated Test User",
+                        platform_role="member",
+                        status="active",
+                        password_hash=hash_password(test_pass),
+                        created_at=now,
+                    )
+                    session.add(test_user)
+                    identity = UserIdentity(
+                        id=str(uuid.uuid4()),
+                        user_id=uid,
+                        provider="password",
+                        provider_id=uid,
+                        email=norm_test,
+                        created_at=now,
+                    )
+                    session.add(identity)
+                    await session.commit()
+                    logger.info("Bootstrapped environment test user account: %s", norm_test)
+
     except Exception as e:
-        logger.error("Failed to seed default API key: %s", e)
+        logger.error("Failed to seed default API key / bootstrap admin accounts: %s", e)
 
     # Auto-register SyntraFlow internal MCP server (S5-05d)
     try:

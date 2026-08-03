@@ -75,7 +75,10 @@ async def test_inactive_agent_invocation_rejection():
     mock_result.scalar_one_or_none.return_value = inactive_agent
     mock_db.execute.return_value = mock_result
 
-    app.dependency_overrides[AsyncSession] = lambda: mock_db
+    from common.clients.postgres import get_async_db
+    async def _mock_db_gen():
+        yield mock_db
+    app.dependency_overrides[get_async_db] = _mock_db_gen
 
     response = client.post(
         "/api/agents/inactive-researcher/invoke",
@@ -112,7 +115,10 @@ async def test_slug_based_agent_invocation(mock_completion):
     mock_result.scalar_one_or_none.return_value = active_agent
     mock_db.execute.return_value = mock_result
 
-    app.dependency_overrides[AsyncSession] = lambda: mock_db
+    from common.clients.postgres import get_async_db
+    async def _mock_db_gen2():
+        yield mock_db
+    app.dependency_overrides[get_async_db] = _mock_db_gen2
 
     response = client.post(
         "/api/agents/active-helper/invoke",

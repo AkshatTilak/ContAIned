@@ -10,8 +10,14 @@ from common.models.database import (
     Hub,
     User,
 )
+from common.config.settings import get_settings
 from gateway.main import app
 from common.clients.postgres import get_async_db
+
+
+@pytest.fixture(autouse=True)
+def disable_auth(monkeypatch):
+    monkeypatch.setattr(get_settings(), "AUTH_ENABLED", False)
 
 
 @pytest_asyncio.fixture

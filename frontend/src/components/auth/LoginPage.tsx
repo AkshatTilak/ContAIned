@@ -25,6 +25,20 @@ export const LoginPage: React.FC = () => {
     window.location.href = `${gatewayUrl}/auth/login/${provider}`;
   };
 
+  const reasonParam = searchParams.get("reason");
+
+  const getReasonMessage = (reasonStr: string | null) => {
+    if (!reasonStr) return null;
+    const map: Record<string, string> = {
+      ACCOUNT_SUSPENDED: "Your account has been suspended. Please contact an administrator.",
+      ACCOUNT_SOFT_DELETED: "Your account was soft-deleted. Please contact an administrator to restore access.",
+      ACCOUNT_REJECTED: "Your account registration was rejected by an administrator.",
+      ACCOUNT_PENDING_APPROVAL: "Your account is currently pending administrator approval.",
+      ACCOUNT_LOCKED: "Your account is temporarily locked due to repeated failed login attempts.",
+    };
+    return map[reasonStr] || `Account state notice: ${reasonStr}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -61,8 +75,18 @@ export const LoginPage: React.FC = () => {
         }
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.detail || err?.message || "Authentication failed. Please check your credentials.";
-      setFormError(typeof msg === "string" ? msg : "An unexpected error occurred.");
+      let msg = "Authentication failed. Please check your credentials.";
+      const detailObj = err?.response?.data?.detail || err?.detail;
+      if (detailObj) {
+        if (typeof detailObj === "string") {
+          msg = detailObj;
+        } else if (detailObj?.reason) {
+          msg = getReasonMessage(detailObj.reason) || detailObj.reason;
+        }
+      } else if (err?.message) {
+        msg = err.message;
+      }
+      setFormError(msg);
     } finally {
       setLoading(false);
     }
@@ -114,11 +138,12 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Global Error Banner */}
-        {(error || formError) && (
+        {(error || formError || reasonParam) && (
           <div className="mb-4 p-3 rounded-xl bg-red-950/50 border border-red-800/50 text-red-300 text-xs flex flex-col gap-0.5">
-            <span className="font-semibold text-red-200">Authentication Error</span>
+            <span className="font-semibold text-red-200">Authentication Notice</span>
             <span>
               {formError ||
+                getReasonMessage(reasonParam) ||
                 (error === "account_deactivated"
                   ? "Your account has been deactivated. Please contact an admin."
                   : detail || "Invalid credentials or session expired.")}

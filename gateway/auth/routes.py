@@ -26,7 +26,7 @@ from gateway.auth.passwords import (
 )
 from common.observability.limiter import limiter
 from gateway.auth.signup_service import resolve_signup
-from gateway.auth.utils import create_access_token, hash_token, normalize_email, revoke_sessions
+from gateway.auth.utils import create_access_token, hash_token, normalize_email, revoke_sessions, revoke_token_hash
 from gateway.auth.providers import oauth, build_state, parse_state
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -169,6 +169,9 @@ async def oauth_callback(
         logger.error(f"OAuth identity resolution failed for {provider}: {exc}")
         return RedirectResponse(url=f"{public_url}/login?error=auth_failed&detail={str(exc)}")
 
+    if getattr(user, "is_deleted", False):
+        return RedirectResponse(url=f"{public_url}/auth/pending?reason=ACCOUNT_SOFT_DELETED&email={user.email}")
+
     if user.status != "active":
         reason_map = {
             "pending": "ACCOUNT_PENDING_APPROVAL",
@@ -253,6 +256,47 @@ async def get_me(
     return resp
 
 
+@router.delete("/me", status_code=status.HTTP_200_OK)
+async def delete_me(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Self-service soft deletion of user's own account."""
+    user_id = current_user.get("sub") or current_user.get("id")
+    if user_id == "local-admin-id":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete local admin account")
+
+    user = await db.get(User, user_id)
+    if not user or user.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    now = datetime.utcnow()
+    user.is_deleted = True
+    user.deleted_at = now
+
+    await revoke_sessions(db, user.id)
+
+    client_ip = request.client.host if request.client else None
+    audit = AuditLog(
+        id=str(uuid.uuid4()),
+        actor_user_id=user.id,
+        action="delete",
+        resource_type="user",
+        resource_id=user.id,
+        summary="User soft-deleted own account",
+        ip_address=client_ip,
+        created_at=now,
+    )
+    db.add(audit)
+    await db.commit()
+
+    response.delete_cookie("auth_token")
+    response.delete_cookie("contained_session")
+    return {"status": "soft_deleted", "message": "Account soft-deleted successfully"}
+
+
 @router.post("/identities/{provider}/unlink")
 async def unlink_identity(
     provider: str,
@@ -312,6 +356,7 @@ async def logout(
     token = getattr(request.state, "token", None)
     if token:
         token_h = hash_token(token)
+        revoke_token_hash(token_h)
         stmt = select(UserSession).where(UserSession.token_hash == token_h)
         res = await db.execute(stmt)
         sess = res.scalar_one_or_none()
@@ -412,9 +457,9 @@ async def login_user(
     now = datetime.utcnow()
 
     if user and user.locked_until:
-        locked_until_utc = user.locked_until.replace(tzinfo=timezone.utc) if user.locked_until.tzinfo is None else user.locked_until
-        if locked_until_utc > now:
-            retry_after = max(1, int((locked_until_utc - now).total_seconds()))
+        locked_until_naive = user.locked_until.replace(tzinfo=None) if user.locked_until else None
+        if locked_until_naive and locked_until_naive > now:
+            retry_after = max(1, int((locked_until_naive - now).total_seconds()))
             raise AccountLockedError(
                 message="Account is temporarily locked due to failed login attempts",
                 details={"reason": "ACCOUNT_LOCKED", "retry_after": retry_after},
@@ -434,7 +479,13 @@ async def login_user(
             detail="Invalid email or password",
         )
 
-    # Check status
+    # Check status and soft-deletion
+    if getattr(user, "is_deleted", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"reason": "ACCOUNT_SOFT_DELETED", "status": "deleted"},
+        )
+
     if user.status != "active":
         reason_map = {
             "pending": "ACCOUNT_PENDING_APPROVAL",

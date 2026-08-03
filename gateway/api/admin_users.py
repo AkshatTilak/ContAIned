@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -270,12 +270,16 @@ async def list_users(
     platform_role: Optional[str] = Query(None),
     hub_id: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
+    include_deleted: bool = Query(False),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_async_db),
 ):
     """List platform users with pagination and filtering."""
     stmt = select(User)
+
+    if not include_deleted:
+        stmt = stmt.where(User.is_deleted == False)
 
     if status_filter:
         stmt = stmt.where(User.status == status_filter)
@@ -614,10 +618,12 @@ async def reinstate_user(
 async def delete_user(
     user_id: str,
     request: Request,
+    response: Response,
+    hard: bool = Query(False),
     db: AsyncSession = Depends(get_async_db),
     actor: Dict[str, Any] = Depends(get_current_user),
 ):
-    """Hard delete a user. Blocked if the user owns active hubs."""
+    """Delete a user. Soft-deletes by default; hard purges if hard=true or user is already soft-deleted."""
     actor_id = actor.get("sub") or actor.get("id")
     assert_not_self(actor_id, user_id, "delete")
     await assert_admin_floor(db, user_id)
@@ -626,9 +632,9 @@ async def delete_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    # Check hub ownership
+    # Check hub ownership for active hubs
     owned_hubs_stmt = select(Hub.id, Hub.name).where(
-        Hub.owner_id == user_id, Hub.is_archived.is_(False)
+        Hub.owner_id == user_id, Hub.is_archived.is_(False), Hub.is_deleted.is_(False)
     )
     owned_hubs = (await db.execute(owned_hubs_stmt)).all()
     if owned_hubs:
@@ -640,20 +646,43 @@ async def delete_user(
             },
         )
 
+    # Perform Hard Delete if hard=true or already soft-deleted
+    if hard or user.is_deleted:
+        await write_audit(
+            db,
+            actor_id=actor_id,
+            action="delete",
+            resource_type="user",
+            resource_id=user_id,
+            summary=f"Hard purged user {user.email}",
+            before={"email": user.email, "status": user.status, "is_deleted": user.is_deleted},
+            request=request,
+        )
+        await revoke_sessions(db, user_id)
+        await db.delete(user)
+        await db.commit()
+        response.status_code = status.HTTP_204_NO_CONTENT
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    # Perform Soft Delete
+    now = datetime.utcnow()
+    user.is_deleted = True
+    user.deleted_at = now
+    await revoke_sessions(db, user_id)
+
     await write_audit(
         db,
         actor_id=actor_id,
         action="delete",
         resource_type="user",
         resource_id=user_id,
-        summary=f"Deleted user {user.email}",
+        summary=f"Soft deleted user {user.email}",
         before={"email": user.email, "status": user.status},
+        after={"is_deleted": True, "deleted_at": now.isoformat()},
         request=request,
     )
-
-    await db.delete(user)
     await db.commit()
-    return {"status": "deleted", "id": user_id}
+    return {"status": "deleted", "id": user_id, "soft": True}
 
 
 # --- Invite Management Endpoints ---

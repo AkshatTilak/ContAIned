@@ -433,12 +433,14 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   getMe: () => request<any>("/auth/me"),
+  deleteMe: () => request<{ status: string; message: string }>("/auth/me", { method: "DELETE" }),
   logout: () => request<{ status: string }>("/auth/logout", { method: "POST" }),
   listUsers: (params?: {
     status?: string;
     platform_role?: string;
     hub_id?: string;
     q?: string;
+    include_deleted?: boolean;
     limit?: number;
     offset?: number;
   }) => {
@@ -447,6 +449,7 @@ export const api = {
     if (params?.platform_role) query.append("platform_role", params.platform_role);
     if (params?.hub_id) query.append("hub_id", params.hub_id);
     if (params?.q) query.append("q", params.q);
+    if (params?.include_deleted) query.append("include_deleted", "true");
     if (params?.limit) query.append("limit", params.limit.toString());
     if (params?.offset) query.append("offset", params.offset.toString());
     const qs = query.toString();
@@ -461,8 +464,8 @@ export const api = {
     request<any>(`/admin/users/${userId}/suspend`, {
       method: "POST",
     }),
-  deleteUser: (userId: string) =>
-    request<{ status: string; id: string }>(`/admin/users/${userId}`, {
+  deleteUser: (userId: string, hard: boolean = false) =>
+    request<{ status: string; id: string }>(`/admin/users/${userId}${hard ? "?hard=true" : ""}`, {
       method: "DELETE",
     }),
   approveUser: (userId: string, payload?: { platform_role?: string; hub_grants?: any[] }) =>

@@ -235,9 +235,9 @@ async def get_invite_preview(db: AsyncSession, raw_token: str) -> InvitePreview:
         )
 
     now = datetime.utcnow()
-    exp_utc = invite.expires_at.replace(tzinfo=timezone.utc) if invite.expires_at.tzinfo is None else invite.expires_at
+    exp_naive = invite.expires_at.replace(tzinfo=None) if invite.expires_at else None
 
-    if invite.status in ("revoked", "expired") or exp_utc <= now:
+    if invite.status in ("revoked", "expired") or (exp_naive and exp_naive <= now):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invite not found or expired",
@@ -270,7 +270,7 @@ async def get_invite_preview(db: AsyncSession, raw_token: str) -> InvitePreview:
         inviter_display_name=inviter_name,
         platform_role=invite.platform_role,
         hubs=hubs_preview,
-        expires_at=exp_utc,
+        expires_at=exp_naive,
     )
 
 
@@ -318,9 +318,9 @@ async def redeem_invite(
         )
 
     now = datetime.utcnow()
-    exp_utc = invite.expires_at.replace(tzinfo=timezone.utc) if invite.expires_at.tzinfo is None else invite.expires_at
+    exp_naive = invite.expires_at.replace(tzinfo=None) if invite.expires_at else None
 
-    if invite.status in ("revoked", "expired") or exp_utc <= now:
+    if invite.status in ("revoked", "expired") or (exp_naive and exp_naive <= now):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Invite not found or expired",

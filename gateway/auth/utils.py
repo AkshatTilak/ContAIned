@@ -92,6 +92,20 @@ def client_ip(request: Any) -> Optional[str]:
     return None
 
 
+REVOKED_TOKENS: set[str] = set()
+
+
+def revoke_token_hash(token_hash: str) -> None:
+    """Add token hash to the in-memory revocation store."""
+    if token_hash:
+        REVOKED_TOKENS.add(token_hash)
+
+
+def is_token_revoked(token_hash: str) -> bool:
+    """Check if token hash has been revoked."""
+    return token_hash in REVOKED_TOKENS
+
+
 async def revoke_sessions(
     db: Any,
     user_id: str,
@@ -99,8 +113,16 @@ async def revoke_sessions(
     keep_token_hash: Optional[str] = None,
 ) -> int:
     """Revoke user session records in DB. Returns count of deleted sessions."""
-    from sqlalchemy import delete
+    from sqlalchemy import delete, select
     from common.models.database import UserSession
+
+    # Mark active session hashes as revoked in memory store as well
+    stmt_sel = select(UserSession.token_hash).where(UserSession.user_id == user_id)
+    if keep_token_hash:
+        stmt_sel = stmt_sel.where(UserSession.token_hash != keep_token_hash)
+    rows = (await db.execute(stmt_sel)).scalars().all()
+    for th in rows:
+        revoke_token_hash(th)
 
     stmt = delete(UserSession).where(UserSession.user_id == user_id)
     if keep_token_hash:
