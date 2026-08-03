@@ -16,6 +16,7 @@ import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
 import { routes } from "../../../routes";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
+import { EmptyState } from "../../shared/EmptyState";
 
 export function WorkflowLibrary() {
   const { hubId } = useParams<{ hubId: string }>();
@@ -134,9 +135,13 @@ export function WorkflowLibrary() {
 
       {/* Workflows Grid */}
       {filteredWorkflows.length === 0 ? (
-        <div className="p-12 text-center border border-slate-800/60 bg-slate-900/30 rounded-2xl text-slate-500 text-xs">
-          No workflows found in this hub.
-        </div>
+        <EmptyState
+          icon={GitFork}
+          title="No Workflows Created"
+          description="Design your first multi-node visual graph workflow for complex task orchestration and version releases."
+          actionLabel={can("create_resource") && !isArchived ? "Create Workflow" : undefined}
+          onAction={() => setIsCreateOpen(true)}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredWorkflows.map((wf) => (

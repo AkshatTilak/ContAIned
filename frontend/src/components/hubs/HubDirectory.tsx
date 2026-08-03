@@ -21,6 +21,7 @@ import { useStore } from "../../store/useStore";
 import { routes, type HubType } from "../../routes";
 import { api } from "../../services/api";
 import type { Hub } from "../../types/api";
+import { EmptyState } from "../shared/EmptyState";
 
 const HUB_SECTION_META: {
   type: HubType;
@@ -281,9 +282,13 @@ export function HubDirectory() {
               </div>
 
               {typeHubs.length === 0 ? (
-                <div className="p-6 bg-slate-900/30 border border-slate-800/40 rounded-xl text-center text-xs text-slate-500">
-                  No {type} hubs match the current filter.
-                </div>
+                <EmptyState
+                  icon={SectionIcon}
+                  title={`No ${title} Found`}
+                  description={`Create your first ${type} hub workspace to configure resources, manage members, and build features.`}
+                  actionLabel={`Create ${type} Hub`}
+                  onAction={() => navigate(`/hubs/new?type=${type}`)}
+                />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {typeHubs.map((hub) => (

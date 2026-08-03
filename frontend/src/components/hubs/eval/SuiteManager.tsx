@@ -15,6 +15,7 @@ import {
 import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
 import { routes } from "../../../routes";
+import { EmptyState } from "../../shared/EmptyState";
 
 export function SuiteManager() {
   const { hubId } = useParams<{ hubId: string }>();
@@ -213,9 +214,13 @@ export function SuiteManager() {
 
       {/* Suites Grid */}
       {filteredSuites.length === 0 ? (
-        <div className="p-12 text-center border border-slate-800/60 bg-slate-900/30 rounded-2xl text-slate-500 text-xs">
-          No evaluation suites found in this hub.
-        </div>
+        <EmptyState
+          icon={Sparkles}
+          title="No Evaluation Suites"
+          description="Create your first polymorphic benchmark suite to test Agent outputs and Workflow trace assertions."
+          actionLabel={can("create_resource") && !isArchived ? "New Suite" : undefined}
+          onAction={() => setIsCreateOpen(true)}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredSuites.map((s) => (
