@@ -154,6 +154,85 @@ def test_logout_session_revocation():
     assert res_me.status_code == 401
 
 
+def test_users_me_alias_soft_deletes_user_and_revokes_sessions():
+    """Verify DELETE /users/me behaves like DELETE /auth/me for self-service account deletion."""
+    user_id = "user-users-me-01"
+    email = "users_me@contained.ai"
+    token = create_access_token(user_id=user_id, email=email, platform_role="member")
+    token_h = hash_token(token)
+
+    async def _seed():
+        async with TestingSessionLocal() as db:
+            u = User(
+                id=user_id,
+                email=email,
+                platform_role="member",
+                status="active",
+                is_deleted=False,
+            )
+            sess = UserSession(
+                id="sess-users-me",
+                user_id=user_id,
+                token_hash=token_h,
+                expires_at=datetime.utcnow(),
+            )
+            db.add_all([u, sess])
+            await db.commit()
+
+    asyncio.run(_seed())
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = client.delete("/users/me", headers=headers)
+    assert res.status_code == 200
+    assert res.json()["status"] == "soft_deleted"
+
+    async def _check_db():
+        async with TestingSessionLocal() as db:
+            u = await db.get(User, user_id)
+            assert u is not None
+            assert u.is_deleted is True
+            sess_res = await db.execute(select(UserSession).where(UserSession.user_id == user_id))
+            assert len(sess_res.scalars().all()) == 0
+
+    asyncio.run(_check_db())
+
+
+def test_logout_clears_cookies_and_revokes_all_sessions():
+    """Verify POST /auth/logout clears cookies and invalidates all active sessions for the user."""
+    user_id = "user-logout-all-01"
+    email = "logout_all@contained.ai"
+    token = create_access_token(user_id=user_id, email=email, platform_role="member")
+    token_h = hash_token(token)
+
+    async def _seed():
+        async with TestingSessionLocal() as db:
+            u = User(id=user_id, email=email, platform_role="member", status="active", is_deleted=False)
+            db.add(u)
+            db.add_all([
+                UserSession(id="sess-logout-1", user_id=user_id, token_hash=token_h, expires_at=datetime.utcnow()),
+                UserSession(id="sess-logout-2", user_id=user_id, token_hash=hash_token("other-token"), expires_at=datetime.utcnow()),
+            ])
+            await db.commit()
+
+    asyncio.run(_seed())
+
+    headers = {"Authorization": f"Bearer {token}"}
+    res = client.post("/auth/logout", headers=headers)
+    assert res.status_code == 200
+    assert res.json()["status"] == "logged_out"
+
+    cookie_headers = res.headers.get_list("set-cookie")
+    assert any("auth_token=" in header for header in cookie_headers)
+    assert any("contained_session=" in header for header in cookie_headers)
+
+    async def _check_db():
+        async with TestingSessionLocal() as db:
+            sess_res = await db.execute(select(UserSession).where(UserSession.user_id == user_id))
+            assert len(sess_res.scalars().all()) == 0
+
+    asyncio.run(_check_db())
+
+
 def test_admin_soft_delete_and_hard_purge():
     """Verify DELETE /admin/users/{id} soft-deletes by default, and hard-purges when hard=true."""
     admin_id = "admin-user-id"

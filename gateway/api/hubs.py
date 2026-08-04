@@ -289,7 +289,7 @@ async def archive_hub_endpoint(
     db: AsyncSession = Depends(get_async_db),
 ):
     """Archive a hub."""
-    hub = await archive_hub(db, hub_id=ctx.hub_id)
+    hub = await archive_hub(db, hub_id=ctx.hub_id, archived=True)
     await _log_audit_event(
         db,
         hub_id=ctx.hub_id,
@@ -584,7 +584,13 @@ async def list_hub_links(
     db: AsyncSession = Depends(get_async_db),
 ):
     """List cross-hub links for a hub."""
-    links = await list_links(db, hub_id=ctx.hub_id, direction=direction)
+    from sqlalchemy import select
+    if direction == "incoming":
+        stmt = select(HubLink).where(HubLink.target_hub_id == ctx.hub_id).order_by(HubLink.created_at.asc())
+        result = await db.execute(stmt)
+        links = list(result.scalars().all())
+    else:
+        links = await list_links(db, source_hub_id=ctx.hub_id)
     return links
 
 

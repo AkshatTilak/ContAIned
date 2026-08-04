@@ -210,6 +210,47 @@ async def oauth_callback(
     return response
 
 
+async def _soft_delete_current_user(
+    *,
+    request: Request,
+    response: Response,
+    db: AsyncSession,
+    current_user: Dict[str, Any],
+) -> dict[str, Any]:
+    """Soft-delete the authenticated user account and revoke all active sessions."""
+    user_id = current_user.get("sub") or current_user.get("id")
+    if user_id == "local-admin-id":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete local admin account")
+
+    user = await db.get(User, user_id)
+    if not user or user.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    now = datetime.now(timezone.utc)
+    user.is_deleted = True
+    user.deleted_at = now
+
+    await revoke_sessions(db, user.id)
+
+    client_ip = request.client.host if request.client else None
+    audit = AuditLog(
+        id=str(uuid.uuid4()),
+        actor_user_id=user.id,
+        action="delete",
+        resource_type="user",
+        resource_id=user.id,
+        summary="User soft-deleted own account",
+        ip_address=client_ip,
+        created_at=now,
+    )
+    db.add(audit)
+    await db.commit()
+
+    response.delete_cookie("auth_token")
+    response.delete_cookie("contained_session")
+    return {"status": "soft_deleted", "message": "Account soft-deleted successfully"}
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     current_user: Dict[str, Any] = Depends(get_current_user),
@@ -264,37 +305,28 @@ async def delete_me(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """Self-service soft deletion of user's own account."""
-    user_id = current_user.get("sub") or current_user.get("id")
-    if user_id == "local-admin-id":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete local admin account")
-
-    user = await db.get(User, user_id)
-    if not user or user.is_deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
-    now = datetime.utcnow()
-    user.is_deleted = True
-    user.deleted_at = now
-
-    await revoke_sessions(db, user.id)
-
-    client_ip = request.client.host if request.client else None
-    audit = AuditLog(
-        id=str(uuid.uuid4()),
-        actor_user_id=user.id,
-        action="delete",
-        resource_type="user",
-        resource_id=user.id,
-        summary="User soft-deleted own account",
-        ip_address=client_ip,
-        created_at=now,
+    return await _soft_delete_current_user(
+        request=request,
+        response=response,
+        db=db,
+        current_user=current_user,
     )
-    db.add(audit)
-    await db.commit()
 
-    response.delete_cookie("auth_token")
-    response.delete_cookie("contained_session")
-    return {"status": "soft_deleted", "message": "Account soft-deleted successfully"}
+
+@router.delete("/users/me", status_code=status.HTTP_200_OK)
+async def delete_me_alias(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_async_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Alias for self-service soft deletion at /users/me."""
+    return await _soft_delete_current_user(
+        request=request,
+        response=response,
+        db=db,
+        current_user=current_user,
+    )
 
 
 @router.post("/identities/{provider}/unlink")
@@ -326,7 +358,7 @@ async def unlink_identity(
 
     await db.delete(target_identity)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     client_ip = request.client.host if request.client else None
     audit = AuditLog(
         id=str(uuid.uuid4()),
@@ -352,19 +384,19 @@ async def logout(
     db: AsyncSession = Depends(get_async_db),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
-    """Invalidate active session."""
+    """Invalidate the current session and revoke all active sessions for the authenticated user."""
     token = getattr(request.state, "token", None)
+    user_id = current_user.get("sub") or current_user.get("id")
+
     if token:
-        token_h = hash_token(token)
-        revoke_token_hash(token_h)
-        stmt = select(UserSession).where(UserSession.token_hash == token_h)
-        res = await db.execute(stmt)
-        sess = res.scalar_one_or_none()
-        if sess:
-            await db.delete(sess)
-            await db.commit()
+        revoke_token_hash(hash_token(token))
+
+    if user_id:
+        await revoke_sessions(db, user_id)
+        await db.commit()
 
     response.delete_cookie("auth_token")
+    response.delete_cookie("contained_session")
     return {"status": "logged_out"}
 
 
@@ -401,7 +433,7 @@ async def register_user(
 
     initial_status, initial_role, invite = await resolve_signup(db, norm_email)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     user_id = str(uuid.uuid4())
 
     user = User(
@@ -454,12 +486,17 @@ async def login_user(
     user = res.scalar_one_or_none()
 
     password_valid = verify_password(payload.password, user.password_hash if user else None)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     if user and user.locked_until:
-        locked_until_naive = user.locked_until.replace(tzinfo=None) if user.locked_until else None
-        if locked_until_naive and locked_until_naive > now:
-            retry_after = max(1, int((locked_until_naive - now).total_seconds()))
+        locked_until = user.locked_until
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        else:
+            locked_until = locked_until.astimezone(timezone.utc)
+
+        if locked_until and locked_until > now:
+            retry_after = max(1, int((locked_until - now).total_seconds()))
             raise AccountLockedError(
                 message="Account is temporarily locked due to failed login attempts",
                 details={"reason": "ACCOUNT_LOCKED", "retry_after": retry_after},
@@ -555,7 +592,7 @@ async def change_password(
 
     validate_password_policy(payload.new_password, user.email)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     user.password_hash = hash_password(payload.new_password)
     user.password_updated_at = now
 
@@ -598,7 +635,7 @@ async def forgot_password(
     user = res.scalar_one_or_none()
 
     if user:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         del_stmt = select(PasswordResetToken).where(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
         old_tokens = (await db.execute(del_stmt)).scalars().all()
         for t in old_tokens:
@@ -631,7 +668,7 @@ async def reset_password(
 ):
     """Reset password using a single-use reset token."""
     token_hash = hashlib.sha256(payload.token.encode("utf-8")).hexdigest()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     stmt = select(PasswordResetToken).where(
         PasswordResetToken.token_hash == token_hash,
@@ -703,7 +740,7 @@ async def accept_invite(
     )
 
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     jwt_token = create_access_token(user_id=user.id, email=user.email, platform_role=user.platform_role)
     token_h = hash_token(jwt_token)
     expires_at = now + timedelta(hours=24)

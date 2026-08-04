@@ -68,3 +68,6 @@ temporary/
 
 # Temporary uploads
 projects/syntraflow/temp_uploads/
+
+# Local Docker persistence data
+/data/

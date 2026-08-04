@@ -155,6 +155,7 @@ from gateway.auth.api_key_middleware import APIKeyMiddleware
 from gateway.api.proxy import router as proxy_router
 from gateway.api.external import router as external_v1_router
 from gateway.api.admin_users import router as admin_users_router
+from gateway.auth.routes import delete_me_alias
 
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -175,6 +176,7 @@ app.add_middleware(AuthMiddleware)
 # Routes
 app.include_router(health_router)
 app.include_router(auth_router)
+app.add_api_route("/users/me", delete_me_alias, methods=["DELETE"])
 app.include_router(admin_users_router)
 app.include_router(external_v1_router)
 app.include_router(proxy_router)

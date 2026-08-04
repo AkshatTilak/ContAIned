@@ -39,6 +39,12 @@ class AppSettings(BaseSettings):
     ALLOW_MEMBER_HUB_CREATION: bool = Field(default=True, alias="ALLOW_MEMBER_HUB_CREATION")
     TRUST_PROXY_HEADERS: bool = Field(default=False, alias="TRUST_PROXY_HEADERS")
 
+    # Bootstrapped accounts created by gateway/core/setup.py on startup
+    SUPER_ADMIN_EMAIL: Optional[str] = Field(default="admin@contained.ai", alias="SUPER_ADMIN_EMAIL")
+    SUPER_ADMIN_PASSWORD: Optional[str] = Field(default="AdminPass123!", alias="SUPER_ADMIN_PASSWORD")
+    TEST_USER_EMAIL: Optional[str] = Field(default="testuser@contained.ai", alias="TEST_USER_EMAIL")
+    TEST_USER_PASSWORD: Optional[str] = Field(default="TestPass123!", alias="TEST_USER_PASSWORD")
+
 
 class DatabaseSettings(BaseSettings):
     """Database connection settings for Postgres, Qdrant, and Neo4j."""
