@@ -279,12 +279,12 @@ export default function App() {
                       {/* Cross-hub shared panels (all hub types) */}
                       <Route path="members" element={<MembersPanel />} />
                       <Route path="links" element={<HubLinksPanel />} />
-                      <Route path="settings" element={<IngestionOverview />} />
+                      <Route path="settings" element={<HubNotFound />} />
 
-                      {/* Hub-level index: redirect to the type's default child */}
+                      {/* Hub-level index: renders overview component for each type */}
                       <Route
                         index
-                        element={<HubShellIndexRedirect />}
+                        element={<HubOverviewDispatcher />}
                       />
 
                       {/* Unknown segments inside a valid hub → in-shell not-found */}
@@ -385,27 +385,19 @@ export default function App() {
 }
 
 /**
- * Hub shell index redirect — resolves the correct first-tab path for each hub type.
- *
- * When the user navigates to /hubs/:hubType/:hubId with no sub-path, we redirect
- * them to the hub shell root which will show the hub overview. The full
- * type-aware tab default is implemented in S6-08b.
+ * Hub shell index dispatcher — renders the overview component for each hub type.
  */
-function HubShellIndexRedirect() {
+function HubOverviewDispatcher() {
   const { hubType, hubId } = useParams<{ hubType: string; hubId: string }>();
 
   if (!hubType || !hubId) {
     return <Navigate to={routes.hubs.directory()} replace />;
   }
 
-  // Default first tab by type — the hub shell root shows the overview
-  const defaultPaths: Record<string, string> = {
-    ingestion: "collections",
-    agent: "agents",
-    workflow: "workflows",
-    eval: "suites",
-  };
-
-  const defaultTab = defaultPaths[hubType] ?? "collections";
-  return <Navigate to={`/hubs/${hubType}/${hubId}/${defaultTab}`} replace />;
+  if (hubType === "ingestion") return <IngestionOverview />;
+  if (hubType === "agent") return <AgentOverview />;
+  if (hubType === "workflow") return <WorkflowHubOverview />;
+  if (hubType === "eval") return <EvalHubOverview />;
+  
+  return <Navigate to={routes.hubs.directory()} replace />;
 }

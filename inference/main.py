@@ -79,6 +79,7 @@ async def register_loaders_from_db() -> None:
         from inference.models.sensevoice import load_sensevoice
         from inference.models.classifier import load_classifier
         from inference.models.glm_ocr import load_glm_ocr
+        from inference.models.harrier import load_harrier
 
         loader_mapping = {
             "THUDM/GLM-OCR": load_glm_ocr,
@@ -87,6 +88,8 @@ async def register_loaders_from_db() -> None:
             "FunAudioLLM/SenseVoiceSmall": load_sensevoice,
             "Arch-Router-1.5B": load_classifier,
             "jinaai/jina-clip-v2": load_jina_clip,
+            "harrier-0.6b": load_harrier,
+            "harrier": load_harrier,
         }
 
         session_factory = get_sessionmaker()
@@ -141,6 +144,35 @@ async def reload_registry() -> dict:
         "message": "Model registry loaders reloaded successfully.",
         "registered_models": list(vram._loaders.keys())
     }
+
+
+@app.post("/models/{model_id}/load")
+async def load_model(model_id: str) -> dict:
+    """Explicitly start/load a local model into VRAM."""
+    try:
+        await vram.ensure_loaded(model_id)
+        return {"status": "success", "message": f"Model '{model_id}' started and loaded into VRAM."}
+    except Exception as e:
+        logger.error(f"Failed to load model {model_id}: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/models/{model_id}/unload")
+async def unload_model(model_id: str) -> dict:
+    """Explicitly stop/unload a local model from VRAM."""
+    try:
+        await vram.unload(model_id)
+        import torch
+        import gc
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+        return {"status": "success", "message": f"Model '{model_id}' stopped and unloaded from VRAM."}
+    except Exception as e:
+        logger.error(f"Failed to unload model {model_id}: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")

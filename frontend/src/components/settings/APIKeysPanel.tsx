@@ -105,10 +105,10 @@ export const APIKeysPanel: React.FC = () => {
           </div>
           <div>
             <h3 className="text-base font-bold font-display text-[var(--text-primary)]">
-              OpenAI API Keys Gateway
+              Client & SDK Gateway Keys
             </h3>
             <p className="text-xs text-[var(--text-muted)]">
-              Manage secret keys (`sk-...`) for OpenAI SDK compatibility and external REST API access.
+              Manage client access keys (`sk-...`) for OpenAI SDK compatibility and external REST API access.
             </p>
           </div>
         </div>

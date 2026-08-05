@@ -4,7 +4,6 @@ Uses pydantic-settings with multi-inheritance pattern (adapted from zypp monorep
 to compose domain-specific settings classes into a single Settings instance.
 All backends and projects import settings from here.
 """
-import os
 import logging
 from pathlib import Path
 from typing import Optional
@@ -176,6 +175,10 @@ class MailSettings(BaseSettings):
     APP_PUBLIC_URL: str = Field(default="http://localhost:5173", alias="APP_PUBLIC_URL")
 
 
+_ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+_ROOT_ENV = _ROOT_DIR / ".env"
+
+
 class Settings(
     AppSettings,
     DatabaseSettings,
@@ -196,7 +199,7 @@ class Settings(
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(_ROOT_ENV), ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -322,7 +325,7 @@ class Settings(
 
 
 
-print(f".env exists: {Path('.env').resolve()} -> {Path('.env').exists()}")
+print(f".env exists: {_ROOT_ENV} -> {_ROOT_ENV.exists()}")
 settings = Settings()
 
 

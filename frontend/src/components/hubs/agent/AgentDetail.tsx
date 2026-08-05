@@ -20,6 +20,7 @@ import {
 import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
 import { routes } from "../../../routes";
+import { ModelSelector } from "../../shared/ModelSelector";
 import { Gated } from "../Gated";
 
 type AgentDetailTab = "config" | "knowledge" | "endpoint" | "invocations" | "test";
@@ -52,6 +53,38 @@ export function AgentDetail() {
   const [testing, setTesting] = useState(false);
 
   const [copied, setCopied] = useState(false);
+  const [availableModels, setAvailableModels] = useState<{ id: string; name: string; provider: string; is_selectable?: boolean }[]>([]);
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const reg = await api.getModels();
+        const items: { id: string; name: string; provider: string; is_selectable?: boolean }[] = [];
+        Object.values(reg).forEach((roleObj: any) => {
+          if (roleObj.active) {
+            items.push({
+              id: roleObj.active.model_id,
+              name: roleObj.active.display_name,
+              provider: roleObj.active.provider,
+              is_selectable: roleObj.active.is_selectable,
+            });
+          }
+          roleObj.available?.forEach((entry: any) => {
+            if (!items.some((m) => m.id === entry.model_id)) {
+              items.push({
+                id: entry.model_id,
+                name: entry.display_name,
+                provider: entry.provider,
+                is_selectable: entry.is_selectable,
+              });
+            }
+          });
+        });
+        if (items.length > 0) setAvailableModels(items);
+      } catch (err) {}
+    };
+    fetchModels();
+  }, []);
 
   const fetchAgent = async () => {
     if (!hubId || !agentId) return;
@@ -245,54 +278,50 @@ export function AgentDetail() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Inference Model</label>
-                <select
+                <label className="block text-xs font-semibold text-slate-300 mb-2">Inference Model Config</label>
+                <ModelSelector
                   value={modelId}
-                  onChange={(e) => {
-                    setModelId(e.target.value);
+                  onChange={(val) => {
+                    setModelId(val);
                     setIsDirty(true);
                   }}
-                  disabled={!can("edit_resource") || isArchived}
-                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-60"
-                >
-                  <option value="gpt-4o">gpt-4o (OpenAI)</option>
-                  <option value="claude-3-5-sonnet">claude-3-5-sonnet (Anthropic)</option>
-                  <option value="gemini-1.5-pro">gemini-1.5-pro (Google)</option>
-                  <option value="llama-3.1-70b">llama-3.1-70b (Local / Ollama)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Temperature ({temperature})</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={temperature}
-                  onChange={(e) => {
-                    setTemperature(parseFloat(e.target.value));
-                    setIsDirty(true);
-                  }}
-                  disabled={!can("edit_resource") || isArchived}
-                  className="w-full accent-indigo-500 cursor-pointer mt-2"
+                  role="completion"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Max Tokens</label>
-                <input
-                  type="number"
-                  value={maxTokens}
-                  onChange={(e) => {
-                    setMaxTokens(parseInt(e.target.value));
-                    setIsDirty(true);
-                  }}
-                  disabled={!can("edit_resource") || isArchived}
-                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-60"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Temperature ({temperature})</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={temperature}
+                    onChange={(e) => {
+                      setTemperature(parseFloat(e.target.value));
+                      setIsDirty(true);
+                    }}
+                    disabled={!can("edit_resource") || isArchived}
+                    className="w-full accent-indigo-500 cursor-pointer mt-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Max Tokens</label>
+                  <input
+                    type="number"
+                    value={maxTokens}
+                    onChange={(e) => {
+                      setMaxTokens(parseInt(e.target.value));
+                      setIsDirty(true);
+                    }}
+                    disabled={!can("edit_resource") || isArchived}
+                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-60"
+                  />
+                </div>
               </div>
             </div>
 

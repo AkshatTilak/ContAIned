@@ -102,7 +102,7 @@ export const ROUTE_PATTERNS = {
   hubNotFound: "/hubs/not-found",
 
   // Hub shell layout route — matches /hubs/:hubType/:hubId and all descendants
-  hubShell: "/hubs/:hubType/:hubId/*",
+  hubShell: "/hubs/:hubType/:hubId",
 
   // Cross-hub shared panels (resolved inside HubShell)
   hubMembers: "members",

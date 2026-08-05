@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { Users, UserCheck, Mail, ShieldAlert, Shield } from "lucide-react";
+import { Users, UserCheck, Mail, ShieldAlert, Shield, Key, Box } from "lucide-react";
 import { UserDirectory } from "./UserDirectory";
+import { ApprovalQueue } from "./ApprovalQueue";
+import { InvitesTable } from "./InvitesTable";
+import { CredentialsSettings } from "./CredentialsSettings";
+import { ModelRegistryManager } from "./ModelRegistryManager";
 
 export function AdminConsole() {
-  const [tab, setTab] = useState<"users" | "pending" | "invites" | "audit">("users");
+  const [tab, setTab] = useState<"users" | "pending" | "invites" | "credentials" | "models" | "audit">("users");
 
   return (
     <div className="space-y-6 pb-12">
@@ -14,12 +18,12 @@ export function AdminConsole() {
           </div>
           <div>
             <h1 className="text-xl font-bold font-display text-slate-100">Platform Admin Console</h1>
-            <p className="text-xs text-slate-400 mt-0.5">Manage user access, invitations, pending approvals, and security audit logs.</p>
+            <p className="text-xs text-slate-400 mt-0.5">Manage user access, invitations, pending approvals, provider credentials, model registry, and security audit logs.</p>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center space-x-2 border-b border-slate-800 pb-2">
+      <div className="flex items-center space-x-2 border-b border-slate-800 pb-2 flex-wrap gap-y-2">
         <button
           onClick={() => setTab("users")}
           className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
@@ -49,6 +53,26 @@ export function AdminConsole() {
           <Mail className="w-3.5 h-3.5" />
           <span>Invitations</span>
         </button>
+        
+        <button
+          onClick={() => setTab("credentials")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
+            tab === "credentials" ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/40" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Key className="w-3.5 h-3.5" />
+          <span>Provider Credentials</span>
+        </button>
+
+        <button
+          onClick={() => setTab("models")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-colors ${
+            tab === "models" ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/40" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Box className="w-3.5 h-3.5" />
+          <span>Model Registry</span>
+        </button>
 
         <button
           onClick={() => setTab("audit")}
@@ -62,16 +86,10 @@ export function AdminConsole() {
       </div>
 
       {tab === "users" && <UserDirectory />}
-      {tab === "pending" && (
-        <div className="p-8 text-center text-xs text-slate-500 bg-slate-900/50 border border-slate-800 rounded-xl">
-          Approval queue clean. No pending user registration requests.
-        </div>
-      )}
-      {tab === "invites" && (
-        <div className="p-8 text-center text-xs text-slate-500 bg-slate-900/50 border border-slate-800 rounded-xl">
-          No pending platform invitations.
-        </div>
-      )}
+      {tab === "pending" && <ApprovalQueue />}
+      {tab === "invites" && <InvitesTable />}
+      {tab === "credentials" && <CredentialsSettings />}
+      {tab === "models" && <ModelRegistryManager />}
       {tab === "audit" && (
         <div className="p-8 text-center text-xs text-slate-500 bg-slate-900/50 border border-slate-800 rounded-xl">
           Security audit telemetry logging active.

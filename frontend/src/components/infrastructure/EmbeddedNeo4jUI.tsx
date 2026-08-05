@@ -8,7 +8,7 @@ export const EmbeddedNeo4jUI: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const proxyUrl = `${gatewayUrl.replace(/\/$/, "")}/api/neo4j/browser/`;
+  const proxyUrl = `${gatewayUrl.replace(/\/$/, "")}/neo4j/browser/`;
   const directUrl = "http://localhost:7474/browser/";
 
   const handleReload = () => {

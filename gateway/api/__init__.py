@@ -30,6 +30,10 @@ async def verify_api_key(
     if not settings.AUTH_ENABLED:
         return
 
+    path = request.url.path
+    if path.startswith("/api/qdrant") or path.startswith("/api/neo4j"):
+        return
+
     # 1. If user is already authenticated via JWT session, allow request
     if getattr(request.state, "user", None):
         return
@@ -76,6 +80,7 @@ from gateway.api.ingestion_hub import router as ingestion_hub_router
 from gateway.api.workflows import router as workflows_router
 from gateway.api.eval_hub import router as eval_hub_router
 from gateway.api.admin_audit import router as admin_audit_router
+from gateway.api.admin_users import router as admin_users_router
 from gateway.api.models import router as models_router
 from gateway.api.agent_crud import router as agent_crud_router
 from gateway.api.telemetry import router as telemetry_router
@@ -84,12 +89,14 @@ from gateway.api.playground import router as playground_router
 from gateway.api.mcp_manager import router as mcp_manager_router
 from gateway.api.api_keys import router as api_keys_router
 from gateway.api.proxy import router as proxy_router
+from gateway.api.credentials import router as credentials_router
 
 router.include_router(hubs_router)
 router.include_router(ingestion_hub_router)
 router.include_router(workflows_router)
 router.include_router(eval_hub_router)
 router.include_router(admin_audit_router)
+router.include_router(admin_users_router)
 router.include_router(models_router)
 router.include_router(agent_crud_router)
 router.include_router(telemetry_router)
@@ -98,6 +105,7 @@ router.include_router(playground_router)
 router.include_router(mcp_manager_router)
 router.include_router(api_keys_router)
 router.include_router(proxy_router)
+router.include_router(credentials_router)
 
 # Dynamically load project API routers
 # Make changes in .env ACTIVE_PROJECTS to register/deregister projects.

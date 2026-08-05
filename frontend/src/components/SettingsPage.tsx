@@ -7,6 +7,7 @@ import { telemetryService } from "../services/telemetry";
 import { api } from "../services/api";
 import { APIKeysPanel } from "./settings/APIKeysPanel";
 import { APIDocsPanel } from "./settings/APIDocsPanel";
+import { CredentialsSettings } from "./admin/CredentialsSettings";
 import { RoleGuard } from "./auth/RoleGuard";
 
 export const SettingsPage: React.FC = () => {
@@ -21,7 +22,7 @@ export const SettingsPage: React.FC = () => {
   const [inputGatewayUrl, setInputGatewayUrl] = useState(gatewayUrl);
   const [inputApiKey, setInputApiKey] = useState(apiKey);
   const [isTesting, setIsTesting] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "keys" | "docs">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "provider_keys" | "client_keys" | "docs">("general");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -97,7 +98,7 @@ export const SettingsPage: React.FC = () => {
               Gateway & Environment Settings
             </h2>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              Manage platform connection endpoints, authentication credentials, and environment overrides.
+              Manage platform connection endpoints, provider credentials, client access keys, and environment overrides.
             </p>
           </div>
         </div>
@@ -120,7 +121,7 @@ export const SettingsPage: React.FC = () => {
       </div>
 
       {/* Settings Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-2">
+      <div className="flex items-center gap-2 border-b border-[var(--border-default)] pb-2 flex-wrap">
         <button
           onClick={() => setActiveTab("general")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
@@ -133,15 +134,26 @@ export const SettingsPage: React.FC = () => {
           <span>General Connection</span>
         </button>
         <button
-          onClick={() => setActiveTab("keys")}
+          onClick={() => setActiveTab("provider_keys")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-            activeTab === "keys"
+            activeTab === "provider_keys"
               ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
               : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
           }`}
         >
           <Key className="w-4 h-4" />
-          <span>OpenAI API Keys</span>
+          <span>Provider API Keys</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("client_keys")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+            activeTab === "client_keys"
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)]"
+          }`}
+        >
+          <Shield className="w-4 h-4" />
+          <span>Client API Keys</span>
         </button>
         <button
           onClick={() => setActiveTab("docs")}
@@ -297,7 +309,8 @@ export const SettingsPage: React.FC = () => {
         </>
       )}
 
-      {activeTab === "keys" && <APIKeysPanel />}
+      {activeTab === "provider_keys" && <CredentialsSettings />}
+      {activeTab === "client_keys" && <APIKeysPanel />}
       {activeTab === "docs" && <APIDocsPanel />}
     </div>
   );

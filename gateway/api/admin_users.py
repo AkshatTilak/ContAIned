@@ -750,12 +750,12 @@ async def resend_user_invite(
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     if invite.last_sent_at:
-        last_sent_utc = (
-            invite.last_sent_at.replace(tzinfo=timezone.utc)
-            if invite.last_sent_at.tzinfo is None
+        last_sent_naive = (
+            invite.last_sent_at.replace(tzinfo=None)
+            if invite.last_sent_at.tzinfo is not None
             else invite.last_sent_at
         )
-        if (now - last_sent_utc).total_seconds() < 3600 and (invite.resend_count or 0) >= 3:
+        if (now - last_sent_naive).total_seconds() < 3600 and (invite.resend_count or 0) >= 3:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Invite resend limit reached (3 per hour)",

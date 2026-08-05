@@ -24,7 +24,6 @@ from projects.guardroute.src.agents.agent_repository import (
     get_agent as repo_get_agent,
     list_agents as repo_list_agents,
     update_agent as repo_update_agent,
-    slugify,
 )
 from projects.guardroute.src.agents.collection_binding import (
     inspect_binding_statuses,

@@ -89,7 +89,7 @@ async def seed_user(
     """Create a user in the test DB and return the model instance."""
     if user_id is None:
         user_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     user = User(
         id=user_id,
         email=email,
@@ -107,7 +107,7 @@ async def seed_user(
 
 
 async def seed_password_identity(user_id: str, email: str) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     identity = UserIdentity(
         id=str(uuid.uuid4()),
         user_id=user_id,
@@ -122,7 +122,7 @@ async def seed_password_identity(user_id: str, email: str) -> None:
 
 
 async def seed_session(user_id: str, token: str) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     session = UserSession(
         id=str(uuid.uuid4()),
         user_id=user_id,
@@ -161,7 +161,7 @@ async def seed_hub(
         slug = f"{hub_type}-{uuid.uuid4().hex[:8]}"
     if name is None:
         name = f"Test {hub_type} hub"
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     hub = Hub(
         id=str(uuid.uuid4()),
         slug=slug,

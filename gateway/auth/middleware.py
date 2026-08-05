@@ -19,7 +19,6 @@ WHITELIST_PREFIXES: List[str] = [
     "/auth/reset-password",
     "/auth/invite",
     "/auth/callback",
-
     "/health",
     "/api/health",
     "/docs",
@@ -28,15 +27,16 @@ WHITELIST_PREFIXES: List[str] = [
     "/favicon.ico",
     "/static",
     "/v1",  # External API routes use API key authentication (S5-07)
-    "/api/qdrant",  # Infrastructure proxy iframe route
-    "/api/neo4j",   # Infrastructure proxy iframe route
+    "/qdrant",      # Infrastructure proxy iframe route (direct mount)
+    "/neo4j",       # Infrastructure proxy iframe route (direct mount)
+    "/api/qdrant",  # Infrastructure proxy iframe route (legacy)
+    "/api/neo4j",   # Infrastructure proxy iframe route (legacy)
     "/dashboard",   # Qdrant dashboard static assets route
     "/collections", # Qdrant dashboard collections API proxy route
     "/telemetry",   # Qdrant dashboard telemetry API proxy route
     "/cluster",     # Qdrant dashboard cluster API proxy route
     "/aliases",     # Qdrant dashboard aliases API proxy route
 ]
-
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -133,7 +133,6 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 except Exception as exc:
                     logger.debug(f"User status DB re-verification skipped: {exc}")
 
-
             request.state.user = payload
             request.state.token = token
         except Exception as e:
@@ -142,6 +141,5 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 status_code=401,
                 content={"detail": f"Invalid or expired token: {str(e)}"},
             )
-
 
         return await call_next(request)

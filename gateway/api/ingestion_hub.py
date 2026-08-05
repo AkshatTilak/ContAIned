@@ -37,6 +37,7 @@ from projects.syntraflow.src.database.models import (
     SyntraFlowJob,
 )
 from projects.syntraflow.src.datastores.binding_manager import DatastoreBindingManager
+from projects.syntraflow.src.datastores.validator import DatastoreValidationError
 from projects.syntraflow.src.ingestion.pipeline import (
     assert_collection_in_hub,
 )
@@ -315,6 +316,8 @@ async def create_collection(
         if "already exists" in msg.lower():
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=msg)
+    except DatastoreValidationError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except CollectionProvisioningError as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -470,6 +473,9 @@ async def ingest_document_file(
     if generate_summary:
         post_procs.append("summary_gen")
 
+    ext = Path(filename).suffix.lower()
+    is_video_audio = ext in VIDEO_EXTENSIONS or ext in AUDIO_EXTENSIONS
+
     from projects.syntraflow.src.worker import process_ingestion_job
     asyncio.create_task(
         process_ingestion_job(
@@ -477,6 +483,7 @@ async def ingest_document_file(
             file_hash=file_hash,
             filename=filename,
             temp_filepath=temp_filepath,
+            is_video_audio=is_video_audio,
             hub_id=ctx.hub_id,
             collection_id=collection.id,
             chunker_type=chunk_strategy,
@@ -539,6 +546,7 @@ async def ingest_raw_text(
             file_hash=file_hash,
             filename=filename,
             temp_filepath=temp_filepath,
+            is_video_audio=False,
             hub_id=ctx.hub_id,
             collection_id=collection.id,
             chunker_type=payload.chunker_type,

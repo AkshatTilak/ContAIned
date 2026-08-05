@@ -2,9 +2,6 @@ import asyncio
 from sqlalchemy import inspect
 from common.clients.postgres import get_engine
 from common.models.database import Base
-import projects.syntraflow.src.database.models
-import projects.evalops.src.database.models
-import projects.guardroute.src.database.models
 
 async def check():
     engine = get_engine()

@@ -1,6 +1,5 @@
 """Unit tests for verify_api_key authentication dependency."""
 
-import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi import FastAPI, APIRouter, Depends, Request
 from fastapi.testclient import TestClient

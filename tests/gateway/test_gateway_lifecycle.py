@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from common.clients.postgres import get_async_db
-from common.models.database import Base, Hub, HubMember, User
+from common.models.database import Base, User
 from gateway.api.agent_crud import router as agent_router
 from gateway.api.hubs import router as hubs_router
 

@@ -5,7 +5,7 @@ import hmac
 import logging
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field

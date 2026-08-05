@@ -55,9 +55,9 @@ def reset_db_state(monkeypatch):
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
-        # Seed default admin user
+        # Seed default admin user and member user
         async with TestingSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             admin_user = User(
                 id="admin-actor-id",
                 email="admin@contained.local",
@@ -66,7 +66,15 @@ def reset_db_state(monkeypatch):
                 status="active",
                 created_at=now,
             )
-            db.add(admin_user)
+            member_user = User(
+                id="member-actor-id",
+                email="member@contained.local",
+                display_name="Member Actor",
+                platform_role="member",
+                status="active",
+                created_at=now,
+            )
+            db.add_all([admin_user, member_user])
             await db.commit()
 
     asyncio.run(_reset())
@@ -83,7 +91,7 @@ def test_list_and_pending_users():
     """Test user listing, search, status filtering, and pending badge API."""
     async def _seed():
         async with TestingSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             u1 = User(
                 id="user-pending-1",
                 email="pending1@example.com",
@@ -109,8 +117,8 @@ def test_list_and_pending_users():
     resp = client.get("/admin/users", headers=admin_headers)
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == 3  # admin + 2 seeded
-    assert len(data["items"]) == 3
+    assert data["total"] == 4  # admin + member + 2 seeded
+    assert len(data["items"]) == 4
 
     # Filter by status=pending
     resp_pending = client.get("/admin/users?status=pending", headers=admin_headers)
@@ -136,7 +144,7 @@ def test_user_detail_endpoint():
     """Test fetching detailed user profile including identities, memberships, and audit log history."""
     async def _seed():
         async with TestingSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             u = User(
                 id="target-user-id",
                 email="target@example.com",
@@ -197,7 +205,7 @@ def test_user_update_and_guardrails():
     """Test PATCH /admin/users/{id} and admin demotion / last-admin / self-action guardrails."""
     async def _seed():
         async with TestingSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             admin2 = User(
                 id="admin2-id",
                 email="admin2@example.com",
@@ -245,7 +253,7 @@ def test_user_approval_workflow():
     """Test approval gate transitions: approve, reject, suspend, reinstate."""
     async def _seed():
         async with TestingSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             p_user = User(
                 id="pending-user-id",
                 email="newbie@example.com",
@@ -301,7 +309,7 @@ def test_reject_user_workflow():
     """Test rejecting a pending user."""
     async def _seed():
         async with TestingSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             u = User(
                 id="reject-target-id",
                 email="rejected@example.com",
@@ -323,7 +331,7 @@ def test_delete_user_and_hub_ownership_guardrail():
     """Test DELETE /admin/users/{id} and ownership blocking."""
     async def _seed():
         async with TestingSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             owner = User(
                 id="owner-user-id",
                 email="owner@example.com",
@@ -408,7 +416,7 @@ def test_admin_audit_log_querying():
     """Test GET /admin/audit filters and pagination."""
     async def _seed_audits():
         async with TestingSessionLocal() as db:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             a1 = AuditLog(
                 id="aud-log-1",
                 actor_user_id="admin-actor-id",

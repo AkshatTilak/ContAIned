@@ -6,7 +6,7 @@ Tests:
 3. Trace ID propagation and error response schema formatting.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient

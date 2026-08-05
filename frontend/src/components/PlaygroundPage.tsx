@@ -42,7 +42,7 @@ export const PlaygroundPage: React.FC = () => {
 
   // Playground Config State
   const [selectedModel, setSelectedModel] = useState<string>("gemini/gemini-3.5-flash");
-  const [availableModels, setAvailableModels] = useState<{ id: string; name: string; provider: string }[]>(DEFAULT_MODELS);
+  const [availableModels, setAvailableModels] = useState<{ id: string; name: string; provider: string; is_selectable?: boolean }[]>(DEFAULT_MODELS);
   const [systemPrompt, setSystemPrompt] = useState<string>("You are a helpful, expert AI assistant within the ContAIned platform.");
   const [isSystemPromptOpen, setIsSystemPromptOpen] = useState(false);
   const [temperature, setTemperature] = useState<number>(0.7);
@@ -73,13 +73,14 @@ export const PlaygroundPage: React.FC = () => {
   const fetchModelRegistry = async () => {
     try {
       const reg: ModelRegistryResponse = await api.getModels();
-      const items: { id: string; name: string; provider: string }[] = [];
+      const items: { id: string; name: string; provider: string; is_selectable?: boolean }[] = [];
       Object.values(reg).forEach((roleObj) => {
         if (roleObj.active) {
           items.push({
             id: roleObj.active.model_id,
             name: roleObj.active.display_name,
             provider: roleObj.active.provider,
+            is_selectable: roleObj.active.is_selectable,
           });
         }
         roleObj.available?.forEach((entry) => {
@@ -88,6 +89,7 @@ export const PlaygroundPage: React.FC = () => {
               id: entry.model_id,
               name: entry.display_name,
               provider: entry.provider,
+              is_selectable: entry.is_selectable,
             });
           }
         });
@@ -306,8 +308,8 @@ export const PlaygroundPage: React.FC = () => {
                 className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-emerald-500/50 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-200 focus:outline-none focus:border-emerald-400 transition-colors cursor-pointer pr-8"
               >
                 {availableModels.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.provider})
+                  <option key={m.id} value={m.id} disabled={m.is_selectable === false}>
+                    {m.name} ({m.provider}) {m.is_selectable === false ? "(Key Missing)" : ""}
                   </option>
                 ))}
               </select>

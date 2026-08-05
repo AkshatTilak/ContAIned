@@ -60,7 +60,7 @@ export function DocumentsWorkspace() {
     if (!hubId) return;
     try {
       const res = await api.ingestion.collections.list(hubId);
-      setCollections(res.collections || (res as any).items || []);
+      setCollections(Array.isArray(res) ? res : (res.collections || (res as any).items || []));
     } catch {
       // ignore
     }
@@ -172,7 +172,10 @@ export function DocumentsWorkspace() {
 
         {can("create_resource") && !isArchived && (
           <button
-            onClick={() => setIsUploadOpen(true)}
+            onClick={() => {
+              setIsUploadOpen(true);
+              fetchCollections();
+            }}
             className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all shrink-0"
           >
             <Upload className="w-4 h-4" />

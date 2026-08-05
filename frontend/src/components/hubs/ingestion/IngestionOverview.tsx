@@ -41,13 +41,13 @@ export function IngestionOverview() {
           api.ingestion.datastores.list(hubId).catch(() => []),
         ]);
 
-        const cols = (colRes as any).collections || (colRes as any).items || [];
+        const cols = Array.isArray(colRes) ? colRes : ((colRes as any).collections || (colRes as any).items || []);
         const healthy = datastores.filter((d: any) => d.health_status === "healthy").length;
         const degraded = datastores.filter((d: any) => d.health_status === "degraded").length;
         const unreachable = datastores.filter((d: any) => d.health_status === "unreachable").length;
 
         setStats({
-          collectionsCount: colRes.count || cols.length,
+          collectionsCount: cols.length,
           documentsCount: docRes.total_count || 0,
           activeJobsCount: 0,
           bindingHealth: { healthy: healthy || 1, degraded, unreachable },

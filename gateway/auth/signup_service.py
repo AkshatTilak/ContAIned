@@ -2,12 +2,12 @@
 
 import logging
 from typing import Tuple
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.config.settings import get_settings
-from common.constants.roles import PLATFORM_ROLE_ADMIN, PLATFORM_ROLE_MEMBER
-from common.models.database import User, UserInvite
+from common.constants.roles import PLATFORM_ROLE_MEMBER
+from common.models.database import UserInvite
 
 logger = logging.getLogger("gateway.auth.signup_service")
 

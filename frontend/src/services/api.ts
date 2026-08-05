@@ -208,6 +208,23 @@ export const api = {
   // System & Health
   getSystemHealth: () => request<SystemHealthResponse>("/health", {}, 1, 15000),
   getModels: () => request<ModelRegistryResponse>("/api/models"),
+  localModels: {
+    status: () => request<any>("/api/models/local/status"),
+    start: (modelId: string) => request<any>(`/api/models/local/${modelId}/start`, { method: "POST" }),
+    stop: (modelId: string) => request<any>(`/api/models/local/${modelId}/stop`, { method: "POST" }),
+    selectActive: (role: string, modelId: string) =>
+      request<any>("/api/models/select", { method: "POST", body: JSON.stringify({ role, model_id: modelId }) }),
+    register: (payload: any) =>
+      request<any>("/api/models/register", { method: "POST", body: JSON.stringify(payload) }),
+    update: (modelId: string, payload: any) =>
+      request<any>(`/api/models/${modelId}`, { method: "PUT", body: JSON.stringify(payload) }),
+    delete: (modelId: string) =>
+      request<any>(`/api/models/${modelId}`, { method: "DELETE" }),
+    purgeLocal: (modelId: string, purgeDisk: boolean = false) =>
+      request<any>(`/api/models/local/${encodeURIComponent(modelId)}?purge_disk=${purgeDisk}`, { method: "DELETE" }),
+    getLiteLLMModels: (provider: string) =>
+      request<any>(`/api/models/litellm/available?provider=${encodeURIComponent(provider)}`),
+  },
 
   // Hubs API Namespace
   hubs: {
@@ -538,4 +555,27 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ parameters }),
     }),
+
+  // Admin API Namespace
+  admin: {
+    users: {
+      pending: () => request<any>("/api/admin/users/pending"),
+      approve: (userId: string, payload: any) =>
+        request<any>(`/api/admin/users/${userId}/approve`, { method: "POST", body: JSON.stringify(payload) }),
+      reject: (userId: string, payload: any) =>
+        request<any>(`/api/admin/users/${userId}/reject`, { method: "POST", body: JSON.stringify(payload) }),
+    },
+    invites: {
+      list: () => request<any>("/api/admin/invites"),
+      resend: (inviteId: string) => request<any>(`/api/admin/invites/${inviteId}/resend`, { method: "POST" }),
+      revoke: (inviteId: string) => request<void>(`/api/admin/invites/${inviteId}`, { method: "DELETE" }),
+    },
+    credentials: {
+      list: () => request<any>("/api/settings/credentials"),
+      upsert: (payload: { provider: string; api_key: string }) =>
+        request<any>("/api/settings/credentials", { method: "POST", body: JSON.stringify(payload) }),
+      remove: (provider: string) =>
+        request<void>(`/api/settings/credentials/${provider}`, { method: "DELETE" }),
+    },
+  },
 };

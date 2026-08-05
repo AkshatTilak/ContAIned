@@ -17,6 +17,7 @@ import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
 import { routes } from "../../../routes";
 import { useStore } from "../../../store/useStore";
+import { ModelSelector } from "../../shared/ModelSelector";
 
 export function CollectionsWorkspace() {
   const { hubId } = useParams<{ hubId: string }>();
@@ -41,22 +42,62 @@ export function CollectionsWorkspace() {
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  const fetchCollections = async () => {
+  const [datastores, setDatastores] = useState<any[]>([]);
+  const [datastoreId, setDatastoreId] = useState("");
+  const [availableModels, setAvailableModels] = useState<{ id: string; name: string; provider: string; is_selectable?: boolean }[]>([]);
+
+  const fetchData = async () => {
     if (!hubId) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await api.ingestion.collections.list(hubId);
-      setCollections(res.collections || (res as any).items || []);
+      const [colRes, dsRes, modRes] = await Promise.all([
+        api.ingestion.collections.list(hubId),
+        api.ingestion.datastores.list(hubId),
+        api.getModels().catch(() => ({})), // Fallback to empty if error
+      ]);
+      const listData = Array.isArray(colRes) ? colRes : (colRes.collections || (colRes as any).items || []);
+      setCollections(listData);
+      setDatastores(dsRes || []);
+      if (dsRes && dsRes.length > 0) {
+        setDatastoreId(dsRes[0].id);
+      }
+      
+      const items: { id: string; name: string; provider: string; is_selectable?: boolean }[] = [];
+      const embeddingObj = (modRes as any).embedding;
+      if (embeddingObj) {
+        if (embeddingObj.active) {
+          items.push({
+            id: embeddingObj.active.model_id,
+            name: embeddingObj.active.display_name,
+            provider: embeddingObj.active.provider,
+            is_selectable: embeddingObj.active.is_selectable,
+          });
+        }
+        embeddingObj.available?.forEach((entry: any) => {
+          if (!items.some((m) => m.id === entry.model_id)) {
+            items.push({
+              id: entry.model_id,
+              name: entry.display_name,
+              provider: entry.provider,
+              is_selectable: entry.is_selectable,
+            });
+          }
+        });
+      }
+      if (items.length > 0) {
+        setAvailableModels(items);
+        setEmbeddingModel(items[0].id);
+      }
     } catch (err: any) {
-      setError(err?.message || "Failed to load collections");
+      setError(err?.message || "Failed to load workspace data");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCollections();
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hubId]);
 
@@ -73,11 +114,12 @@ export function CollectionsWorkspace() {
         embedding_model: embeddingModel,
         vector_dimension: dimension,
         strategy,
+        datastore_binding_id: datastoreId || undefined,
       });
       setIsCreateOpen(false);
       setName("");
       setDescription("");
-      fetchCollections();
+      fetchData();
     } catch (err: any) {
       setCreateError(err?.message || "Failed to create collection");
     } finally {
@@ -89,7 +131,7 @@ export function CollectionsWorkspace() {
     if (!hubId) return;
     try {
       await api.ingestion.collections.delete(hubId, collectionId);
-      fetchCollections();
+      fetchData();
     } catch (err: any) {
       console.error("Failed to delete collection:", err);
     }
@@ -179,20 +221,43 @@ export function CollectionsWorkspace() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Embedding Model</label>
-              <select
+            <div className="col-span-full">
+              <label className="block text-xs font-semibold text-slate-300 mb-2">Embedding Model Config</label>
+              <ModelSelector
                 value={embeddingModel}
-                onChange={(e) => {
-                  setEmbeddingModel(e.target.value);
-                  if (e.target.value.includes("small") || e.target.value.includes("bge")) setDimension(1536);
-                  else if (e.target.value.includes("large")) setDimension(3072);
+                onChange={(val) => {
+                  setEmbeddingModel(val);
+                  const lowerVal = val.toLowerCase();
+                  if (lowerVal.includes("small") || lowerVal.includes("bge") || lowerVal.includes("1536")) setDimension(1536);
+                  else if (lowerVal.includes("large") || lowerVal.includes("3072")) setDimension(3072);
+                  else if (lowerVal.includes("harrier") || lowerVal.includes("768")) setDimension(768);
+                  else if (lowerVal.includes("clip") || lowerVal.includes("1024")) setDimension(1024);
+                  else setDimension(768);
                 }}
+                role="embedding"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Datastore Binding</label>
+              <select
+                value={datastoreId}
+                onChange={(e) => setDatastoreId(e.target.value)}
                 className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
               >
-                <option value="text-embedding-3-small">text-embedding-3-small (1536d)</option>
-                <option value="text-embedding-3-large">text-embedding-3-large (3072d)</option>
-                <option value="bge-large-en-v1.5">bge-large-en-v1.5 (1024d)</option>
+                {datastores.map((ds) => {
+                  const isOffline = ds.health_status === "unhealthy" || ds.health_status === "unreachable";
+                  return (
+                    <option key={ds.id} value={ds.id} disabled={isOffline}>
+                      {ds.name} ({ds.store_type || ds.datastore_type || "qdrant"}) — [{ds.health_status || "healthy"}]
+                    </option>
+                  );
+                })}
+                {datastores.length === 0 && (
+                  <option value="" disabled>Platform Default (Qdrant)</option>
+                )}
               </select>
             </div>
           </div>

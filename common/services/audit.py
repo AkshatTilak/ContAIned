@@ -111,7 +111,7 @@ async def record_audit(
             before_json=redacted_before,
             after_json=redacted_after,
             ip_address=ip_address,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         session.add(audit)
     except Exception as e:

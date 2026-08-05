@@ -104,6 +104,7 @@ export interface ModelRegistryEntry {
   provider: string;
   is_enabled: boolean;
   is_default: boolean;
+  is_selectable?: boolean;
 }
 
 export interface ModelRegistryResponse {

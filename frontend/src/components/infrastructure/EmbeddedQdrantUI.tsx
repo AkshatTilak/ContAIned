@@ -8,7 +8,7 @@ export const EmbeddedQdrantUI: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const proxyUrl = `${gatewayUrl.replace(/\/$/, "")}/api/qdrant/`;
+  const proxyUrl = `${gatewayUrl.replace(/\/$/, "")}/qdrant/`;
   const directUrl = "http://localhost:6333/dashboard/";
 
   useEffect(() => {
