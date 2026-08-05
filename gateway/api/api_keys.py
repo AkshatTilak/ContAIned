@@ -95,7 +95,7 @@ async def create_api_key(
     raw_key = f"sk-{secrets.token_urlsafe(36)}"
     hashed_key = hash_api_key(raw_key)
     prefix = raw_key[:8]
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     api_key_obj = APIKeyModel(
         key=hashed_key,
@@ -165,7 +165,7 @@ async def list_api_keys(
                 usage_count=k.usage_count,
                 is_active=k.is_active,
                 last_used_at=k.last_used_at,
-                created_at=k.created_at or datetime.now(timezone.utc),
+                created_at=k.created_at or datetime.now(timezone.utc).replace(tzinfo=None),
             )
         )
     return res
@@ -217,7 +217,7 @@ async def update_api_key(
         usage_count=key_obj.usage_count,
         is_active=key_obj.is_active,
         last_used_at=key_obj.last_used_at,
-        created_at=key_obj.created_at or datetime.now(timezone.utc),
+        created_at=key_obj.created_at or datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
 

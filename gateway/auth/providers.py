@@ -22,7 +22,7 @@ logger = logging.getLogger("gateway.auth.providers")
 def build_state(payload: Dict[str, Any]) -> str:
     """Build a signed, timestamped JWT state string for OAuth flows."""
     secret_key, algorithm, _ = get_jwt_settings()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     exp = now + timedelta(minutes=10)
 
     data = dict(payload)

@@ -413,7 +413,7 @@ async def approve_user(
             detail="Invalid state transition. User is not pending approval",
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     user.status = "active"
     user.approved_by = actor_id
     user.approved_at = now
@@ -748,7 +748,7 @@ async def resend_user_invite(
             detail="Pending invite not found",
         )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     if invite.last_sent_at:
         last_sent_utc = (
             invite.last_sent_at.replace(tzinfo=timezone.utc)

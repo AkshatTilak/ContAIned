@@ -71,3 +71,7 @@ projects/syntraflow/temp_uploads/
 
 # Local Docker persistence data
 /data/
+
+# Log files
+logs/
+*.log

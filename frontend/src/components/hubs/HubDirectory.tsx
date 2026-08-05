@@ -17,6 +17,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import { routes, type HubType } from "../../routes";
 import { api } from "../../services/api";
@@ -27,7 +28,7 @@ const HUB_SECTION_META: {
   type: HubType;
   title: string;
   description: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
 }[] = [
   {
     type: "ingestion",

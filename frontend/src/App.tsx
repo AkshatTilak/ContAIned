@@ -92,10 +92,7 @@ export default function App() {
       const health = await api.getSystemHealth();
       setSystemHealth(health);
     } catch (err) {
-      console.warn("Using offline fallback system data:", err);
-      setSystemHealth((prev) =>
-        prev?.status === "healthy" ? prev : FALLBACK_SYSTEM_HEALTH
-      );
+      console.warn("System health is currently unavailable:", err);
     }
 
     try {
@@ -412,4 +409,3 @@ function HubShellIndexRedirect() {
   const defaultTab = defaultPaths[hubType] ?? "collections";
   return <Navigate to={`/hubs/${hubType}/${hubId}/${defaultTab}`} replace />;
 }
-

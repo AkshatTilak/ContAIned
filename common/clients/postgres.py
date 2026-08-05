@@ -60,9 +60,9 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
         try:
             yield db
         except SQLAlchemyError as e:
-            logger.error("Database session transaction error: %s", e)
+            logger.error("Database session transaction error: %s", e, exc_info=True)
             await db.rollback()
-            raise RuntimeError("Database transaction failed") from e
+            raise RuntimeError(f"Database transaction failed: {str(e)}") from e
 
 
 async def verify_connection_with_retry(max_retries: int = 5, backoff_factor: float = 2.0):

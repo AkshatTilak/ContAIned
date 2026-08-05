@@ -47,14 +47,6 @@ class IdentityResponse(BaseModel):
     created_at: datetime
 
 
-class HubMembershipResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    hub_id: str
-    hub_role: str
-    created_at: datetime
-
-
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -67,7 +59,6 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login: Optional[datetime] = None
     identities: List[IdentityResponse] = Field(default_factory=list)
-    hub_memberships: List[HubMembershipResponse] = Field(default_factory=list)
 
 
 class RegisterRequest(BaseModel):
@@ -226,7 +217,7 @@ async def _soft_delete_current_user(
     if not user or user.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     user.is_deleted = True
     user.deleted_at = now
 
@@ -286,14 +277,9 @@ async def get_me(
     id_stmt = select(UserIdentity).where(UserIdentity.user_id == user.id)
     identities = (await db.execute(id_stmt)).scalars().all()
 
-    # Fetch hub memberships
-    from common.models.database import HubMember
-    hm_stmt = select(HubMember).where(HubMember.user_id == user.id)
-    hub_memberships = (await db.execute(hm_stmt)).scalars().all()
-
     resp = UserResponse.model_validate(user)
+    # identities loaded via selectin; override with freshly queried list for consistency
     resp.identities = [IdentityResponse.model_validate(i) for i in identities]
-    resp.hub_memberships = [HubMembershipResponse.model_validate(hm) for hm in hub_memberships]
     return resp
 
 
@@ -358,7 +344,7 @@ async def unlink_identity(
 
     await db.delete(target_identity)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     client_ip = request.client.host if request.client else None
     audit = AuditLog(
         id=str(uuid.uuid4()),
@@ -433,7 +419,7 @@ async def register_user(
 
     initial_status, initial_role, invite = await resolve_signup(db, norm_email)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     user_id = str(uuid.uuid4())
 
     user = User(
@@ -486,14 +472,12 @@ async def login_user(
     user = res.scalar_one_or_none()
 
     password_valid = verify_password(payload.password, user.password_hash if user else None)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     if user and user.locked_until:
         locked_until = user.locked_until
-        if locked_until.tzinfo is None:
-            locked_until = locked_until.replace(tzinfo=timezone.utc)
-        else:
-            locked_until = locked_until.astimezone(timezone.utc)
+        if locked_until.tzinfo is not None:
+            locked_until = locked_until.replace(tzinfo=None)
 
         if locked_until and locked_until > now:
             retry_after = max(1, int((locked_until - now).total_seconds()))
@@ -563,6 +547,8 @@ async def login_user(
     )
     db.add(session_record)
     await db.commit()
+    # Reload identities after commit (commit expires all ORM attrs including selectin rels)
+    await db.refresh(user, attribute_names=["identities"])
 
     return TokenResponse(
         access_token=jwt_token,
@@ -592,7 +578,7 @@ async def change_password(
 
     validate_password_policy(payload.new_password, user.email)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     user.password_hash = hash_password(payload.new_password)
     user.password_updated_at = now
 
@@ -635,7 +621,7 @@ async def forgot_password(
     user = res.scalar_one_or_none()
 
     if user:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         del_stmt = select(PasswordResetToken).where(PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None))
         old_tokens = (await db.execute(del_stmt)).scalars().all()
         for t in old_tokens:
@@ -668,7 +654,7 @@ async def reset_password(
 ):
     """Reset password using a single-use reset token."""
     token_hash = hashlib.sha256(payload.token.encode("utf-8")).hexdigest()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     stmt = select(PasswordResetToken).where(
         PasswordResetToken.token_hash == token_hash,
@@ -740,7 +726,7 @@ async def accept_invite(
     )
 
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     jwt_token = create_access_token(user_id=user.id, email=user.email, platform_role=user.platform_role)
     token_h = hash_token(jwt_token)
     expires_at = now + timedelta(hours=24)
@@ -754,12 +740,15 @@ async def accept_invite(
     )
     db.add(session_record)
     await db.commit()
+    # Reload identities after commit (commit expires all ORM attrs including selectin rels)
+    await db.refresh(user, attribute_names=["identities"])
 
     return TokenResponse(
         access_token=jwt_token,
         token_type="bearer",
         user=UserResponse.model_validate(user),
     )
+
 
 
 

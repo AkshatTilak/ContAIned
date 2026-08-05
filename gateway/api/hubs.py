@@ -47,7 +47,7 @@ from common.services.hub_repository import (
     upsert_member,
 )
 from common.services.hub_resolver import validate_link_creation
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from gateway.auth.dependencies import get_current_user
 from gateway.auth.hub_context import HubContext, require_hub
 from pydantic import BaseModel
@@ -93,7 +93,7 @@ async def _log_audit_event(
         summary=summary,
         before_json=before_json,
         after_json=after_json,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     session.add(audit)
 
@@ -177,6 +177,7 @@ async def create_new_hub(
             after_json={"id": hub.id, "slug": hub.slug, "hub_type": hub.hub_type},
         )
         await db.commit()
+        await db.refresh(hub)
         return hub
     except DuplicateSlugError:
         raise HTTPException(
@@ -200,20 +201,38 @@ async def check_slug_available(
     return {"available": available, "suggestion": suggestion}
 
 
+@router.get("/check-slug", include_in_schema=False)
+async def check_slug_available_alias(
+    hub_type: str = Query(...),
+    slug: str = Query(...),
+    db: AsyncSession = Depends(get_async_db),
+    user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Alias for /slug-available kept for backwards compatibility."""
+    existing = await get_hub_by_slug(db, hub_type=hub_type, slug=slug)
+    available = existing is None
+    suggestion = f"{slug}-1" if not available else slug
+    return {"available": available, "suggestion": suggestion}
+
+
 @router.get("/{hub_id}")
-@router.get("/{hub_type:regex('^(ingestion|agent|workflow|eval)$')}/{hub_id}")
+@router.get("/ingestion/{hub_id}")
+@router.get("/agent/{hub_id}")
+@router.get("/workflow/{hub_id}")
+@router.get("/eval/{hub_id}")
 async def get_hub_detail(
     hub_id: str,
-    hub_type: Optional[str] = None,
+    request: Request,
     ctx: HubContext = Depends(require_hub(min_role=HUB_ROLE_VIEWER)),
     db: AsyncSession = Depends(get_async_db),
 ):
     """Fetch hub metadata by ID or by (hub_type, hub_id)."""
-    if hub_type and ctx.hub.hub_type != hub_type:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Hub not found",
-        )
+    path_parts = request.url.path.strip("/").split("/")
+    hubs_index = path_parts.index("hubs")
+    requested_type = path_parts[hubs_index + 1] if len(path_parts) == hubs_index + 3 else None
+    if requested_type in {"ingestion", "agent", "workflow", "eval"} and ctx.hub.hub_type != requested_type:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hub not found")
+
     mem = await get_membership(db, hub_id=ctx.hub_id, user_id=ctx.user_id)
     membership_dict = None
     if mem:

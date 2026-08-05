@@ -12,10 +12,11 @@ from collections.abc import AsyncGenerator
 from fastapi import FastAPI
 
 from common.config.settings import settings
-from common.observability.logger import get_logger, RequestIdMiddleware
+from common.observability.logger import get_logger, configure_file_logging, RequestIdMiddleware, RequestAuditMiddleware
 from inference.core.vram_manager import VRAMManager
 
 logger = get_logger("inference")
+configure_file_logging("inference")
 
 # Initialize VRAM manager singleton
 vram = VRAMManager.get_instance(
@@ -63,6 +64,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(RequestIdMiddleware)
+app.add_middleware(RequestAuditMiddleware)
 
 
 async def register_loaders_from_db() -> None:

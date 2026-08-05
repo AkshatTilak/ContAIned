@@ -96,7 +96,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     try:
         from common.clients.postgres import get_sessionmaker
         from common.models.database import APIKeyModel, User, UserIdentity
-        from gateway.auth.passwords import hash_password
+        from gateway.auth.passwords import hash_password, verify_password
         from gateway.auth.utils import normalize_email
         from sqlalchemy import select
         import uuid
@@ -115,69 +115,81 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
                 await session.commit()
                 logger.info("Database API keys table seeded with default key 'sk_live_default_key'.")
 
-            # Bootstrap super admin account
-            admin_email = getattr(settings, "SUPER_ADMIN_EMAIL", "admin@contained.ai")
-            admin_pass = getattr(settings, "SUPER_ADMIN_PASSWORD", "AdminPass123!")
-            if admin_email and admin_pass:
-                norm_admin = normalize_email(admin_email)
-                res = await session.execute(select(User).where(User.email == norm_admin))
-                admin_user = res.scalar_one_or_none()
-                if not admin_user:
-                    now = datetime.utcnow()
-                    uid = str(uuid.uuid4())
-                    admin_user = User(
-                        id=uid,
-                        email=norm_admin,
-                        display_name="Platform Super Admin",
-                        platform_role="admin",
-                        status="active",
-                        password_hash=hash_password(admin_pass),
-                        created_at=now,
-                    )
-                    session.add(admin_user)
-                    identity = UserIdentity(
-                        id=str(uuid.uuid4()),
-                        user_id=uid,
-                        provider="password",
-                        provider_id=uid,
-                        email=norm_admin,
-                        created_at=now,
-                    )
-                    session.add(identity)
-                    await session.commit()
-                    logger.info("Bootstrapped environment super admin account: %s", norm_admin)
+            async def reconcile_bootstrap_account(
+                email: str | None,
+                password: str | None,
+                *,
+                display_name: str,
+                platform_role: str,
+            ) -> None:
+                """Make configured bootstrap credentials authoritative on every startup."""
+                if not email or not password:
+                    return
 
-            # Bootstrap test user account
-            test_email = getattr(settings, "TEST_USER_EMAIL", "testuser@contained.ai")
-            test_pass = getattr(settings, "TEST_USER_PASSWORD", "TestPass123!")
-            if test_email and test_pass:
-                norm_test = normalize_email(test_email)
-                res = await session.execute(select(User).where(User.email == norm_test))
-                test_user = res.scalar_one_or_none()
-                if not test_user:
-                    now = datetime.utcnow()
-                    uid = str(uuid.uuid4())
-                    test_user = User(
-                        id=uid,
-                        email=norm_test,
-                        display_name="Automated Test User",
-                        platform_role="member",
-                        status="active",
-                        password_hash=hash_password(test_pass),
-                        created_at=now,
-                    )
-                    session.add(test_user)
-                    identity = UserIdentity(
+                normalized_email = normalize_email(email)
+                result = await session.execute(select(User).where(User.email == normalized_email))
+                user = result.scalar_one_or_none()
+                now = datetime.utcnow()
+
+                if user is None:
+                    user = User(
                         id=str(uuid.uuid4()),
-                        user_id=uid,
-                        provider="password",
-                        provider_id=uid,
-                        email=norm_test,
+                        email=normalized_email,
+                        display_name=display_name,
+                        platform_role=platform_role,
+                        status="active",
+                        password_hash=hash_password(password),
+                        password_updated_at=now,
                         created_at=now,
                     )
-                    session.add(identity)
-                    await session.commit()
-                    logger.info("Bootstrapped environment test user account: %s", norm_test)
+                    session.add(user)
+                    await session.flush()
+                    logger.info("Created environment bootstrap account: %s", normalized_email)
+                else:
+                    user.display_name = user.display_name or display_name
+                    user.platform_role = platform_role
+                    user.status = "active"
+                    user.is_deleted = False
+                    user.deleted_at = None
+                    user.failed_login_count = 0
+                    user.locked_until = None
+                    if not verify_password(password, user.password_hash):
+                        user.password_hash = hash_password(password)
+                        user.password_updated_at = now
+                    logger.info("Reconciled environment bootstrap account: %s", normalized_email)
+
+                identity_result = await session.execute(
+                    select(UserIdentity).where(
+                        UserIdentity.user_id == user.id,
+                        UserIdentity.provider == "password",
+                    )
+                )
+                if identity_result.scalar_one_or_none() is None:
+                    session.add(
+                        UserIdentity(
+                            id=str(uuid.uuid4()),
+                            user_id=user.id,
+                            provider="password",
+                            provider_id=user.id,
+                            email=normalized_email,
+                            created_at=now,
+                        )
+                    )
+
+                await session.commit()
+
+            await reconcile_bootstrap_account(
+                getattr(settings, "ADMIN_EMAIL", None),
+                getattr(settings, "ADMIN_PASSWORD", None),
+                display_name="Admin",
+                platform_role="admin",
+            )
+            await reconcile_bootstrap_account(
+                getattr(settings, "TEST_USER_EMAIL", None),
+                getattr(settings, "TEST_USER_PASSWORD", None),
+                display_name="Automated Test User",
+                platform_role="member",
+            )
 
     except Exception as e:
         logger.error("Failed to seed default API key / bootstrap admin accounts: %s", e)

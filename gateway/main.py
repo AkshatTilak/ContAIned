@@ -14,7 +14,7 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 import json
 
 from common.config.settings import settings
-from common.observability.logger import get_logger, RequestIdMiddleware, RequestAuditMiddleware, log_security_event
+from common.observability.logger import get_logger, configure_file_logging, RequestIdMiddleware, RequestAuditMiddleware, log_security_event
 from common.observability.limiter import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
@@ -38,6 +38,7 @@ async def custom_rate_limit_exceeded_handler(request: Request, exc: RateLimitExc
     return _rate_limit_exceeded_handler(request, exc)
 
 logger = get_logger("gateway")
+configure_file_logging("gateway")
 
 
 class RequestSizeLimitMiddleware:

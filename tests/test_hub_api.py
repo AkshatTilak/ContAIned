@@ -133,6 +133,36 @@ async def test_duplicate_slug_conflict(async_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_slug_check_and_hub_detail_routes(async_session: AsyncSession):
+    """Canonical and compatibility routes remain unambiguous and type-safe."""
+    app = build_api_test_app(async_session)
+    client = TestClient(app)
+
+    available = client.get(
+        "/api/hubs/slug-available?hub_type=ingestion&slug=knowledge",
+        headers={"X-Test-User": "user-1"},
+    )
+    compatibility = client.get(
+        "/api/hubs/check-slug?hub_type=ingestion&slug=knowledge",
+        headers={"X-Test-User": "user-1"},
+    )
+    assert available.status_code == 200
+    assert available.json()["available"] is True
+    assert compatibility.json() == available.json()
+
+    created = client.post(
+        "/api/hubs",
+        json={"slug": "knowledge", "name": "Knowledge", "hub_type": "ingestion"},
+        headers={"X-Test-User": "user-1"},
+    ).json()
+    hub_id = created["id"]
+
+    assert client.get(f"/api/hubs/{hub_id}", headers={"X-Test-User": "user-1"}).status_code == 200
+    assert client.get(f"/api/hubs/ingestion/{hub_id}", headers={"X-Test-User": "user-1"}).status_code == 200
+    assert client.get(f"/api/hubs/agent/{hub_id}", headers={"X-Test-User": "user-1"}).status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_last_owner_protection_and_transfer(async_session: AsyncSession):
     """Removing/demoting the sole owner fails with 409 LAST_OWNER; succeeds after transfer."""
     app = build_api_test_app(async_session)

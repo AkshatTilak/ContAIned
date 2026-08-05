@@ -123,7 +123,7 @@ async def log_invocation_background(
                 status=status_str,
                 route_decision=route_decision,
                 metadata_json=metadata_json,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(timezone.utc).replace(tzinfo=None),
             )
             session.add(log_entry)
             await session.commit()

@@ -51,8 +51,8 @@ class InvalidLinkDirectionError(HubRepositoryError):
 # ---------------------------------------------------------------------------
 
 async def get_hub(session: AsyncSession, hub_id: str) -> Optional[Hub]:
-    """Fetch a Hub by primary key."""
-    stmt = select(Hub).where(Hub.id == hub_id)
+    """Fetch a Hub by primary key. Returns None for soft-deleted hubs."""
+    stmt = select(Hub).where(Hub.id == hub_id, Hub.is_deleted.is_(False))
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -75,6 +75,7 @@ async def list_hubs_for_user(
     """List hubs accessible to a user alongside their effective hub_role."""
     if is_platform_admin:
         stmt = select(Hub)
+        stmt = stmt.where(Hub.is_deleted.is_(False))
         if hub_type:
             stmt = stmt.where(Hub.hub_type == hub_type)
         if not include_archived:
@@ -87,6 +88,7 @@ async def list_hubs_for_user(
         select(Hub, HubMember.hub_role)
         .join(HubMember, HubMember.hub_id == Hub.id)
         .where(HubMember.user_id == user_id)
+        .where(Hub.is_deleted.is_(False))
     )
     if hub_type:
         stmt = stmt.where(Hub.hub_type == hub_type)

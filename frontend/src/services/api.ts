@@ -213,25 +213,25 @@ export const api = {
   hubs: {
     list: (opts?: { includeArchived?: boolean }) =>
       request<Hub[]>(`/api/hubs${opts?.includeArchived ? "?include_archived=true" : ""}`),
-    get: (hubType: string, hubId: string) =>
-      request<{ hub: Hub; membership: HubMember | null }>(`/api/hubs/${hubType}/${hubId}`),
+    get: (_hubType: string, hubId: string) =>
+      request<{ hub: Hub; membership: HubMember | null }>(`/api/hubs/${hubId}`),
     create: (payload: HubCreatePayload) =>
       request<Hub>("/api/hubs", { method: "POST", body: JSON.stringify(payload) }),
     update: (hubId: string, payload: HubUpdatePayload) =>
-      request<Hub>(`/api/hubs/${hubId}`, { method: "PUT", body: JSON.stringify(payload) }),
+      request<Hub>(`/api/hubs/${hubId}`, { method: "PATCH", body: JSON.stringify(payload) }),
     archive: (hubId: string) =>
       request<Hub>(`/api/hubs/${hubId}/archive`, { method: "POST" }),
     unarchive: (hubId: string) =>
       request<Hub>(`/api/hubs/${hubId}/unarchive`, { method: "POST" }),
     checkSlug: (hubType: HubType, slug: string) =>
-      request<{ available: boolean }>(`/api/hubs/check-slug?hub_type=${hubType}&slug=${encodeURIComponent(slug)}`),
+      request<{ available: boolean }>(`/api/hubs/slug-available?hub_type=${hubType}&slug=${encodeURIComponent(slug)}`),
     members: {
       list: (hubId: string) => request<HubMember[]>(`/api/hubs/${hubId}/members`),
       invite: (hubId: string, payload: { email: string; hub_role: HubRole }) =>
         request<HubMember>(`/api/hubs/${hubId}/members`, { method: "POST", body: JSON.stringify(payload) }),
       updateRole: (hubId: string, userId: string, hub_role: HubRole) =>
         request<HubMember>(`/api/hubs/${hubId}/members/${userId}`, {
-          method: "PUT",
+          method: "PATCH",
           body: JSON.stringify({ hub_role }),
         }),
       remove: (hubId: string, userId: string) =>

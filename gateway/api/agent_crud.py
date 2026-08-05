@@ -57,7 +57,7 @@ async def _log_audit_event(
         summary=summary,
         before_json=before_json,
         after_json=after_json,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     session.add(audit)
 

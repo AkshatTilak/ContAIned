@@ -32,7 +32,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def contained_exception_handler(request: Request, exc: ContAInedException):
         trace_id = getattr(request.state, "trace_id", None)
         logger.warning(
-            "ContAIned Exception [%s]: %s (trace_id=%s)",
+            "[%s %s] ContAInedException [%s]: %s (trace=%s)",
+            request.method,
+            request.url.path,
             exc.error_code,
             exc.message,
             trace_id,
@@ -49,6 +51,15 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def http_exception_handler(request: Request, exc: HTTPException):
         trace_id = getattr(request.state, "trace_id", None)
         error_code = "NOT_FOUND" if exc.status_code == 404 else "HTTP_ERROR"
+        log_fn = logger.warning if exc.status_code < 500 else logger.error
+        log_fn(
+            "[%s %s] HTTP %d: %s (trace=%s)",
+            request.method,
+            request.url.path,
+            exc.status_code,
+            exc.detail,
+            trace_id,
+        )
         schema = ErrorResponseSchema(
             error_code=error_code,
             message=str(exc.detail),
@@ -57,10 +68,16 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(status_code=exc.status_code, content=schema.model_dump(), headers=exc.headers)
 
-
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
         trace_id = getattr(request.state, "trace_id", None)
+        logger.warning(
+            "[%s %s] Validation error: %s (trace=%s)",
+            request.method,
+            request.url.path,
+            exc.errors(),
+            trace_id,
+        )
         schema = ErrorResponseSchema(
             error_code="VALIDATION_ERROR",
             message="Input validation failed.",
@@ -72,7 +89,16 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):
         trace_id = getattr(request.state, "trace_id", None)
-        logger.error("Unhandled Exception: %s (trace_id=%s)", exc, trace_id, exc_info=True)
+        # Log with exc_info so the full traceback lands in errors.log
+        logger.error(
+            "[%s %s] Unhandled %s: %s (trace=%s)",
+            request.method,
+            request.url.path,
+            exc.__class__.__name__,
+            exc,
+            trace_id,
+            exc_info=True,
+        )
         schema = ErrorResponseSchema(
             error_code="INTERNAL_SERVER_ERROR",
             message="An unexpected internal server error occurred.",

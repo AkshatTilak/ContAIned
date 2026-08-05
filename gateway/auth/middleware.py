@@ -108,23 +108,27 @@ class AuthMiddleware(BaseHTTPMiddleware):
                     get_db_fn = request.app.dependency_overrides.get(get_async_db, get_async_db)
                     async for db in get_db_fn():
                         user_obj = await db.get(User, user_id)
-                        if user_obj:
-                            if getattr(user_obj, "is_deleted", False):
-                                return JSONResponse(
-                                    status_code=403,
-                                    content={"detail": {"reason": "ACCOUNT_SOFT_DELETED", "status": "deleted"}},
-                                )
-                            if user_obj.status != "active":
-                                reason_map = {
-                                    "pending": "ACCOUNT_PENDING_APPROVAL",
-                                    "suspended": "ACCOUNT_SUSPENDED",
-                                    "rejected": "ACCOUNT_REJECTED",
-                                }
-                                reason_code = reason_map.get(user_obj.status, "ACCOUNT_NOT_ACTIVE")
-                                return JSONResponse(
-                                    status_code=403,
-                                    content={"detail": {"reason": reason_code, "status": user_obj.status}},
-                                )
+                        if user_obj is None:
+                            return JSONResponse(
+                                status_code=401,
+                                content={"detail": "Authenticated user no longer exists"},
+                            )
+                        if getattr(user_obj, "is_deleted", False):
+                            return JSONResponse(
+                                status_code=403,
+                                content={"detail": {"reason": "ACCOUNT_SOFT_DELETED", "status": "deleted"}},
+                            )
+                        if user_obj.status != "active":
+                            reason_map = {
+                                "pending": "ACCOUNT_PENDING_APPROVAL",
+                                "suspended": "ACCOUNT_SUSPENDED",
+                                "rejected": "ACCOUNT_REJECTED",
+                            }
+                            reason_code = reason_map.get(user_obj.status, "ACCOUNT_NOT_ACTIVE")
+                            return JSONResponse(
+                                status_code=403,
+                                content={"detail": {"reason": reason_code, "status": user_obj.status}},
+                            )
                         break
                 except Exception as exc:
                     logger.debug(f"User status DB re-verification skipped: {exc}")

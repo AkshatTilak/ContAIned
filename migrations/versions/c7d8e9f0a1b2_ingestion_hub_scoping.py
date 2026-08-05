@@ -35,6 +35,7 @@ def _has_column(table_name: str, column_name: str) -> bool:
 
 def upgrade() -> None:
     conn = op.get_bind()
+    is_sqlite = conn.dialect.name == "sqlite"
 
     # 1. Backfill syntraflow_collections.hub_id if nullable or missing values
     conn.execute(
@@ -50,19 +51,32 @@ def upgrade() -> None:
             """
         )
     )
-    op.alter_column("syntraflow_collections", "hub_id", nullable=False)
+    with op.batch_alter_table("syntraflow_collections") as batch_op:
+        batch_op.alter_column("hub_id", nullable=False)
 
     # 2. Backfill physical_name
-    conn.execute(
-        sa.text(
-            """
-            UPDATE syntraflow_collections
-            SET physical_name = 'default__' || lower(regexp_replace(name, '[^a-z0-9_]+', '_', 'g'))
-            WHERE physical_name IS NULL OR physical_name = '';
-            """
+    if is_sqlite:
+        conn.execute(
+            sa.text(
+                """
+                UPDATE syntraflow_collections
+                SET physical_name = 'default__' || lower(name)
+                WHERE physical_name IS NULL OR physical_name = '';
+                """
+            )
         )
-    )
-    op.alter_column("syntraflow_collections", "physical_name", nullable=False)
+    else:
+        conn.execute(
+            sa.text(
+                """
+                UPDATE syntraflow_collections
+                SET physical_name = 'default__' || lower(regexp_replace(name, '[^a-z0-9_]+', '_', 'g'))
+                WHERE physical_name IS NULL OR physical_name = '';
+                """
+            )
+        )
+    with op.batch_alter_table("syntraflow_collections") as batch_op:
+        batch_op.alter_column("physical_name", nullable=False)
 
     # 3. Handle index and constraints on syntraflow_collections
     # Drop old global unique index on name if exists
@@ -73,7 +87,10 @@ def upgrade() -> None:
     # Add UniqueConstraint on (hub_id, name)
     existing_unique = [u["name"] for u in _inspector().get_unique_constraints("syntraflow_collections")]
     if "uq_collection_hub_name" not in existing_unique:
-        op.create_unique_constraint("uq_collection_hub_name", "syntraflow_collections", ["hub_id", "name"])
+        try:
+            op.create_unique_constraint("uq_collection_hub_name", "syntraflow_collections", ["hub_id", "name"])
+        except Exception:
+            pass
 
     if "uq_syntraflow_collections_physical_name" not in existing_unique:
         try:
@@ -102,7 +119,8 @@ def upgrade() -> None:
                     """
                 )
             )
-            op.alter_column(t, "hub_id", nullable=False)
+            with op.batch_alter_table(t) as batch_op:
+                batch_op.alter_column("hub_id", nullable=False)
 
     if _has_table("syntraflow_documents") and _has_column("syntraflow_documents", "collection_id"):
         conn.execute(
@@ -118,7 +136,8 @@ def upgrade() -> None:
                 """
             )
         )
-        op.alter_column("syntraflow_documents", "collection_id", nullable=False)
+        with op.batch_alter_table("syntraflow_documents") as batch_op:
+            batch_op.alter_column("collection_id", nullable=False)
 
 
 def downgrade() -> None:

@@ -33,7 +33,7 @@ def create_access_token(
     secret_key, algorithm, default_expiry = get_jwt_settings()
     expiry_hours = expires_hours if expires_hours is not None else default_expiry
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     expires_at = now + timedelta(hours=expiry_hours)
 
     role_val = kwargs.get("role") or platform_role

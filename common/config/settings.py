@@ -4,7 +4,7 @@ Uses pydantic-settings with multi-inheritance pattern (adapted from zypp monorep
 to compose domain-specific settings classes into a single Settings instance.
 All backends and projects import settings from here.
 """
-
+import os
 import logging
 from pathlib import Path
 from typing import Optional
@@ -40,8 +40,8 @@ class AppSettings(BaseSettings):
     TRUST_PROXY_HEADERS: bool = Field(default=False, alias="TRUST_PROXY_HEADERS")
 
     # Bootstrapped accounts created by gateway/core/setup.py on startup
-    SUPER_ADMIN_EMAIL: Optional[str] = Field(default="admin@contained.ai", alias="SUPER_ADMIN_EMAIL")
-    SUPER_ADMIN_PASSWORD: Optional[str] = Field(default="AdminPass123!", alias="SUPER_ADMIN_PASSWORD")
+    ADMIN_EMAIL: Optional[str] = Field(alias="ADMIN_EMAIL")
+    ADMIN_PASSWORD: Optional[str] = Field(alias="ADMIN_PASSWORD")
     TEST_USER_EMAIL: Optional[str] = Field(default="testuser@contained.ai", alias="TEST_USER_EMAIL")
     TEST_USER_PASSWORD: Optional[str] = Field(default="TestPass123!", alias="TEST_USER_PASSWORD")
 
@@ -157,7 +157,7 @@ class AuthSettings(BaseSettings):
     JWT_ALGORITHM: str = Field(default="HS256", alias="JWT_ALGORITHM")
     JWT_EXPIRY_HOURS: int = Field(default=24, alias="JWT_EXPIRY_HOURS")
     AUTO_APPROVE_EMAIL_DOMAINS: list[str] = Field(
-        default=["example.com"], alias="AUTO_APPROVE_EMAIL_DOMAINS"
+        default=[], alias="AUTO_APPROVE_EMAIL_DOMAINS"
     )
 
 
@@ -322,6 +322,7 @@ class Settings(
 
 
 
+print(f".env exists: {Path('.env').resolve()} -> {Path('.env').exists()}")
 settings = Settings()
 
 
