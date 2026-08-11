@@ -18,8 +18,10 @@ import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
 import { routes } from "../../../routes";
 import type { AgentResponse } from "../../../types/api";
+import { useStore } from "../../../store/useStore";
 import { EmptyState } from "../../shared/EmptyState";
 import { ModelSelector } from "../../shared/ModelSelector";
+import { ConfirmModal } from "../../shared/ConfirmModal";
 
 export function AgentLibrary() {
   const { hubId } = useParams<{ hubId: string }>();
@@ -130,15 +132,27 @@ export function AgentLibrary() {
     }
   };
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const addNotification = useStore((state) => state.addNotification);
+
   const handleToggleActive = async (agent: AgentResponse) => {
     if (!hubId) return;
     try {
       await api.agents.update(hubId, agent.id, {
         name: agent.name,
       });
+      addNotification({
+        type: "success",
+        title: "Agent Updated",
+        message: `Updated agent "${agent.name}".`,
+      });
       fetchAgents();
     } catch (err: any) {
-      console.error("Failed to toggle agent active state:", err);
+      addNotification({
+        type: "error",
+        title: "Failed to Update Agent",
+        message: err?.message || "Error toggling agent status.",
+      });
     }
   };
 
@@ -146,9 +160,20 @@ export function AgentLibrary() {
     if (!hubId) return;
     try {
       await api.agents.delete(hubId, agentId);
+      addNotification({
+        type: "success",
+        title: "Agent Deleted",
+        message: "Agent deleted successfully.",
+      });
+      setDeleteTarget(null);
       fetchAgents();
     } catch (err: any) {
-      console.error("Failed to delete agent:", err);
+      addNotification({
+        type: "error",
+        title: "Failed to Delete Agent",
+        message: err?.message || "Error deleting agent.",
+      });
+      setDeleteTarget(null);
     }
   };
 
@@ -385,7 +410,7 @@ export function AgentLibrary() {
                 <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
                   {can("delete_resource") && !isArchived && (
                     <button
-                      onClick={() => handleDeleteAgent(agent.id)}
+                      onClick={() => setDeleteTarget({ id: agent.id, name: agent.name })}
                       className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/40 transition-colors"
                       title="Delete Agent"
                     >
@@ -398,6 +423,17 @@ export function AgentLibrary() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Agent"
+        message={`Are you sure you want to delete agent "${deleteTarget?.name}"? All associated endpoint routes will be unregistered.`}
+        confirmLabel="Delete Agent"
+        cancelLabel="Cancel"
+        isDanger={true}
+        onConfirm={() => deleteTarget && handleDeleteAgent(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

@@ -15,7 +15,9 @@ import {
 import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
 import { routes } from "../../../routes";
+import { useStore } from "../../../store/useStore";
 import { EmptyState } from "../../shared/EmptyState";
+import { ConfirmModal } from "../../shared/ConfirmModal";
 
 export function SuiteManager() {
   const { hubId } = useParams<{ hubId: string }>();
@@ -75,13 +77,27 @@ export function SuiteManager() {
     }
   };
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const addNotification = useStore((state) => state.addNotification);
+
   const handleDeleteSuite = async (suiteId: string) => {
     if (!hubId) return;
     try {
       await api.evals.suites.delete(hubId, suiteId);
+      addNotification({
+        type: "success",
+        title: "Eval Suite Deleted",
+        message: "Evaluation suite deleted successfully.",
+      });
+      setDeleteTarget(null);
       fetchSuites();
     } catch (err: any) {
-      console.error("Failed to delete suite:", err);
+      addNotification({
+        type: "error",
+        title: "Failed to Delete Suite",
+        message: err?.message || "Error deleting eval suite.",
+      });
+      setDeleteTarget(null);
     }
   };
 
@@ -257,7 +273,7 @@ export function SuiteManager() {
                 <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
                   {can("delete_resource") && !isArchived && (
                     <button
-                      onClick={() => handleDeleteSuite(s.id)}
+                      onClick={() => setDeleteTarget({ id: s.id, name: s.name })}
                       className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/40 transition-colors"
                       title="Delete Suite"
                     >
@@ -270,6 +286,17 @@ export function SuiteManager() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Eval Suite"
+        message={`Are you sure you want to delete evaluation suite "${deleteTarget?.name}"? All associated test cases and test run metrics will be permanently removed.`}
+        confirmLabel="Delete Suite"
+        cancelLabel="Cancel"
+        isDanger={true}
+        onConfirm={() => deleteTarget && handleDeleteSuite(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

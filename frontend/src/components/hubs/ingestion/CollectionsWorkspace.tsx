@@ -18,6 +18,7 @@ import { api } from "../../../services/api";
 import { routes } from "../../../routes";
 import { useStore } from "../../../store/useStore";
 import { ModelSelector } from "../../shared/ModelSelector";
+import { ConfirmModal } from "../../shared/ConfirmModal";
 
 export function CollectionsWorkspace() {
   const { hubId } = useParams<{ hubId: string }>();
@@ -127,13 +128,41 @@ export function CollectionsWorkspace() {
     }
   };
 
-  const handleDeleteCollection = async (collectionId: string) => {
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [forceDeleteTarget, setForceDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const addNotification = useStore((state) => state.addNotification);
+
+  const handleDeleteCollection = async (collectionId: string, force: boolean = false) => {
     if (!hubId) return;
+    setIsDeleting(true);
     try {
-      await api.ingestion.collections.delete(hubId, collectionId);
+      await api.ingestion.collections.delete(hubId, collectionId, force);
+      addNotification({
+        type: "success",
+        title: "Collection Deleted",
+        message: force ? "Collection and all contained documents force deleted." : "Collection deleted successfully.",
+      });
+      setDeleteTarget(null);
+      setForceDeleteTarget(null);
       fetchData();
     } catch (err: any) {
-      console.error("Failed to delete collection:", err);
+      const msg = err?.message || "";
+      if (!force && (err?.status === 409 || msg.toLowerCase().includes("not empty"))) {
+        const name = deleteTarget?.name || collections.find((c) => c.id === collectionId)?.name || "Collection";
+        setDeleteTarget(null);
+        setForceDeleteTarget({ id: collectionId, name });
+      } else {
+        addNotification({
+          type: "error",
+          title: "Failed to Delete Collection",
+          message: msg || "An unexpected error occurred",
+        });
+        setDeleteTarget(null);
+        setForceDeleteTarget(null);
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -393,7 +422,7 @@ export function CollectionsWorkspace() {
 
                   {can("delete_resource") && !isArchived && (
                     <button
-                      onClick={() => handleDeleteCollection(col.id)}
+                      onClick={() => setDeleteTarget({ id: col.id, name: col.name })}
                       className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/40 transition-colors"
                       title="Delete Collection"
                     >
@@ -406,6 +435,32 @@ export function CollectionsWorkspace() {
           ))}
         </div>
       )}
+
+      {/* Standard Delete Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Collection"
+        message={`Are you sure you want to delete collection "${deleteTarget?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete Collection"
+        cancelLabel="Cancel"
+        isDanger={true}
+        isLoading={isDeleting}
+        onConfirm={() => deleteTarget && handleDeleteCollection(deleteTarget.id, false)}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Force Delete Modal for 409 Conflict (non-empty collection) */}
+      <ConfirmModal
+        isOpen={Boolean(forceDeleteTarget)}
+        title="Force Delete Collection"
+        message={`Collection "${forceDeleteTarget?.name}" is not empty. Do you want to FORCE delete this collection along with all documents and vector embeddings inside it?`}
+        confirmLabel="Force Delete All"
+        cancelLabel="Cancel"
+        isDanger={true}
+        isLoading={isDeleting}
+        onConfirm={() => forceDeleteTarget && handleDeleteCollection(forceDeleteTarget.id, true)}
+        onCancel={() => setForceDeleteTarget(null)}
+      />
     </div>
   );
 }

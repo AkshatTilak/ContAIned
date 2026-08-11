@@ -180,6 +180,8 @@ async def delete_hub_if_empty(session: AsyncSession, *, hub_id: str) -> None:
             continue
         if hasattr(cls, "hub_id"):
             stmt = select(func.count()).select_from(cls).where(cls.hub_id == hub_id)
+            if hasattr(cls, "is_deleted"):
+                stmt = stmt.where(cls.is_deleted == False)
             cnt = (await session.execute(stmt)).scalar() or 0
             if cnt > 0:
                 counts[getattr(cls, "__tablename__", str(cls))] = cnt

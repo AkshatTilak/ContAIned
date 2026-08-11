@@ -114,7 +114,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ value, onChange, r
       setModelsList(filtered);
       
       // Auto select first local if current value is not in filtered list
-      if (filtered.length > 0 && !filtered.some((m) => m.model_id === value)) {
+      if (filtered.length > 0 && !filtered.some((m: any) => m.model_id === value)) {
         onChange(filtered[0].model_id);
       }
     } else {
@@ -140,7 +140,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ value, onChange, r
           setModelsList(mapped);
 
           // Auto select first match if current value is empty or not in mapped list
-          if (mapped.length > 0 && !mapped.some((m) => m.model_id === value)) {
+          if (mapped.length > 0 && !mapped.some((m: any) => m.model_id === value)) {
             onChange(mapped[0].model_id);
           }
         } catch (err) {

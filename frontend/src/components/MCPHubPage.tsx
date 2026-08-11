@@ -27,6 +27,7 @@ import {
 import { api } from "../services/api";
 import type { MCPServer, MCPTool, MCPTestResult } from "../types/api";
 import { useToast } from "./shared";
+import { ConfirmModal } from "./shared/ConfirmModal";
 
 export const MCPHubPage: React.FC = () => {
   const { addToast } = useToast();
@@ -135,20 +136,21 @@ export const MCPHubPage: React.FC = () => {
     }
   };
 
+  const [deleteServerTarget, setDeleteServerTarget] = useState<MCPServer | null>(null);
+
   const handleDeleteServer = async (server: MCPServer) => {
     if (server.is_internal) {
       addToast("Internal system servers cannot be deleted", "error");
       return;
     }
-    if (!confirm(`Are you sure you want to delete MCP server "${server.name}"?`)) {
-      return;
-    }
     try {
       await api.deleteMCPServer(server.id);
       addToast(`Deleted server "${server.name}"`, "success");
+      setDeleteServerTarget(null);
       fetchData();
     } catch (err: any) {
       addToast(err.message || "Failed to delete server", "error");
+      setDeleteServerTarget(null);
     }
   };
 
@@ -440,7 +442,7 @@ export const MCPHubPage: React.FC = () => {
                     </button>
 
                     <button
-                      onClick={() => handleDeleteServer(server)}
+                      onClick={() => setDeleteServerTarget(server)}
                       disabled={server.is_internal}
                       className={`p-1.5 rounded-lg border transition-all ${
                         server.is_internal
@@ -736,6 +738,18 @@ export const MCPHubPage: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* MCP Server Delete Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteServerTarget)}
+        title="Delete MCP Server"
+        message={`Are you sure you want to disconnect and delete MCP server "${deleteServerTarget?.name}"? All exposed tools will be unregistered.`}
+        confirmLabel="Delete Server"
+        cancelLabel="Cancel"
+        isDanger={true}
+        onConfirm={() => deleteServerTarget && handleDeleteServer(deleteServerTarget)}
+        onCancel={() => setDeleteServerTarget(null)}
+      />
     </div>
   );
 };

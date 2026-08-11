@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
@@ -371,7 +371,7 @@ async def update_collection(
 @router.delete("/collections/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_collection(
     collection_id: str,
-    force: bool = Query(False),
+    force: bool = Query(True),
     ctx: HubContext = Depends(require_hub(hub_type="ingestion", min_role="maintainer")),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -693,6 +693,13 @@ async def delete_document(
     doc = (await db.execute(doc_stmt)).scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found.")
+
+    # Delete jobs referencing this document first to avoid FK constraint violations
+    job_del_stmt = delete(SyntraFlowJob).where(
+        SyntraFlowJob.hub_id == ctx.hub_id,
+        SyntraFlowJob.document_id == doc.id,
+    )
+    await db.execute(job_del_stmt)
 
     await db.delete(doc)
     await _log_audit_event(

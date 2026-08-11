@@ -21,7 +21,7 @@ router = APIRouter(tags=["health"])
 import socket
 
 
-async def _is_port_open(host: str, port: int, timeout: float = 1.0) -> bool:
+async def _is_port_open(host: str, port: int, timeout: float = 0.2) -> bool:
     loop = asyncio.get_running_loop()
     def check():
         try:

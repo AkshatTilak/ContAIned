@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
+import { useStore } from "../../../store/useStore";
+import { ConfirmModal } from "../../shared/ConfirmModal";
 
 export function DocumentsWorkspace() {
   const { hubId } = useParams<{ hubId: string }>();
@@ -94,13 +96,50 @@ export function DocumentsWorkspace() {
     }
   };
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const addNotification = useStore((state) => state.addNotification);
+
   const handleDeleteDoc = async (docId: string) => {
     if (!hubId) return;
     try {
       await api.ingestion.documents.delete(hubId, docId);
+      addNotification({
+        type: "success",
+        title: "Document Deleted",
+        message: "Document removed successfully.",
+      });
+      setDeleteTarget(null);
       fetchDocuments();
     } catch (err: any) {
-      console.error("Failed to delete document:", err);
+      addNotification({
+        type: "error",
+        title: "Failed to Delete Document",
+        message: err?.message || "Error deleting document.",
+      });
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!hubId || selectedDocIds.size === 0) return;
+    try {
+      await Promise.all(Array.from(selectedDocIds).map((id) => api.ingestion.documents.delete(hubId, id)));
+      addNotification({
+        type: "success",
+        title: "Documents Deleted",
+        message: `Successfully deleted ${selectedDocIds.size} documents.`,
+      });
+      setSelectedDocIds(new Set());
+      setIsBulkDeleteOpen(false);
+      fetchDocuments();
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Bulk Delete Failed",
+        message: err?.message || "Failed to delete selected documents.",
+      });
+      setIsBulkDeleteOpen(false);
     }
   };
 
@@ -256,6 +295,15 @@ export function DocumentsWorkspace() {
         </div>
 
         <div className="flex items-center space-x-2 text-xs">
+          {selectedDocIds.size > 0 && can("delete_resource") && !isArchived && (
+            <button
+              onClick={() => setIsBulkDeleteOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-rose-950/60 border border-rose-800/60 text-rose-300 hover:bg-rose-900/60 font-semibold flex items-center space-x-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Delete ({selectedDocIds.size}) Selected</span>
+            </button>
+          )}
           <span className="text-slate-400">Status:</span>
           <select
             value={statusFilter}
@@ -278,7 +326,7 @@ export function DocumentsWorkspace() {
               <th className="p-3.5 w-10">
                 <input
                   type="checkbox"
-                  checked={selectedDocIds.size === filteredDocs.length && filteredDocs.length > 0}
+                  checked={filteredDocs.length > 0 && selectedDocIds.size === filteredDocs.length}
                   onChange={toggleSelectAll}
                   className="rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-0"
                 />
@@ -286,15 +334,15 @@ export function DocumentsWorkspace() {
               <th className="p-3.5">Filename</th>
               <th className="p-3.5">Type</th>
               <th className="p-3.5">Chunks</th>
-              <th className="p-3.5">Created</th>
+              <th className="p-3.5">Uploaded</th>
               <th className="p-3.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
             {filteredDocs.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-6 text-center text-slate-500">
-                  No documents found in this hub.
+                <td colSpan={6} className="p-8 text-center text-slate-500 font-mono">
+                  No documents found.
                 </td>
               </tr>
             ) : (
@@ -329,7 +377,7 @@ export function DocumentsWorkspace() {
                     </button>
                     {can("delete_resource") && !isArchived && (
                       <button
-                        onClick={() => handleDeleteDoc(doc.id)}
+                        onClick={() => setDeleteTarget({ id: doc.id, name: doc.filename })}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-950/40 transition-colors"
                         title="Delete Document"
                       >
@@ -383,6 +431,30 @@ export function DocumentsWorkspace() {
           </div>
         </div>
       )}
+
+      {/* Single Document Delete Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Document"
+        message={`Are you sure you want to delete document "${deleteTarget?.name}"? All associated vector embeddings will be permanently deleted.`}
+        confirmLabel="Delete Document"
+        cancelLabel="Cancel"
+        isDanger={true}
+        onConfirm={() => deleteTarget && handleDeleteDoc(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      {/* Bulk Delete Modal */}
+      <ConfirmModal
+        isOpen={isBulkDeleteOpen}
+        title="Delete Selected Documents"
+        message={`Are you sure you want to delete ${selectedDocIds.size} selected documents? This operation cannot be undone.`}
+        confirmLabel={`Delete ${selectedDocIds.size} Documents`}
+        cancelLabel="Cancel"
+        isDanger={true}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setIsBulkDeleteOpen(false)}
+      />
     </div>
   );
 }

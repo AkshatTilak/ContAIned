@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
+import { useStore } from "../../../store/useStore";
+import { ConfirmModal } from "../../shared/ConfirmModal";
 import type { DatastoreBinding } from "../../../types/api";
 
 const STORE_TYPES = ["qdrant", "neo4j", "postgres", "opensearch"] as const;
@@ -90,18 +92,53 @@ export function DatastoresWorkspace() {
     }
   };
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const addNotification = useStore((state) => state.addNotification);
+
   const handleTestConnection = async (bindingId: string) => {
+    if (!hubId) return;
     setTesting(bindingId);
     setTestResult(null);
     const start = performance.now();
     try {
-      await new Promise((res) => setTimeout(res, 600)); // simulate latency check
-      const latency = Math.round(performance.now() - start);
-      setTestResult({ id: bindingId, success: true, latency });
-    } catch {
+      const res = await api.ingestion.datastores.testHealth(hubId, bindingId);
+      const latency = res.latency_ms ?? Math.round(performance.now() - start);
+      setTestResult({ id: bindingId, success: res.status === "healthy", latency });
+      addNotification({
+        type: res.status === "healthy" ? "success" : "error",
+        title: `Datastore ${res.status === "healthy" ? "Healthy" : "Unreachable"}`,
+        message: `Health check returned status: ${res.status} (${latency}ms)`,
+      });
+    } catch (err: any) {
       setTestResult({ id: bindingId, success: false, latency: 0 });
+      addNotification({
+        type: "error",
+        title: "Connection Check Failed",
+        message: err?.message || "Could not connect to datastore endpoint",
+      });
     } finally {
       setTesting(null);
+    }
+  };
+
+  const handleDeleteBinding = async (bindingId: string) => {
+    if (!hubId) return;
+    try {
+      await api.ingestion.datastores.delete(hubId, bindingId);
+      addNotification({
+        type: "success",
+        title: "Datastore Deleted",
+        message: "Datastore binding removed successfully.",
+      });
+      setDeleteTarget(null);
+      fetchBindings();
+    } catch (err: any) {
+      addNotification({
+        type: "error",
+        title: "Delete Failed",
+        message: err?.message || "Failed to delete datastore binding.",
+      });
+      setDeleteTarget(null);
     }
   };
 
@@ -353,6 +390,16 @@ export function DatastoresWorkspace() {
                         {testing === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
                         <span>Test</span>
                       </button>
+
+                      {can("delete_resource") && !isArchived && (
+                        <button
+                          onClick={() => setDeleteTarget({ id: b.id, name: b.name })}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/40 transition-colors"
+                          title="Delete Binding"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -361,6 +408,17 @@ export function DatastoresWorkspace() {
           </section>
         );
       })}
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Datastore Binding"
+        message={`Are you sure you want to delete datastore binding "${deleteTarget?.name}"? Hub operations relying on this binding will revert to system default.`}
+        confirmLabel="Delete Binding"
+        cancelLabel="Cancel"
+        isDanger={true}
+        onConfirm={() => deleteTarget && handleDeleteBinding(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

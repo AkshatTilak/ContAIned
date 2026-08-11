@@ -80,7 +80,7 @@ export default function App() {
   useEffect(() => {
     telemetryService.connect();
     fetchSystemData();
-    const interval = setInterval(fetchSystemData, 5000);
+    const interval = setInterval(fetchSystemData, 30000);
     return () => {
       telemetryService.disconnect();
       clearInterval(interval);

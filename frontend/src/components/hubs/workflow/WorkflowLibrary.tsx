@@ -15,8 +15,10 @@ import {
 import { useHubPermissions } from "../../../hooks/useHubPermissions";
 import { api } from "../../../services/api";
 import { routes } from "../../../routes";
+import { useStore } from "../../../store/useStore";
 import { CreateWorkflowDialog } from "./CreateWorkflowDialog";
 import { EmptyState } from "../../shared/EmptyState";
+import { ConfirmModal } from "../../shared/ConfirmModal";
 
 export function WorkflowLibrary() {
   const { hubId } = useParams<{ hubId: string }>();
@@ -49,13 +51,27 @@ export function WorkflowLibrary() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hubId]);
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const addNotification = useStore((state) => state.addNotification);
+
   const handleDeleteWorkflow = async (wfId: string) => {
     if (!hubId) return;
     try {
       await api.workflows.delete(hubId, wfId);
+      addNotification({
+        type: "success",
+        title: "Workflow Deleted",
+        message: "Workflow deleted successfully.",
+      });
+      setDeleteTarget(null);
       fetchWorkflows();
     } catch (err: any) {
-      console.error("Failed to delete workflow:", err);
+      addNotification({
+        type: "error",
+        title: "Failed to Delete Workflow",
+        message: err?.message || "Error deleting workflow.",
+      });
+      setDeleteTarget(null);
     }
   };
 
@@ -178,7 +194,7 @@ export function WorkflowLibrary() {
                 <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
                   {can("delete_resource") && !isArchived && (
                     <button
-                      onClick={() => handleDeleteWorkflow(wf.id)}
+                      onClick={() => setDeleteTarget({ id: wf.id, name: wf.name })}
                       className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-950/40 transition-colors"
                       title="Delete Workflow"
                     >
@@ -191,6 +207,17 @@ export function WorkflowLibrary() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="Delete Workflow"
+        message={`Are you sure you want to delete workflow "${deleteTarget?.name}"? All execution history will be removed.`}
+        confirmLabel="Delete Workflow"
+        cancelLabel="Cancel"
+        isDanger={true}
+        onConfirm={() => deleteTarget && handleDeleteWorkflow(deleteTarget.id)}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

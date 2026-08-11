@@ -340,6 +340,24 @@ export const PlaygroundPage: React.FC = () => {
               <Sliders className="w-3.5 h-3.5 text-emerald-400" />
               <span>Params</span>
             </button>
+
+            {/* Clear Chat Button */}
+            <button
+              onClick={() => {
+                setMessages([]);
+                setAttachments([]);
+              }}
+              disabled={messages.length === 0}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-colors ${
+                messages.length === 0
+                  ? "opacity-40 cursor-not-allowed bg-[var(--bg-elevated)] border-[var(--border-subtle)] text-zinc-500"
+                  : "bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 text-rose-300 cursor-pointer"
+              }`}
+              title="Clear current conversation messages"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Clear</span>
+            </button>
           </div>
         </div>
 

@@ -77,6 +77,16 @@ export const InfrastructurePage: React.FC<InfrastructurePageProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-800/60 text-xs font-medium text-indigo-300 transition-colors cursor-pointer"
+              title="Refresh System Health & Metrics"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Refresh Metrics</span>
+            </button>
+          )}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 border border-gray-800 text-xs text-gray-400">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             <span>RBAC Restricted: <strong>Admin / Editor</strong></span>

@@ -135,6 +135,8 @@ async function request<T>(
             errorCode = errJson.error.code as HubErrorCode;
             hubId = errJson.error.hub_id;
             targetHubId = errJson.error.target_hub_id;
+          } else if (errJson.message) {
+            errorMsg = errJson.message;
           } else if (errJson.detail) {
             errorMsg = typeof errJson.detail === "string" ? errJson.detail : JSON.stringify(errJson.detail);
           }
@@ -153,7 +155,9 @@ async function request<T>(
           continue;
         }
 
-        const err = new Error(errorMsg);
+        const err: any = new Error(errorMsg);
+        err.status = response.status;
+        err.statusCode = response.status;
         try {
           useStore.getState().addNotification({
             type: "error",
@@ -276,10 +280,11 @@ export const api = {
         }),
       get: (hubId: string, collectionId: string) =>
         request<{ status: string; collection: any }>(`/api/hubs/${hubId}/ingestion/collections/${collectionId}`),
-      delete: (hubId: string, collectionId: string) =>
-        request<{ status: string; message: string }>(`/api/hubs/${hubId}/ingestion/collections/${collectionId}`, {
-          method: "DELETE",
-        }),
+      delete: (hubId: string, collectionId: string, force: boolean = true) =>
+        request<{ status: string; message: string }>(
+          `/api/hubs/${hubId}/ingestion/collections/${collectionId}${force ? "?force=true" : ""}`,
+          { method: "DELETE" }
+        ),
     },
     datastores: {
       list: (hubId: string) => request<DatastoreBinding[]>(`/api/hubs/${hubId}/ingestion/datastores`),
@@ -287,6 +292,15 @@ export const api = {
         request<DatastoreBinding>(`/api/hubs/${hubId}/ingestion/datastores`, {
           method: "POST",
           body: JSON.stringify(payload),
+        }),
+      testHealth: (hubId: string, bindingId: string) =>
+        request<{ status: string; latency_ms?: number }>(
+          `/api/hubs/${hubId}/ingestion/datastores/${bindingId}/health`,
+          { method: "POST" }
+        ),
+      delete: (hubId: string, bindingId: string) =>
+        request<{ status: string }>(`/api/hubs/${hubId}/ingestion/datastores/${bindingId}`, {
+          method: "DELETE",
         }),
     },
     documents: {

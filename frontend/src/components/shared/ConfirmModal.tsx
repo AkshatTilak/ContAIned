@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, Loader2, X } from 'lucide-react';
 
 export interface ConfirmModalProps {
   isOpen: boolean;
@@ -9,6 +9,7 @@ export interface ConfirmModalProps {
   cancelLabel?: string;
   isDanger?: boolean;
   confirmText?: string;
+  isLoading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -21,6 +22,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelLabel = 'Cancel',
   isDanger = false,
   confirmText,
+  isLoading = false,
   onConfirm,
   onCancel,
 }) => {
@@ -106,20 +108,22 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <div className="flex items-center justify-end gap-3 mt-6">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-all"
+            disabled={isLoading}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {cancelLabel}
           </button>
           <button
-            disabled={isConfirmedDisabled}
+            disabled={isConfirmedDisabled || isLoading}
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-semibold rounded-lg shadow-md transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-semibold rounded-lg shadow-md transition-all flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             style={{
               backgroundColor: isDanger ? 'var(--accent-rose)' : 'var(--accent-indigo)',
               color: '#FFFFFF',
             }}
           >
-            {confirmLabel}
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            <span>{isLoading ? "Processing..." : confirmLabel}</span>
           </button>
         </div>
       </div>
