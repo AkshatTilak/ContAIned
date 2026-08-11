@@ -17,6 +17,7 @@ from common.constants.roles import (
     is_link_direction_allowed,
 )
 from common.models.database import AuditLog, HubLink, User
+from common.services.audit import sanitize_actor_user_id
 from common.schemas.hubs import (
     HubCreate,
     HubLinkCreate,
@@ -83,10 +84,11 @@ async def _log_audit_event(
     before_json: Optional[Dict[str, Any]] = None,
     after_json: Optional[Dict[str, Any]] = None,
 ) -> None:
+    valid_actor_id = await sanitize_actor_user_id(session, actor_user_id)
     audit = AuditLog(
         id=str(uuid.uuid4()),
         hub_id=hub_id,
-        actor_user_id=actor_user_id,
+        actor_user_id=valid_actor_id,
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,

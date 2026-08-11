@@ -83,9 +83,15 @@ def upgrade() -> None:
         )
         op.create_index("ix_workflow_runs_wf_started", "workflow_runs", ["workflow_id", "started_at"])
 
+    bind = op.get_bind()
+    is_sqlite = bind.dialect.name == "sqlite"
+
     # 3. Add new columns to workflows
     if not _has_column("workflows", "hub_id"):
-        op.add_column("workflows", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
+        if is_sqlite:
+            op.add_column("workflows", sa.Column("hub_id", sa.String(36), nullable=True))
+        else:
+            op.add_column("workflows", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
         op.create_index(op.f("ix_workflows_hub_id"), "workflows", ["hub_id"], unique=False)
     if not _has_column("workflows", "slug"):
         op.add_column("workflows", sa.Column("slug", sa.String(120), nullable=True))
@@ -96,18 +102,33 @@ def upgrade() -> None:
     if not _has_column("workflows", "status"):
         op.add_column("workflows", sa.Column("status", sa.String(20), nullable=False, server_default="draft"))
     if not _has_column("workflows", "published_version_id"):
-        op.add_column("workflows", sa.Column("published_version_id", sa.String(36), sa.ForeignKey("workflow_versions.id", ondelete="SET NULL"), nullable=True))
+        if is_sqlite:
+            op.add_column("workflows", sa.Column("published_version_id", sa.String(36), nullable=True))
+        else:
+            op.add_column("workflows", sa.Column("published_version_id", sa.String(36), sa.ForeignKey("workflow_versions.id", ondelete="SET NULL"), nullable=True))
     if not _has_column("workflows", "draft_version_id"):
-        op.add_column("workflows", sa.Column("draft_version_id", sa.String(36), sa.ForeignKey("workflow_versions.id", ondelete="SET NULL"), nullable=True))
+        if is_sqlite:
+            op.add_column("workflows", sa.Column("draft_version_id", sa.String(36), nullable=True))
+        else:
+            op.add_column("workflows", sa.Column("draft_version_id", sa.String(36), sa.ForeignKey("workflow_versions.id", ondelete="SET NULL"), nullable=True))
     if not _has_column("workflows", "created_by"):
-        op.add_column("workflows", sa.Column("created_by", sa.String(36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True))
+        if is_sqlite:
+            op.add_column("workflows", sa.Column("created_by", sa.String(36), nullable=True))
+        else:
+            op.add_column("workflows", sa.Column("created_by", sa.String(36), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True))
 
     # 4. Add columns to eval_flow_traces
     if not _has_column("eval_flow_traces", "hub_id"):
-        op.add_column("eval_flow_traces", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
+        if is_sqlite:
+            op.add_column("eval_flow_traces", sa.Column("hub_id", sa.String(36), nullable=True))
+        else:
+            op.add_column("eval_flow_traces", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
         op.create_index(op.f("ix_eval_flow_traces_hub_id"), "eval_flow_traces", ["hub_id"], unique=False)
     if not _has_column("eval_flow_traces", "eval_run_id"):
-        op.add_column("eval_flow_traces", sa.Column("eval_run_id", sa.String(36), sa.ForeignKey("eval_run_history.id", ondelete="CASCADE"), nullable=True))
+        if is_sqlite:
+            op.add_column("eval_flow_traces", sa.Column("eval_run_id", sa.String(36), nullable=True))
+        else:
+            op.add_column("eval_flow_traces", sa.Column("eval_run_id", sa.String(36), sa.ForeignKey("eval_run_history.id", ondelete="CASCADE"), nullable=True))
         op.create_index(op.f("ix_eval_flow_traces_eval_run_id"), "eval_flow_traces", ["eval_run_id"], unique=False)
     if not _has_column("eval_flow_traces", "sequence"):
         op.add_column("eval_flow_traces", sa.Column("sequence", sa.Integer(), nullable=True))
@@ -183,8 +204,9 @@ def upgrade() -> None:
                 )
 
     # Enforce non-nullable hub_id and slug
-    op.alter_column("workflows", "hub_id", nullable=False)
-    op.alter_column("workflows", "slug", nullable=False)
+    with op.batch_alter_table("workflows") as batch_op:
+        batch_op.alter_column("hub_id", existing_type=sa.String(36), nullable=False)
+        batch_op.alter_column("slug", existing_type=sa.String(120), nullable=False)
 
     existing_unique = [u["name"] for u in _inspector().get_unique_constraints("workflows")]
     if "uq_workflows_hub_name" in existing_unique:
@@ -199,10 +221,18 @@ def upgrade() -> None:
             pass
 
     # Drop legacy columns from workflows if present
-    if _has_column("workflows", "graph_json"):
-        op.drop_column("workflows", "graph_json")
-    if _has_column("workflows", "is_active"):
-        op.drop_column("workflows", "is_active")
+    existing_indexes = [i["name"] for i in _inspector().get_indexes("workflows")]
+    if "ix_workflows_is_active" in existing_indexes:
+        try:
+            op.drop_index("ix_workflows_is_active", table_name="workflows")
+        except Exception:
+            pass
+
+    with op.batch_alter_table("workflows") as batch_op:
+        if _has_column("workflows", "graph_json"):
+            batch_op.drop_column("graph_json")
+        if _has_column("workflows", "is_active"):
+            batch_op.drop_column("is_active")
 
     # Backfill eval_flow_traces.hub_id
     conn.execute(
@@ -219,7 +249,8 @@ def upgrade() -> None:
             """
         )
     )
-    op.alter_column("eval_flow_traces", "hub_id", nullable=False)
+    with op.batch_alter_table("eval_flow_traces") as batch_op:
+        batch_op.alter_column("hub_id", existing_type=sa.String(36), nullable=False)
 
 
 def downgrade() -> None:

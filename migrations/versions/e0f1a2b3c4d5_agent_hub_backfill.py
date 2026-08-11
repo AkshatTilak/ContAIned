@@ -35,7 +35,8 @@ def upgrade() -> None:
             """
         )
     )
-    op.alter_column("agent_definitions", "hub_id", nullable=False)
+    with op.batch_alter_table("agent_definitions") as batch_op:
+        batch_op.alter_column("hub_id", existing_type=sa.String(36), nullable=False)
 
     # 2. Backfill agent_invocation_log.hub_id
     conn.execute(
@@ -52,7 +53,8 @@ def upgrade() -> None:
             """
         )
     )
-    op.alter_column("agent_invocation_log", "hub_id", nullable=False)
+    with op.batch_alter_table("agent_invocation_log") as batch_op:
+        batch_op.alter_column("hub_id", existing_type=sa.String(36), nullable=False)
 
 
 def downgrade() -> None:

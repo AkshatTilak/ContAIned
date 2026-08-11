@@ -34,15 +34,24 @@ def _has_column(table_name: str, column_name: str) -> bool:
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    is_sqlite = bind.dialect.name == "sqlite"
+
     # 1. eval_test_suites polymorphic & hub columns
     if _has_table("eval_test_suites"):
         if not _has_column("eval_test_suites", "hub_id"):
-            op.add_column("eval_test_suites", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
+            if is_sqlite:
+                op.add_column("eval_test_suites", sa.Column("hub_id", sa.String(36), nullable=True))
+            else:
+                op.add_column("eval_test_suites", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
             op.create_index(op.f("ix_eval_test_suites_hub_id"), "eval_test_suites", ["hub_id"], unique=False)
         if not _has_column("eval_test_suites", "target_type"):
             op.add_column("eval_test_suites", sa.Column("target_type", sa.String(20), nullable=True, server_default="agent"))
         if not _has_column("eval_test_suites", "target_hub_id"):
-            op.add_column("eval_test_suites", sa.Column("target_hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="RESTRICT"), nullable=True))
+            if is_sqlite:
+                op.add_column("eval_test_suites", sa.Column("target_hub_id", sa.String(36), nullable=True))
+            else:
+                op.add_column("eval_test_suites", sa.Column("target_hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="RESTRICT"), nullable=True))
             op.create_index(op.f("ix_eval_test_suites_target_hub_id"), "eval_test_suites", ["target_hub_id"], unique=False)
         if not _has_column("eval_test_suites", "target_id"):
             op.add_column("eval_test_suites", sa.Column("target_id", sa.String(36), nullable=True))
@@ -63,18 +72,27 @@ def upgrade() -> None:
     # 2. eval_run_history polymorphic & hub columns
     if _has_table("eval_run_history"):
         if not _has_column("eval_run_history", "hub_id"):
-            op.add_column("eval_run_history", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
+            if is_sqlite:
+                op.add_column("eval_run_history", sa.Column("hub_id", sa.String(36), nullable=True))
+            else:
+                op.add_column("eval_run_history", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
             op.create_index(op.f("ix_eval_run_history_hub_id"), "eval_run_history", ["hub_id"], unique=False)
         if not _has_column("eval_run_history", "target_type"):
             op.add_column("eval_run_history", sa.Column("target_type", sa.String(20), nullable=True, server_default="agent"))
         if not _has_column("eval_run_history", "target_hub_id"):
-            op.add_column("eval_run_history", sa.Column("target_hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="RESTRICT"), nullable=True))
+            if is_sqlite:
+                op.add_column("eval_run_history", sa.Column("target_hub_id", sa.String(36), nullable=True))
+            else:
+                op.add_column("eval_run_history", sa.Column("target_hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="RESTRICT"), nullable=True))
             op.create_index(op.f("ix_eval_run_history_target_hub_id"), "eval_run_history", ["target_hub_id"], unique=False)
         if not _has_column("eval_run_history", "target_id"):
             op.add_column("eval_run_history", sa.Column("target_id", sa.String(36), nullable=True))
             op.create_index(op.f("ix_eval_run_history_target_id"), "eval_run_history", ["target_id"], unique=False)
         if not _has_column("eval_run_history", "workflow_run_id"):
-            op.add_column("eval_run_history", sa.Column("workflow_run_id", sa.String(36), sa.ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True))
+            if is_sqlite:
+                op.add_column("eval_run_history", sa.Column("workflow_run_id", sa.String(36), nullable=True))
+            else:
+                op.add_column("eval_run_history", sa.Column("workflow_run_id", sa.String(36), sa.ForeignKey("workflow_runs.id", ondelete="SET NULL"), nullable=True))
             op.create_index(op.f("ix_eval_run_history_workflow_run_id"), "eval_run_history", ["workflow_run_id"], unique=False)
 
     # 3. eval_test_cases node assertion columns
@@ -115,11 +133,18 @@ def downgrade() -> None:
             op.drop_column("eval_test_cases", "node_id")
 
     if _has_table("eval_run_history"):
-        for col in ["workflow_run_id", "target_id", "target_hub_id", "target_type", "hub_id"]:
-            if _has_column("eval_run_history", col):
-                if col in ["workflow_run_id", "target_id", "target_hub_id", "hub_id"]:
-                    op.drop_index(op.f(f"ix_eval_run_history_{col}"), table_name="eval_run_history")
-                op.drop_column("eval_run_history", col)
+        existing_indexes = [i["name"] for i in _inspector().get_indexes("eval_run_history")]
+        for col in ["workflow_run_id", "target_id", "target_hub_id", "hub_id"]:
+            idx_name = f"ix_eval_run_history_{col}"
+            if idx_name in existing_indexes:
+                try:
+                    op.drop_index(idx_name, table_name="eval_run_history")
+                except Exception:
+                    pass
+        with op.batch_alter_table("eval_run_history") as batch_op:
+            for col in ["workflow_run_id", "target_id", "target_hub_id", "target_type", "hub_id"]:
+                if _has_column("eval_run_history", col):
+                    batch_op.drop_column(col)
 
     if _has_table("eval_test_suites"):
         existing_unique = [u["name"] for u in _inspector().get_unique_constraints("eval_test_suites")]
@@ -128,8 +153,15 @@ def downgrade() -> None:
                 op.drop_constraint("uq_eval_suites_hub_name", "eval_test_suites", type_="unique")
             except Exception:
                 pass
-        for col in ["target_id", "target_hub_id", "target_type", "hub_id"]:
-            if _has_column("eval_test_suites", col):
-                if col in ["target_id", "target_hub_id", "hub_id"]:
-                    op.drop_index(op.f(f"ix_eval_test_suites_{col}"), table_name="eval_test_suites")
-                op.drop_column("eval_test_suites", col)
+        existing_indexes = [i["name"] for i in _inspector().get_indexes("eval_test_suites")]
+        for col in ["target_id", "target_hub_id", "hub_id"]:
+            idx_name = f"ix_eval_test_suites_{col}"
+            if idx_name in existing_indexes:
+                try:
+                    op.drop_index(idx_name, table_name="eval_test_suites")
+                except Exception:
+                    pass
+        with op.batch_alter_table("eval_test_suites") as batch_op:
+            for col in ["target_id", "target_hub_id", "target_type", "hub_id"]:
+                if _has_column("eval_test_suites", col):
+                    batch_op.drop_column(col)

@@ -40,7 +40,10 @@ def upgrade() -> None:
 
     # 2. Add hub_id to api_keys if missing
     if not _has_column("api_keys", "hub_id"):
-        op.add_column("api_keys", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
+        if op.get_bind().dialect.name != "sqlite":
+            op.add_column("api_keys", sa.Column("hub_id", sa.String(36), sa.ForeignKey("hubs.id", ondelete="CASCADE"), nullable=True))
+        else:
+            op.add_column("api_keys", sa.Column("hub_id", sa.String(36), nullable=True))
         op.create_index(op.f("ix_api_keys_hub_id"), "api_keys", ["hub_id"], unique=False)
 
     # 3. Handle index on agent_definitions.endpoint_slug
@@ -51,15 +54,29 @@ def upgrade() -> None:
     existing_unique = [u["name"] for u in _inspector().get_unique_constraints("agent_definitions")]
     if "uq_agent_definitions_hub_slug" not in existing_unique:
         try:
-            op.create_unique_constraint("uq_agent_definitions_hub_slug", "agent_definitions", ["hub_id", "endpoint_slug"])
+            if op.get_bind().dialect.name != "sqlite":
+                op.create_unique_constraint("uq_agent_definitions_hub_slug", "agent_definitions", ["hub_id", "endpoint_slug"])
+            else:
+                with op.batch_alter_table("agent_definitions") as batch_op:
+                    batch_op.create_unique_constraint("uq_agent_definitions_hub_slug", ["hub_id", "endpoint_slug"])
         except Exception:
             pass
 
 
 def downgrade() -> None:
-    existing_unique = [u["name"] for u in _inspector().get_unique_constraints("agent_definitions")]
-    if "uq_agent_definitions_hub_slug" in existing_unique:
-        op.drop_constraint("uq_agent_definitions_hub_slug", "agent_definitions", type_="unique")
+    if op.get_bind().dialect.name != "sqlite":
+        existing_unique = [u["name"] for u in _inspector().get_unique_constraints("agent_definitions")]
+        if "uq_agent_definitions_hub_slug" in existing_unique:
+            try:
+                op.drop_constraint("uq_agent_definitions_hub_slug", "agent_definitions", type_="unique")
+            except Exception:
+                pass
+    else:
+        try:
+            with op.batch_alter_table("agent_definitions") as batch_op:
+                batch_op.drop_constraint("uq_agent_definitions_hub_slug", type_="unique")
+        except Exception:
+            pass
 
     if _has_column("api_keys", "hub_id"):
         op.drop_index(op.f("ix_api_keys_hub_id"), table_name="api_keys")

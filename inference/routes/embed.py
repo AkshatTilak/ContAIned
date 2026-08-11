@@ -17,17 +17,22 @@ class EmbedRequest(BaseModel):
 
     texts: Optional[list[str]] = None
     images: Optional[list[str]] = None  # Base64 encoded images
+    model: Optional[str] = None
 
 
 @router.post("/embed")
 async def perform_embedding(req: EmbedRequest) -> dict:
-    """Lazy-loads jina-clip-v2 and computes embeddings for texts/images."""
+    """Lazy-loads requested embedding model (or active default) and computes embeddings."""
     if not req.texts and not req.images:
         raise HTTPException(status_code=400, detail="Must provide 'texts' or 'images'")
 
-    from common.models.registry import get_active_model
-    model_spec = await get_active_model("embedding")
-    model = await vram.ensure_loaded(model_spec.model_id)
+    target_model_id = req.model
+    if not target_model_id:
+        from common.models.registry import get_active_model
+        model_spec = await get_active_model("embedding")
+        target_model_id = model_spec.model_id
+
+    model = await vram.ensure_loaded(target_model_id)
     embeddings = []
 
     if req.texts:

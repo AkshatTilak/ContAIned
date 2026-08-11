@@ -60,8 +60,8 @@ def test_s6_03a_migration_lifecycle(scratch_db):
     assert "provider" not in user_cols
     assert "provider_id" not in user_cols
 
-    # 2. Run downgrade -1
-    command.downgrade(cfg, "-1")
+    # 2. Run downgrade back to b7c2d3e4f5a6 (prior to v6_user_identity_invites)
+    command.downgrade(cfg, "b7c2d3e4f5a6")
 
     inspector_down = inspect(engine)
     user_cols_down = [c["name"] for c in inspector_down.get_columns("users")]

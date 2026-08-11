@@ -73,7 +73,7 @@ services:
   # ──────────────────────────────────────────────
   neo4j:
     image: neo4j:5.20.0
-    profiles: ["graph"]
+    profiles: ["core", "graph"]
     ports:
       - "7474:7474" # HTTP port
       - "7687:7687" # Bolt port
@@ -100,12 +100,15 @@ services:
   # ──────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.6.0
-    profiles: ["messaging"]
+    profiles: ["core", "messaging"]
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
     healthcheck:
       test: ["CMD-SHELL", "echo ruok | nc localhost 2181"]
       interval: 10s
@@ -121,7 +124,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.6.0
-    profiles: ["messaging"]
+    profiles: ["core", "messaging"]
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -152,7 +155,7 @@ services:
 
   kafka-setup:
     image: confluentinc/cp-kafka:7.6.0
-    profiles: ["messaging"]
+    profiles: ["core", "messaging"]
     depends_on:
       kafka:
         condition: service_healthy
@@ -346,5 +349,7 @@ volumes:
   neo4j_data:
   neo4j_logs:
   redis_data:
+  zookeeper_data:
+  zookeeper_log:
   kafka_data:
   mlflow_data:

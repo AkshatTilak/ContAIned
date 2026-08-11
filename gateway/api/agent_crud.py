@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from common.clients.postgres import get_async_db
 from common.clients.redis import publish_event
 from common.models.database import AgentDefinition, AuditLog, ModelRegistryModel
+from common.services.audit import sanitize_actor_user_id
 from common.schemas.agent_types import AgentCreate, AgentResponse, AgentUpdate
 from gateway.auth.hub_context import HubContext, require_hub
 from projects.guardroute.src.agents.agent_repository import (
@@ -46,10 +47,11 @@ async def _log_audit_event(
     before_json: Optional[Dict[str, Any]] = None,
     after_json: Optional[Dict[str, Any]] = None,
 ) -> None:
+    valid_actor_id = await sanitize_actor_user_id(session, actor_user_id)
     audit = AuditLog(
         id=str(uuid.uuid4()),
         hub_id=hub_id,
-        actor_user_id=actor_user_id,
+        actor_user_id=valid_actor_id,
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,

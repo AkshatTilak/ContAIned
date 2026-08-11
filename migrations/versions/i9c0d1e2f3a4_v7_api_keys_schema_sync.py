@@ -44,16 +44,25 @@ def upgrade() -> None:
             "api_keys",
             sa.Column("rate_limit", sa.Integer(), nullable=True, server_default="60"),
         )
+    bind = op.get_bind()
+    is_sqlite = bind.dialect.name == "sqlite"
+
     if not _has_column("api_keys", "user_id"):
-        op.add_column(
-            "api_keys",
-            sa.Column(
-                "user_id",
-                sa.String(length=36),
-                sa.ForeignKey("users.id", ondelete="SET NULL"),
-                nullable=True,
-            ),
-        )
+        if is_sqlite:
+            op.add_column(
+                "api_keys",
+                sa.Column("user_id", sa.String(length=36), nullable=True),
+            )
+        else:
+            op.add_column(
+                "api_keys",
+                sa.Column(
+                    "user_id",
+                    sa.String(length=36),
+                    sa.ForeignKey("users.id", ondelete="SET NULL"),
+                    nullable=True,
+                ),
+            )
         op.create_index("ix_api_keys_user_id", "api_keys", ["user_id"], unique=False)
     if not _has_column("api_keys", "usage_count"):
         op.add_column(

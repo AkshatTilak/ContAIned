@@ -14,9 +14,10 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Mapping, Optional
 
 from common.config.settings import get_settings
-from common.models.database import AuditLog
+from common.models.database import AuditLog, User
 from fastapi import Request
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger("common.services.audit")
@@ -81,6 +82,21 @@ def _truncate_payload(payload: Optional[Dict[str, Any]]) -> Optional[Dict[str, A
     return payload
 
 
+async def sanitize_actor_user_id(session: AsyncSession, actor_user_id: Optional[str]) -> Optional[str]:
+    """Validate that actor_user_id is a valid UUID and present in table 'users'. Returns None if invalid or absent."""
+    if not actor_user_id or actor_user_id == "api-key-user":
+        return None
+    try:
+        val_uuid = uuid.UUID(str(actor_user_id))
+        stmt = select(User.id).where(User.id == str(val_uuid))
+        res = await session.execute(stmt)
+        if res.scalar_one_or_none():
+            return str(val_uuid)
+    except Exception:
+        pass
+    return None
+
+
 async def record_audit(
     session: AsyncSession,
     *,
@@ -96,6 +112,7 @@ async def record_audit(
 ) -> None:
     """Append one audit_log row to the active transaction. Never raises into caller."""
     try:
+        valid_actor_id = await sanitize_actor_user_id(session, actor_user_id)
         redacted_before = _truncate_payload(redact(before))
         redacted_after = _truncate_payload(redact(after))
         truncated_summary = summary[:255] if summary else None
@@ -103,7 +120,7 @@ async def record_audit(
         audit = AuditLog(
             id=str(uuid.uuid4()),
             hub_id=hub_id,
-            actor_user_id=actor_user_id,
+            actor_user_id=valid_actor_id,
             action=action,
             resource_type=resource_type,
             resource_id=resource_id,

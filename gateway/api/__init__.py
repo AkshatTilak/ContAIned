@@ -31,7 +31,12 @@ async def verify_api_key(
         return
 
     path = request.url.path
-    if path.startswith("/api/qdrant") or path.startswith("/api/neo4j"):
+    if (
+        path.startswith("/api/qdrant")
+        or path.startswith("/api/neo4j")
+        or path.startswith("/api/telemetry")
+        or request.scope.get("type") == "websocket"
+    ):
         return
 
     # 1. If user is already authenticated via JWT session, allow request

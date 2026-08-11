@@ -24,6 +24,7 @@ from common.schemas.evalops import (
     EvalTestCaseCreate,
     EvalTestCaseResponse,
 )
+from common.services.hub_resolver import HubLinkError
 from gateway.auth.hub_context import HubContext, require_hub
 from projects.evalops.src.api import dashboard
 from projects.evalops.src.datasets import manager
@@ -100,6 +101,8 @@ async def create_eval_suite(
             target=payload.target,
         )
         return _suite_to_response(suite)
+    except HubLinkError as hle:
+        raise HTTPException(status_code=403, detail=f"{hle.code}: {hle.message}")
     except ValueError as ve:
         err_msg = str(ve)
         if "SUITE_NAME_TAKEN" in err_msg:
@@ -146,6 +149,8 @@ async def update_eval_suite(
         if not suite:
             raise HTTPException(status_code=404, detail="SUITE_NOT_FOUND: Test suite not found.")
         return _suite_to_response(suite)
+    except HubLinkError as hle:
+        raise HTTPException(status_code=403, detail=f"{hle.code}: {hle.message}")
     except ValueError as ve:
         err_msg = str(ve)
         if "SUITE_HAS_RUNS_RETARGET_BLOCKED" in err_msg:

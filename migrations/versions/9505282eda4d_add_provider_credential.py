@@ -44,9 +44,13 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=100),
                type_=sa.String(length=36),
                existing_nullable=True)
-        batch_op.drop_constraint(batch_op.f('eval_flow_traces_run_id_fkey'), type_='foreignkey')
-        batch_op.create_foreign_key(None, 'workflows', ['workflow_id'], ['id'], ondelete='CASCADE')
-        batch_op.create_foreign_key(None, 'workflow_runs', ['run_id'], ['id'], ondelete='CASCADE')
+        if op.get_bind().dialect.name != "sqlite":
+            try:
+                batch_op.drop_constraint(batch_op.f('eval_flow_traces_run_id_fkey'), type_='foreignkey')
+            except Exception:
+                pass
+            batch_op.create_foreign_key(None, 'workflows', ['workflow_id'], ['id'], ondelete='CASCADE')
+            batch_op.create_foreign_key(None, 'workflow_runs', ['run_id'], ['id'], ondelete='CASCADE')
 
     with op.batch_alter_table('eval_run_history', schema=None) as batch_op:
         batch_op.alter_column('target_type',
@@ -82,7 +86,15 @@ def upgrade() -> None:
                type_=sa.Float(),
                existing_nullable=False,
                existing_server_default=sa.text('1024'))
-        batch_op.drop_constraint(batch_op.f('uq_collection_hub_name'), type_='unique')
+        if op.get_bind().dialect.name != "sqlite":
+            try:
+                batch_op.drop_constraint(batch_op.f('uq_collection_hub_name'), type_='unique')
+            except Exception:
+                pass
+            try:
+                batch_op.create_unique_constraint('uq_syntraflow_collections_hub_name', ['hub_id', 'name'])
+            except Exception:
+                pass
         batch_op.create_index(batch_op.f('ix_syntraflow_collections_name'), ['name'], unique=False)
 
     with op.batch_alter_table('syntraflow_documents', schema=None) as batch_op:
@@ -175,9 +187,13 @@ def downgrade() -> None:
                existing_server_default=sa.text("'agent'::character varying"))
 
     with op.batch_alter_table('eval_flow_traces', schema=None) as batch_op:
-        batch_op.drop_constraint(None, type_='foreignkey')
-        batch_op.drop_constraint(None, type_='foreignkey')
-        batch_op.create_foreign_key(batch_op.f('eval_flow_traces_run_id_fkey'), 'eval_run_history', ['run_id'], ['id'], ondelete='CASCADE')
+        if op.get_bind().dialect.name != "sqlite":
+            try:
+                batch_op.drop_constraint(None, type_='foreignkey')
+                batch_op.drop_constraint(None, type_='foreignkey')
+            except Exception:
+                pass
+            batch_op.create_foreign_key(batch_op.f('eval_flow_traces_run_id_fkey'), 'eval_run_history', ['run_id'], ['id'], ondelete='CASCADE')
         batch_op.alter_column('workflow_id',
                existing_type=sa.String(length=36),
                type_=sa.VARCHAR(length=100),

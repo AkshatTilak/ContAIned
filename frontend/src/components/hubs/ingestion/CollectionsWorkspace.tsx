@@ -257,10 +257,10 @@ export function CollectionsWorkspace() {
                 onChange={(val) => {
                   setEmbeddingModel(val);
                   const lowerVal = val.toLowerCase();
-                  if (lowerVal.includes("small") || lowerVal.includes("bge") || lowerVal.includes("1536")) setDimension(1536);
-                  else if (lowerVal.includes("large") || lowerVal.includes("3072")) setDimension(3072);
-                  else if (lowerVal.includes("harrier") || lowerVal.includes("768")) setDimension(768);
+                  if (lowerVal.includes("harrier") || lowerVal.includes("bge") || lowerVal.includes("nomic") || lowerVal.includes("768")) setDimension(768);
                   else if (lowerVal.includes("clip") || lowerVal.includes("1024")) setDimension(1024);
+                  else if (lowerVal.includes("small") || lowerVal.includes("1536")) setDimension(1536);
+                  else if (lowerVal.includes("large") || lowerVal.includes("3072")) setDimension(3072);
                   else setDimension(768);
                 }}
                 role="embedding"
@@ -402,7 +402,7 @@ export function CollectionsWorkspace() {
               <div className="space-y-3 pt-3 border-t border-slate-800/60 text-xs text-slate-400">
                 <div className="flex items-center justify-between font-mono">
                   <span>Vectors:</span>
-                  <span className="font-bold text-slate-200">{col.vector_count || 0}</span>
+                  <span className="font-bold text-slate-200">{col.vectors_count ?? col.vector_count ?? col.points_count ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between font-mono">
                   <span>Embedding:</span>

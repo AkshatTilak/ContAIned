@@ -119,7 +119,7 @@ export function JobsWorkspace() {
           <thead className="bg-slate-950/60 border-b border-slate-800 text-slate-400 font-semibold">
             <tr>
               <th className="p-3.5">Job ID</th>
-              <th className="p-3.5">Document ID</th>
+              <th className="p-3.5">Pipeline Config</th>
               <th className="p-3.5">Progress</th>
               <th className="p-3.5">Status</th>
               <th className="p-3.5">Updated</th>
@@ -133,27 +133,65 @@ export function JobsWorkspace() {
                 </td>
               </tr>
             ) : (
-              jobs.map((job) => (
-                <tr key={job.job_id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="p-3.5 font-mono text-indigo-400 font-semibold">{job.job_id.slice(0, 8)}...</td>
-                  <td className="p-3.5 font-mono text-slate-300">{job.document_id || "N/A"}</td>
-                  <td className="p-3.5">
-                    <div className="flex items-center space-x-3 max-w-xs">
-                      <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                          style={{ width: `${job.progress || (job.status === "completed" ? 100 : 0)}%` }}
-                        />
+              jobs.map((job) => {
+                const cfg = job.pipeline_config || {};
+                return (
+                  <tr key={job.job_id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="p-3.5 font-mono text-indigo-400 font-semibold">
+                      {job.job_id.slice(0, 8)}...
+                      {job.document_id && (
+                        <span className="block text-[10px] text-slate-500 font-normal">
+                          Doc: {job.document_id.slice(0, 8)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3.5">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                          {cfg.ocr_engine && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-indigo-300 border border-slate-700">
+                              OCR: {cfg.ocr_engine}
+                            </span>
+                          )}
+                          {cfg.embedding_model && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-emerald-300 border border-slate-700">
+                              Embed: {cfg.embedding_model}
+                            </span>
+                          )}
+                          {cfg.chunking_strategy && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-amber-300 border border-slate-700">
+                              {cfg.chunking_strategy} ({cfg.chunk_size || 512})
+                            </span>
+                          )}
+                        </div>
+                        {Array.isArray(cfg.post_processors) && cfg.post_processors.length > 0 && (
+                          <div className="text-[10px] text-slate-400 flex items-center space-x-1">
+                            <span className="text-slate-500">Post:</span>
+                            <span className="font-mono text-slate-300">
+                              {cfg.post_processors.join(", ")}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <span className="font-mono text-[11px] text-slate-400">{job.progress || (job.status === "completed" ? 100 : 0)}%</span>
-                    </div>
-                  </td>
-                  <td className="p-3.5">{renderStatusBadge(job.status)}</td>
-                  <td className="p-3.5 font-mono text-slate-400">
-                    {job.updated_at ? new Date(job.updated_at).toLocaleTimeString() : "Just now"}
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="p-3.5">
+                      <div className="flex items-center space-x-3 max-w-xs">
+                        <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                            style={{ width: `${job.progress || (job.status === "completed" ? 100 : 0)}%` }}
+                          />
+                        </div>
+                        <span className="font-mono text-[11px] text-slate-400">{job.progress || (job.status === "completed" ? 100 : 0)}%</span>
+                      </div>
+                    </td>
+                    <td className="p-3.5">{renderStatusBadge(job.status)}</td>
+                    <td className="p-3.5 font-mono text-slate-400">
+                      {job.updated_at ? new Date(job.updated_at).toLocaleTimeString() : "Just now"}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

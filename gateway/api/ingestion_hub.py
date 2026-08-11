@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
 from common.models.database import AuditLog
+from common.services.audit import sanitize_actor_user_id
 from common.schemas.api import (
     CollectionResponse,
     DatastoreBindingResponse,
@@ -68,10 +69,11 @@ async def _log_audit_event(
     before_json: Optional[Dict[str, Any]] = None,
     after_json: Optional[Dict[str, Any]] = None,
 ) -> None:
+    valid_actor_id = await sanitize_actor_user_id(session, actor_user_id)
     audit = AuditLog(
         id=str(uuid.uuid4()),
         hub_id=hub_id,
-        actor_user_id=actor_user_id,
+        actor_user_id=valid_actor_id,
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
@@ -107,12 +109,14 @@ class CreateCollectionPayload(BaseModel):
     vector_dimension: Optional[int] = 1024
     description: Optional[str] = None
     retrieval_config: Optional[Dict[str, Any]] = None
+    pipeline_config: Optional[Dict[str, Any]] = None
     datastore_binding_id: Optional[str] = None
 
 
 class UpdateCollectionPayload(BaseModel):
     description: Optional[str] = None
     retrieval_config: Optional[Dict[str, Any]] = None
+    pipeline_config: Optional[Dict[str, Any]] = None
     datastore_binding_id: Optional[str] = None
 
 
@@ -123,13 +127,20 @@ class TextIngestPayload(BaseModel):
     chunker_type: Optional[str] = "recursive"
     chunk_size: Optional[int] = 512
     chunk_overlap: Optional[int] = 64
+    ocr_engine: Optional[str] = None
+    embedding_model: Optional[str] = None
+    summary_model: Optional[str] = None
+    graph_model: Optional[str] = None
     pre_processors: Optional[List[str]] = None
     post_processors: Optional[List[str]] = None
+    pipeline_config: Optional[Dict[str, Any]] = None
 
 
 class SearchPayload(BaseModel):
     query: str
     collection_ids: Optional[List[str]] = None
+    collection_id: Optional[str] = None
+    collection_name: Optional[str] = None
     strategy: Optional[str] = None
     limit: Optional[int] = 5
     metadata_filter: Optional[Dict[str, Any]] = None
@@ -298,6 +309,7 @@ async def create_collection(
             vector_dimension=payload.vector_dimension or 1024,
             description=payload.description,
             retrieval_config=payload.retrieval_config,
+            pipeline_config=payload.pipeline_config,
             datastore_binding_id=payload.datastore_binding_id,
         )
         await _log_audit_event(
@@ -351,6 +363,7 @@ async def update_collection(
             collection_id=collection_id,
             description=payload.description,
             retrieval_config=payload.retrieval_config,
+            pipeline_config=payload.pipeline_config,
             datastore_binding_id=payload.datastore_binding_id,
         )
         await _log_audit_event(
@@ -414,10 +427,16 @@ async def ingest_document_file(
     chunk_strategy: Optional[str] = Form(None),
     chunk_size: Optional[int] = Form(None),
     chunk_overlap: Optional[int] = Form(None),
+    ocr_engine: Optional[str] = Form(None),
+    embedding_model: Optional[str] = Form(None),
+    summary_model: Optional[str] = Form(None),
+    graph_model: Optional[str] = Form(None),
     ocr_cleanup: Optional[bool] = Form(None),
     lang_filter: Optional[bool] = Form(None),
     extract_metadata: Optional[bool] = Form(None),
     generate_summary: Optional[bool] = Form(None),
+    post_processors_json: Optional[str] = Form(None),
+    pipeline_config_json: Optional[str] = Form(None),
     ctx: HubContext = Depends(require_hub(hub_type="ingestion", min_role="contributor")),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -442,6 +461,53 @@ async def ingest_document_file(
 
     file_hash = hashlib.sha256(file_bytes).hexdigest()
 
+    # Build pipeline config
+    pipeline_cfg: Dict[str, Any] = dict(collection.pipeline_config_json or {})
+    if pipeline_config_json:
+        try:
+            import json as json_lib
+            pipeline_cfg.update(json_lib.loads(pipeline_config_json))
+        except Exception:
+            pass
+
+    if ocr_engine:
+        pipeline_cfg["ocr_engine"] = ocr_engine
+    if chunk_strategy:
+        pipeline_cfg["chunking_strategy"] = chunk_strategy
+    if chunk_size:
+        pipeline_cfg["chunk_size"] = chunk_size
+    if chunk_overlap:
+        pipeline_cfg["chunk_overlap"] = chunk_overlap
+    if embedding_model:
+        pipeline_cfg["embedding_model"] = embedding_model
+    if summary_model:
+        pipeline_cfg["summary_model"] = summary_model
+    if graph_model:
+        pipeline_cfg["graph_model"] = graph_model
+
+    post_procs = list(pipeline_cfg.get("post_processors", []))
+    if post_processors_json:
+        try:
+            import json as json_lib
+            parsed_pp = json_lib.loads(post_processors_json)
+            if isinstance(parsed_pp, list):
+                post_procs = parsed_pp
+        except Exception:
+            post_procs = [p.strip() for p in post_processors_json.split(",") if p.strip()]
+
+    if extract_metadata and "metadata_extractor" not in post_procs:
+        post_procs.append("metadata_extractor")
+    if generate_summary and "summary_gen" not in post_procs:
+        post_procs.append("summary_gen")
+
+    pipeline_cfg["post_processors"] = post_procs
+
+    pre_procs = []
+    if ocr_cleanup:
+        pre_procs.append("ocr_cleanup")
+    if lang_filter:
+        pre_procs.append("language_filter")
+
     # Save to hub upload path
     temp_dir = Path("projects/syntraflow/temp_uploads") / ctx.hub_id
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -452,6 +518,7 @@ async def ingest_document_file(
         collection_id=collection.id,
         status="queued",
         progress=0.0,
+        pipeline_config_json=pipeline_cfg,
     )
     db.add(job)
     await db.commit()
@@ -460,18 +527,6 @@ async def ingest_document_file(
     temp_filepath = str(temp_dir / f"{job.id}_{filename}")
     with open(temp_filepath, "wb") as f:
         f.write(file_bytes)
-
-    pre_procs = []
-    if ocr_cleanup:
-        pre_procs.append("ocr_cleanup")
-    if lang_filter:
-        pre_procs.append("language_filter")
-
-    post_procs = []
-    if extract_metadata:
-        post_procs.append("metadata_extractor")
-    if generate_summary:
-        post_procs.append("summary_gen")
 
     ext = Path(filename).suffix.lower()
     is_video_audio = ext in VIDEO_EXTENSIONS or ext in AUDIO_EXTENSIONS
@@ -491,6 +546,7 @@ async def ingest_document_file(
             chunk_overlap=chunk_overlap or 64,
             pre_processors=pre_procs,
             post_processors=post_procs,
+            pipeline_config=pipeline_cfg,
         )
     )
 
@@ -523,12 +579,33 @@ async def ingest_raw_text(
     temp_dir = Path("projects/syntraflow/temp_uploads") / ctx.hub_id
     temp_dir.mkdir(parents=True, exist_ok=True)
 
+    pipeline_cfg: Dict[str, Any] = dict(collection.pipeline_config_json or {})
+    if payload.pipeline_config:
+        pipeline_cfg.update(payload.pipeline_config)
+    if payload.ocr_engine:
+        pipeline_cfg["ocr_engine"] = payload.ocr_engine
+    if payload.chunker_type:
+        pipeline_cfg["chunking_strategy"] = payload.chunker_type
+    if payload.chunk_size:
+        pipeline_cfg["chunk_size"] = payload.chunk_size
+    if payload.chunk_overlap:
+        pipeline_cfg["chunk_overlap"] = payload.chunk_overlap
+    if payload.embedding_model:
+        pipeline_cfg["embedding_model"] = payload.embedding_model
+    if payload.summary_model:
+        pipeline_cfg["summary_model"] = payload.summary_model
+    if payload.graph_model:
+        pipeline_cfg["graph_model"] = payload.graph_model
+    if payload.post_processors:
+        pipeline_cfg["post_processors"] = payload.post_processors
+
     job = SyntraFlowJob(
         id=uuid.uuid4(),
         hub_id=ctx.hub_id,
         collection_id=collection.id,
         status="queued",
         progress=0.0,
+        pipeline_config_json=pipeline_cfg,
     )
     db.add(job)
     await db.commit()
@@ -554,6 +631,7 @@ async def ingest_raw_text(
             chunk_overlap=payload.chunk_overlap or 64,
             pre_processors=payload.pre_processors,
             post_processors=payload.post_processors,
+            pipeline_config=pipeline_cfg,
         )
     )
 
@@ -746,6 +824,7 @@ async def list_jobs(
             "status": j.status,
             "progress": j.progress,
             "error_msg": j.error_msg,
+            "pipeline_config": j.pipeline_config_json or {},
             "created_at": j.created_at.isoformat() if j.created_at else None,
             "updated_at": j.updated_at.isoformat() if j.updated_at else None,
         }
@@ -788,6 +867,7 @@ async def get_job_status(
         status=job.status,
         progress=job.progress,
         error_msg=job.error_msg,
+        pipeline_config=job.pipeline_config_json or {},
         created_at=job.created_at,
         updated_at=job.updated_at,
     )
@@ -803,10 +883,19 @@ async def search_hub(
 ):
     """Issue a multi-collection or hybrid search within an ingestion hub."""
     engine = RetrievalEngine(db, ctx.hub_id)
+    target_ids = list(payload.collection_ids) if payload.collection_ids else []
+    if not target_ids and payload.collection_id:
+        target_ids.append(payload.collection_id)
+    elif not target_ids and payload.collection_name:
+        col_mgr = CollectionManager(db)
+        found_col = await col_mgr.get_collection(hub_id=ctx.hub_id, collection_id=payload.collection_name)
+        if found_col:
+            target_ids.append(found_col["id"])
+
     try:
         hits = await engine.search(
             query=payload.query,
-            collection_ids=payload.collection_ids,
+            collection_ids=target_ids if target_ids else None,
             strategy=payload.strategy,
             limit=payload.limit or 5,
             metadata_filter=payload.metadata_filter,

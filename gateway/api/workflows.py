@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
 from common.models.database import AuditLog, EvalFlowTrace
+from common.services.audit import sanitize_actor_user_id
 from common.schemas.workflows import (
     WorkflowCreate,
     WorkflowUpdate,
@@ -72,10 +73,11 @@ async def _log_audit_event(
     after_json: Optional[Dict[str, Any]] = None,
 ) -> None:
     """Helper writing audit log entries for mutating workflow operations."""
+    valid_actor_id = await sanitize_actor_user_id(session, actor_user_id)
     audit = AuditLog(
         id=str(uuid.uuid4()),
         hub_id=hub_id,
-        actor_user_id=actor_user_id,
+        actor_user_id=valid_actor_id,
         action=action,
         resource_type="workflow",
         resource_id=resource_id,

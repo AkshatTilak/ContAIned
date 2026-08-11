@@ -147,6 +147,7 @@ class CollectionResponse(BaseModel):
     vector_dimension: int
     description: Optional[str] = None
     retrieval_config: dict[str, Any] = Field(default_factory=dict)
+    pipeline_config: dict[str, Any] = Field(default_factory=dict)
     datastore_binding_id: Optional[str] = None
     points_count: int = 0
     created_at: Optional[datetime] = None
@@ -163,6 +164,7 @@ class IngestionJobResponse(BaseModel):
     status: str
     progress: float = 0.0
     error_msg: Optional[str] = None
+    pipeline_config: dict[str, Any] = Field(default_factory=dict)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

@@ -218,7 +218,7 @@ def upgrade() -> None:
                 if null_cnt > 0:
                     raise RuntimeError(f"Failed to backfill hub_id for table '{table}': {null_cnt} NULL rows remain")
                 with op.batch_alter_table(table) as batch_op:
-                    batch_op.alter_column("hub_id", nullable=False)
+                    batch_op.alter_column("hub_id", existing_type=sa.String(length=36), nullable=False)
 
     # 7. Populate physical_name and vector store Qdrant alias
     if _has_table("syntraflow_collections") and _has_column("syntraflow_collections", "physical_name"):
@@ -228,7 +228,7 @@ def upgrade() -> None:
             )
         )
         with op.batch_alter_table("syntraflow_collections") as batch_op:
-            batch_op.alter_column("physical_name", nullable=False)
+            batch_op.alter_column("physical_name", existing_type=sa.String(length=320), nullable=False)
             try:
                 batch_op.create_unique_constraint("uq_syntraflow_collections_physical_name", ["physical_name"])
             except Exception:
@@ -341,14 +341,14 @@ def downgrade() -> None:
         with op.batch_alter_table("syntraflow_collections") as batch_op:
             if "uq_syntraflow_collections_physical_name" in uqs:
                 batch_op.drop_constraint("uq_syntraflow_collections_physical_name", type_="unique")
-            batch_op.alter_column("physical_name", nullable=True)
+            batch_op.alter_column("physical_name", existing_type=sa.String(length=320), nullable=True)
 
     # 4. Set hub_id nullable on 11 tables
     for domain, tables in BACKFILL.items():
         for table in tables:
             if _has_table(table) and _has_column(table, "hub_id"):
                 with op.batch_alter_table(table) as batch_op:
-                    batch_op.alter_column("hub_id", nullable=True)
+                    batch_op.alter_column("hub_id", existing_type=sa.String(length=36), nullable=True)
 
     # 5. Re-add users.role & backfill
     if _has_table("users") and not _has_column("users", "role"):

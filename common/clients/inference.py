@@ -153,9 +153,12 @@ class InferenceClient:
             return resp.json()
 
     async def embed(
-        self, texts: list[str] | None = None, images: list[bytes] | None = None
+        self,
+        texts: list[str] | None = None,
+        images: list[bytes] | None = None,
+        model: str | None = None,
     ) -> list[list[float]]:
-        """Generate embeddings for text and/or images using jina-clip-v2."""
+        """Generate embeddings for text and/or images using specified or default embedding model."""
         payload: dict[str, Any] = {}
         if texts:
             req_model = EmbeddingsRequest(texts=texts)
@@ -163,7 +166,8 @@ class InferenceClient:
         if images:
             import base64
             payload["images"] = [base64.b64encode(img).decode() for img in images]
-            
+        if model:
+            payload["model"] = model
         resp = await self._execute_request_with_retry("POST", "/infer/embed", json=payload)
         res_json = resp.json()
         if "embeddings" in res_json:
