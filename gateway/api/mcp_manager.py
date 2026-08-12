@@ -9,8 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
-from common.models.database import MCPServer, MCPToolCache
+from common.models.database import MCPServer, MCPToolCache, ExternalCredential
 from common.observability.logger import get_logger
+from common.services.mcp_db_bridge import (
+    generate_db_tool_definitions,
+    execute_db_tool,
+)
 from gateway.services.mcp_client import (
     check_server_health,
     discover_tools,
@@ -445,3 +449,48 @@ async def test_mcp_tool(
         )
 
     return await invoke_tool(server, tool_name, payload.parameters)
+
+
+# ---------------------------------------------------------------------------
+# Hub-scoped Database MCP Tools (Task 12_02)
+# ---------------------------------------------------------------------------
+
+class DBToolInvokeRequest(BaseModel):
+    tool_name: str
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+
+
+@router.get("/hubs/{hub_id}/db-tools")
+async def list_hub_db_tools(hub_id: str, db: AsyncSession = Depends(get_async_db)):
+    """List the standard database MCP tool definitions for a hub's credentials."""
+    res = await db.execute(
+        select(ExternalCredential).where(ExternalCredential.hub_id == hub_id)
+    )
+    creds = res.scalars().all()
+
+    tools = []
+    for cred in creds:
+        for tool in generate_db_tool_definitions(cred):
+            tools.append(
+                {
+                    "credential_id": cred.id,
+                    "credential_name": cred.name,
+                    "db_type": cred.db_type,
+                    **tool,
+                }
+            )
+    return tools
+
+
+@router.post("/hubs/{hub_id}/db-tools/invoke")
+async def invoke_hub_db_tool(
+    hub_id: str,
+    payload: DBToolInvokeRequest,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Invoke a database MCP tool scoped to a hub."""
+    return await execute_db_tool(
+        payload.tool_name,
+        payload.parameters,
+        hub_id=hub_id,
+    )

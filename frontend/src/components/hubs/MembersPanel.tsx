@@ -92,9 +92,11 @@ export function MembersPanel() {
 
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
+      const email = (m.email ?? "").toLowerCase();
+      const displayName = (m.display_name ?? "").toLowerCase();
+      const q = searchQuery.toLowerCase();
       const matchesSearch =
-        m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (m.display_name && m.display_name.toLowerCase().includes(searchQuery.toLowerCase()));
+        email.includes(q) || displayName.includes(q);
       const matchesRole = roleFilter === "all" || m.hub_role === roleFilter;
       return matchesSearch && matchesRole;
     });
@@ -235,16 +237,23 @@ export function MembersPanel() {
                 </td>
               </tr>
             ) : (
-              filteredMembers.map((m) => (
+              filteredMembers.map((m) => {
+                const displayName = m.display_name || m.email || `Hub member (${(m.user_id || m.id || "").slice(0, 8)})`;
+                const avatarInitial = (m.display_name || m.email || "?").charAt(0).toUpperCase();
+                return (
                 <tr key={m.id} className="hover:bg-slate-800/30 transition-colors">
                   <td className="p-3.5">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center font-bold text-indigo-200">
-                        {(m.display_name || m.email).charAt(0).toUpperCase()}
+                        {avatarInitial}
                       </div>
                       <div>
-                        <p className="font-semibold text-slate-100">{m.display_name || m.email}</p>
-                        <p className="text-[11px] text-slate-500 font-mono">{m.email}</p>
+                        <p className="font-semibold text-slate-100">{displayName}</p>
+                        {m.email ? (
+                          <p className="text-[11px] text-slate-500 font-mono">{m.email}</p>
+                        ) : (
+                          <p className="text-[11px] text-slate-500 font-mono">{m.user_id || m.id}</p>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -289,7 +298,8 @@ export function MembersPanel() {
                     </td>
                   )}
                 </tr>
-              ))
+                );
+              })}
             )}
           </tbody>
         </table>

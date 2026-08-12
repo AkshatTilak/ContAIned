@@ -320,3 +320,137 @@ def test_collect_references_helper():
     assert extracted[0][1].resource_id == "agt-1"
     assert extracted[1][1].resource_id == "agt-2"
     assert extracted[2][1].resource_id == "agt-3"
+
+
+# ---------------------------------------------------------------------------
+# Additional gap-closing tests required by sub_11_03
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_dangling_edge_is_detected(db_session: AsyncSession):
+    """Graph with an edge pointing to a non-existent node → DANGLING_EDGE."""
+    hub_wf = Hub(id="hub-wf-dangling", name="Dangling Hub", slug="dangling-hub", hub_type="workflow", owner_id="user-1")
+    db_session.add(hub_wf)
+    await db_session.commit()
+
+    graph = {
+        "nodes": [
+            {"id": "node_a", "type": "TransformNode", "data": {}},
+            {"id": "node_b", "type": "FinalMessageNode", "data": {}},
+        ],
+        "edges": [
+            {"source": "node_a", "target": "ghost_node"},  # ghost_node doesn't exist
+            {"source": "node_a", "target": "node_b"},
+        ],
+    }
+
+    result = await validate_workflow_graph(
+        db_session,
+        graph_json=graph,
+        source_hub_id="hub-wf-dangling",
+        strict=False,
+    )
+    codes = [e.code for e in result.errors]
+    assert "DANGLING_EDGE" in codes, f"Expected DANGLING_EDGE, got: {codes}"
+    assert not result.is_valid
+
+
+@pytest.mark.asyncio
+async def test_reference_target_hub_not_found():
+    """Reference to a non-existent hub → REFERENCE_TARGET_MISSING (uses mocks)."""
+    import uuid
+    from unittest.mock import AsyncMock, patch
+    from projects.guardroute.src.core.graph_parser import GraphParser
+
+    graph = {
+        "nodes": [
+            {
+                "id": "agt-node",
+                "type": "AgentNode",
+                "data": {
+                    "reference": {
+                        "type": "agent",
+                        "hub_id": str(uuid.uuid4()),  # non-existent
+                        "resource_id": str(uuid.uuid4()),
+                    }
+                },
+            },
+            {"id": "final-node", "type": "FinalMessageNode", "data": {}},
+        ],
+        "edges": [{"source": "agt-node", "target": "final-node"}],
+    }
+
+    with patch(
+        "projects.guardroute.src.core.graph_parser.get_hub",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        parser = GraphParser(graph)
+        issues = await parser.validate_references(
+            graph,
+            session=AsyncMock(),
+            source_hub_id="some-hub",
+        )
+
+    codes = {i.code for i in issues}
+    assert "REFERENCE_TARGET_MISSING" in codes, f"Expected REFERENCE_TARGET_MISSING, got: {codes}"
+
+
+@pytest.mark.asyncio
+async def test_reference_inactive_archived_resource():
+    """Reference to an archived resource → REFERENCE_INACTIVE (uses mocks)."""
+    import uuid
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from projects.guardroute.src.core.graph_parser import GraphParser
+
+    hub_id = str(uuid.uuid4())
+    resource_id = str(uuid.uuid4())
+
+    graph = {
+        "nodes": [
+            {
+                "id": "agt-node",
+                "type": "AgentNode",
+                "data": {
+                    "reference": {
+                        "type": "agent",
+                        "hub_id": hub_id,
+                        "resource_id": resource_id,
+                    }
+                },
+            },
+            {"id": "final-node", "type": "FinalMessageNode", "data": {}},
+        ],
+        "edges": [{"source": "agt-node", "target": "final-node"}],
+    }
+
+    mock_hub = MagicMock()
+    mock_hub.is_archived = False
+
+    mock_resource = MagicMock()
+    mock_resource.hub_id = hub_id
+    mock_resource.status = "archived"
+    mock_resource.is_active = True
+
+    with (
+        patch(
+            "projects.guardroute.src.core.graph_parser.get_hub",
+            new_callable=AsyncMock,
+            return_value=mock_hub,
+        ),
+        patch(
+            "projects.guardroute.src.core.graph_parser.resolve_linked",
+            new_callable=AsyncMock,
+            return_value=mock_resource,
+        ),
+    ):
+        parser = GraphParser(graph)
+        issues = await parser.validate_references(
+            graph,
+            session=AsyncMock(),
+            source_hub_id=hub_id,
+        )
+
+    codes = {i.code for i in issues}
+    assert "REFERENCE_INACTIVE" in codes, f"Expected REFERENCE_INACTIVE, got: {codes}"
+

@@ -118,6 +118,8 @@ class HubLinkRead(HubBase):
     id: str
     source_hub_id: str
     target_hub_id: str
+    source_hub_name: Optional[str] = None
+    source_hub_type: Optional[HubType] = None
     target_hub_name: Optional[str] = None
     target_hub_type: Optional[HubType] = None
     target_hub_slug: Optional[str] = None

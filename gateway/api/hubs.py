@@ -16,7 +16,7 @@ from common.constants.roles import (
     hub_role_satisfies,
     is_link_direction_allowed,
 )
-from common.models.database import AuditLog, HubLink, User
+from common.models.database import AuditLog, Hub, HubLink, User
 from common.services.audit import sanitize_actor_user_id
 from common.schemas.hubs import (
     HubCreate,
@@ -38,6 +38,7 @@ from common.services.hub_repository import (
     create_link,
     delete_hub_if_empty,
     get_hub_by_slug,
+    get_hub,
     get_link,
     get_membership,
     list_hubs_for_user,
@@ -604,15 +605,56 @@ async def list_hub_links(
     ctx: HubContext = Depends(require_hub(min_role=HUB_ROLE_VIEWER)),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """List cross-hub links for a hub."""
-    from sqlalchemy import select
+    """List cross-hub links for a hub.
+
+    Denormalizes the target hub's name/type/slug (and the source hub's
+    name/type for incoming links) so the frontend Links panel can render
+    readable hub names instead of empty columns / raw UUIDs.
+    """
     if direction == "incoming":
         stmt = select(HubLink).where(HubLink.target_hub_id == ctx.hub_id).order_by(HubLink.created_at.asc())
         result = await db.execute(stmt)
         links = list(result.scalars().all())
-    else:
-        links = await list_links(db, source_hub_id=ctx.hub_id)
-    return links
+        # For incoming links, the "target" hub is the current hub (already in
+        # context); the "source" hub is the hub that created the link.
+        out = []
+        for link in links:
+            src = await get_hub(db, link.source_hub_id)
+            out.append({
+                "id": link.id,
+                "source_hub_id": link.source_hub_id,
+                "target_hub_id": link.target_hub_id,
+                "source_hub_name": src.name if src else None,
+                "source_hub_type": src.hub_type if src else None,
+                "target_hub_name": ctx.hub.name,
+                "target_hub_type": ctx.hub.hub_type,
+                "target_hub_slug": ctx.hub.slug,
+                "access_level": link.access_level,
+                "created_by": link.created_by,
+                "created_at": link.created_at,
+            })
+        return out
+
+    links = await list_links(db, source_hub_id=ctx.hub_id)
+    # For outgoing links, resolve each target hub (live join so renames are reflected).
+    out = []
+    for link in links:
+        tgt = await get_hub(db, link.target_hub_id)
+        src = await get_hub(db, link.source_hub_id)
+        out.append({
+            "id": link.id,
+            "source_hub_id": link.source_hub_id,
+            "target_hub_id": link.target_hub_id,
+            "source_hub_name": src.name if src else None,
+            "source_hub_type": src.hub_type if src else None,
+            "target_hub_name": tgt.name if tgt else None,
+            "target_hub_type": tgt.hub_type if tgt else None,
+            "target_hub_slug": tgt.slug if tgt else None,
+            "access_level": link.access_level,
+            "created_by": link.created_by,
+            "created_at": link.created_at,
+        })
+    return out
 
 
 @router.get("/{hub_id}/linkable-targets")

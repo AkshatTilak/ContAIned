@@ -2,3 +2,6 @@ common/services/hub_resolver.py::resolve_linked  # hub unknown until the row is 
 common/services/hub_repository.py::get_scoped  # the scoping primitive itself
 common/services/hub_repository.py::get_hub  # hub lookup primitive
 common/services/hub_repository.py::get_hub_by_slug  # hub slug lookup primitive
+projects/guardroute/src/agents/collection_binding.py::validate_bindings  # fetches collection by PK then asserts col.hub_id == b.hub_id
+projects/guardroute/src/agents/collection_binding.py::resolve_bindings  # fetches collection by PK then asserts col.hub_id == b.hub_id
+projects/guardroute/src/agents/collection_binding.py::inspect_binding_statuses  # fetches collection by PK then asserts col.hub_id == b.hub_id

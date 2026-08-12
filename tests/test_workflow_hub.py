@@ -202,3 +202,197 @@ async def test_cross_hub_reference_and_migration_rewrite(async_session: AsyncSes
     assert node["data"]["reference"]["type"] == "agent"
     assert node["data"]["reference"]["hub_id"] == "ag-bots"
     assert node["data"]["reference"]["resource_id"] == "bot-1"
+
+
+# ---------------------------------------------------------------------------
+# Sub_11_03 required tests: hub-scoped validation and cross-hub enforcement
+# ---------------------------------------------------------------------------
+
+from projects.guardroute.src.core.graph_parser import validate_workflow_graph
+from common.services.hub_resolver import HubLinkError
+
+
+@pytest.mark.asyncio
+async def test_valid_same_hub_reference_passes(async_session: AsyncSession):
+    """Well-formed graph with a valid same-hub active agent reference should pass validation."""
+    session = async_session
+
+    agent = AgentDefinition(
+        id="bot-validate-1",
+        hub_id="ag-bots",
+        name="Validate Agent",
+        role="assistant",
+        system_prompt="Hello",
+        model_id="gpt-4",
+        is_active=True,
+    )
+    session.add(agent)
+    await session.commit()
+
+    # wf-alpha is a workflow hub; ag-bots is its agent hub
+    # A HubLink wf-alpha → ag-bots was seeded in the fixture
+    graph = {
+        "nodes": [
+            {
+                "id": "agt-v1",
+                "type": "AgentNode",
+                "data": {
+                    "reference": {
+                        "type": "agent",
+                        "hub_id": "ag-bots",
+                        "resource_id": "bot-validate-1",
+                    }
+                },
+            },
+            {"id": "fin-v1", "type": "FinalMessageNode", "data": {}},
+        ],
+        "edges": [{"source": "agt-v1", "target": "fin-v1"}],
+    }
+
+    result = await validate_workflow_graph(
+        session,
+        graph_json=graph,
+        source_hub_id="wf-alpha",
+        strict=False,
+    )
+    assert result.is_valid, f"Expected valid; got: {[e.model_dump() for e in result.errors]}"
+
+
+@pytest.mark.asyncio
+async def test_cross_hub_no_link_rejected(async_session: AsyncSession):
+    """Cross-hub reference to a hub not linked to source → HUB_LINK_REQUIRED / REFERENCE_TARGET_MISSING."""
+    session = async_session
+
+    unlinked_hub = Hub(
+        id="hub-unlinked-agt",
+        slug="unlinked-agt",
+        name="Unlinked Agent Hub",
+        hub_type="agent",
+        owner_id="user-owner",
+    )
+    remote_agent = AgentDefinition(
+        id="remote-agt-1",
+        hub_id="hub-unlinked-agt",
+        name="Remote Agent",
+        role="assistant",
+        system_prompt="Remote",
+        model_id="gpt-4",
+        is_active=True,
+    )
+    session.add_all([unlinked_hub, remote_agent])
+    await session.commit()
+
+    graph = {
+        "nodes": [
+            {
+                "id": "agt-remote",
+                "type": "AgentNode",
+                "data": {
+                    "reference": {
+                        "type": "agent",
+                        "hub_id": "hub-unlinked-agt",
+                        "resource_id": "remote-agt-1",
+                    }
+                },
+            },
+            {"id": "fin-r1", "type": "FinalMessageNode", "data": {}},
+        ],
+        "edges": [{"source": "agt-remote", "target": "fin-r1"}],
+    }
+
+    result = await validate_workflow_graph(
+        session,
+        graph_json=graph,
+        source_hub_id="wf-alpha",  # not linked to hub-unlinked-agt
+        strict=False,
+    )
+    assert not result.is_valid
+    codes = {e.code for e in result.errors}
+    assert codes & {"HUB_LINK_REQUIRED", "HUB_LINK_REVOKED", "REFERENCE_TARGET_MISSING"}, (
+        f"Expected hub link error, got: {codes}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_cross_hub_revoked_link_rejected_mock():
+    """Cross-hub reference where hub_resolver raises HUB_LINK_REVOKED → issue returned."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from projects.guardroute.src.core.graph_parser import GraphParser
+
+    hub_id = "wf-mock-hub"
+    target_hub_id = "agt-mock-hub"
+    resource_id = "agt-mock-resource"
+
+    graph = {
+        "nodes": [
+            {
+                "id": "remote-mock",
+                "type": "AgentNode",
+                "data": {
+                    "reference": {
+                        "type": "agent",
+                        "hub_id": target_hub_id,
+                        "resource_id": resource_id,
+                    }
+                },
+            },
+            {"id": "fin-mock", "type": "FinalMessageNode", "data": {}},
+        ],
+        "edges": [{"source": "remote-mock", "target": "fin-mock"}],
+    }
+
+    mock_hub = MagicMock()
+    mock_hub.is_archived = False
+    revoked_error = HubLinkError("HUB_LINK_REVOKED", "Link revoked", source_hub_id=hub_id)
+
+    with (
+        patch(
+            "projects.guardroute.src.core.graph_parser.get_hub",
+            new_callable=AsyncMock,
+            return_value=mock_hub,
+        ),
+        patch(
+            "projects.guardroute.src.core.graph_parser.resolve_linked",
+            new_callable=AsyncMock,
+            side_effect=revoked_error,
+        ),
+    ):
+        result = await validate_workflow_graph(
+            AsyncMock(),
+            graph_json=graph,
+            source_hub_id=hub_id,
+            strict=False,
+        )
+
+    assert not result.is_valid
+    codes = {e.code for e in result.errors}
+    assert "HUB_LINK_REVOKED" in codes, f"Expected HUB_LINK_REVOKED, got: {codes}"
+
+
+@pytest.mark.asyncio
+async def test_validate_returns_is_valid_false_with_node_level_issues():
+    """validate_workflow_graph returns is_valid=False and node-level issues for cyclic graph."""
+    graph = {
+        "nodes": [
+            {"id": "A", "type": "TransformNode", "data": {}},
+            {"id": "B", "type": "TransformNode", "data": {}},
+        ],
+        "edges": [
+            {"source": "A", "target": "B"},
+            {"source": "B", "target": "A"},  # cycle
+        ],
+    }
+
+    result = await validate_workflow_graph(
+        None,
+        graph_json=graph,
+        source_hub_id="",
+        strict=False,
+    )
+
+    assert not result.is_valid
+    assert len(result.errors) > 0
+    for issue in result.errors:
+        assert issue.code
+        assert issue.message
+

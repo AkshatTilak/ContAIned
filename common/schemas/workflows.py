@@ -167,6 +167,36 @@ class WorkflowRunSummary(BaseModel):
 
 
 class WorkflowRunDetail(WorkflowRunSummary):
-    """Detailed view of a workflow run execution including inputs and outputs."""
+    """Detailed view of a workflow run execution including inputs, outputs, and per-node steps."""
     input_json: Optional[Dict[str, Any]] = None
     output_json: Optional[Dict[str, Any]] = None
+    steps: List["WorkflowRunStepSummary"] = Field(default_factory=list)
+
+
+class WorkflowRunStepSummary(BaseModel):
+    """Summary telemetry for a single node execution within a workflow run."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    run_id: str
+    hub_id: str
+    workflow_id: str
+    node_id: str
+    node_type: str
+    sequence: int
+    status: str
+    latency_ms: Optional[float] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+
+
+class WorkflowRunStepDetail(WorkflowRunStepSummary):
+    """Detailed per-node telemetry including full input/output state and error info."""
+    input_state: Optional[Dict[str, Any]] = None
+    output_state: Optional[Dict[str, Any]] = None
+    error_json: Optional[Dict[str, Any]] = None
+
+
+# Resolve forward reference in WorkflowRunDetail
+WorkflowRunDetail.model_rebuild()
+

@@ -18,6 +18,7 @@ from common.models.database import (
     AgentDefinition,
     DatastoreBinding,
     EvalTestSuite,
+    ExternalCredential,
     HubLink,
     WorkflowDefinition,
 )
@@ -33,6 +34,7 @@ RESOURCE_TYPE_MODELS: Dict[str, Any] = {
     "agent": AgentDefinition,
     "workflow": WorkflowDefinition,
     "eval_suite": EvalTestSuite,
+    "credential": ExternalCredential,
 }
 
 RESOURCE_TYPE_HUB_TYPE: Dict[str, str] = {
@@ -40,6 +42,7 @@ RESOURCE_TYPE_HUB_TYPE: Dict[str, str] = {
     "agent": "agent",
     "workflow": "workflow",
     "eval_suite": "eval",
+    "credential": "workflow",
 }
 
 HUB_LINK_REQUIRED = "HUB_LINK_REQUIRED"

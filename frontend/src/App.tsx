@@ -31,6 +31,7 @@ import { HubCreate } from "./components/hubs/HubCreate";
 import { HubNotFound } from "./components/hubs/HubNotFound";
 import { MembersPanel } from "./components/hubs/MembersPanel";
 import { HubLinksPanel } from "./components/hubs/HubLinksPanel";
+import { DatabaseConnectionsTab } from "./components/credentials/DatabaseConnectionsTab";
 
 // Ingestion Workspace
 import { IngestionOverview } from "./components/hubs/ingestion/IngestionOverview";
@@ -279,7 +280,7 @@ export default function App() {
                       {/* Cross-hub shared panels (all hub types) */}
                       <Route path="members" element={<MembersPanel />} />
                       <Route path="links" element={<HubLinksPanel />} />
-                      <Route path="settings" element={<HubNotFound />} />
+                      <Route path="settings" element={<DatabaseConnectionsTab />} />
 
                       {/* Hub-level index: renders overview component for each type */}
                       <Route

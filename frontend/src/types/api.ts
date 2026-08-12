@@ -28,7 +28,7 @@ export interface HubMember {
   id: string;
   hub_id: string;
   user_id: string;
-  email: string;
+  email: string | null;
   display_name: string | null;
   hub_role: HubRole;
   invited_by: string | null;
@@ -39,10 +39,13 @@ export interface HubLink {
   id: string;
   source_hub_id: string;
   target_hub_id: string;
-  target_hub_name: string;
-  target_hub_type: HubType;
+  source_hub_name?: string | null;
+  source_hub_type?: HubType | null;
+  target_hub_name?: string | null;
+  target_hub_type?: HubType | null;
+  target_hub_slug?: string | null;
   access_level: HubAccessLevel;
-  created_by: string;
+  created_by?: string | null;
   created_at: string;
 }
 

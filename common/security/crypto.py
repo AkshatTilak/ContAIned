@@ -92,3 +92,42 @@ def mask_connection_uri(uri: str) -> str:
         return urllib.parse.urlunsplit((parts.scheme, netloc, parts.path, query, parts.fragment))
     except Exception:
         return "***"
+
+
+import json as _json
+
+
+def encrypt_credential_payload(data: dict) -> str:
+    """Serialize `data` to JSON then Fernet-encrypt it.
+
+    Returns a non-None base64 ciphertext string. Raises ValueError if `data`
+    is not JSON-serialisable.
+
+    Usage::
+        ct = encrypt_credential_payload({"password": "hunter2", "ssl_cert": "..."})
+        row.encrypted_secret_payload = ct
+    """
+    plain_text = _json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    result = encrypt_secret(plain_text)
+    if result is None:
+        raise ValueError("encrypt_credential_payload: encrypt_secret returned None for non-empty payload")
+    return result
+
+
+def decrypt_credential_payload(cipher_text: str) -> dict:
+    """Decrypt a Fernet ciphertext string and parse the JSON body.
+
+    Returns the original dict. Raises SecretDecryptionError on bad key/token,
+    and ValueError if the decrypted text is not valid JSON.
+
+    Usage::
+        payload = decrypt_credential_payload(row.encrypted_secret_payload)
+        password = payload["password"]
+    """
+    plain_text = decrypt_secret(cipher_text)  # raises SecretDecryptionError on failure
+    if plain_text is None:
+        raise ValueError("decrypt_credential_payload: decrypted payload is None")
+    try:
+        return _json.loads(plain_text)
+    except _json.JSONDecodeError as exc:
+        raise ValueError(f"decrypt_credential_payload: decrypted text is not valid JSON: {exc}") from exc

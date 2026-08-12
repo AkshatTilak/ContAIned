@@ -129,9 +129,11 @@ export function WorkflowLibrary() {
         hubId={hubId || ""}
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onSuccess={(wfId) => {
+        onSuccess={(wfId, starterGraph) => {
           setIsCreateOpen(false);
-          navigate(routes.workflowHub.editor(hubId || "", wfId));
+          navigate(routes.workflowHub.editor(hubId || "", wfId), {
+            state: starterGraph ? { starterGraph } : undefined,
+          });
         }}
       />
 

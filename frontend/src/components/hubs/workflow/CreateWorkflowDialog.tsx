@@ -6,7 +6,90 @@ export interface CreateWorkflowDialogProps {
   hubId: string;
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (workflowId: string) => void;
+  onSuccess: (workflowId: string, starterGraph?: { nodes: any[]; edges: any[] }) => void;
+}
+
+// Starter node templates seeded onto the canvas when a template is chosen.
+// These mirror the backend SUPPORTED_NODE_TYPES and the frontend NODE_CONFIGS.
+function buildStarterGraph(template: string): { nodes: any[]; edges: any[] } {
+  const nodes: any[] = [];
+  const edges: any[] = [];
+  let seq = 0;
+  const nid = (prefix: string) => `${prefix}_${Date.now()}_${seq++}`;
+
+  const addNode = (type: string, label: string, x: number, y: number, data: any = {}, ports?: any) => {
+    nodes.push({
+      id: nid(type),
+      type,
+      label,
+      data,
+      position: { x, y },
+      ports: ports || {
+        inputs: [{ id: "in", label: "Input Data", type: "input", kind: "data" }],
+        outputs: [
+          { id: "out", label: "Output Data", type: "output", kind: "data" },
+          { id: "error", label: "On Error", type: "output", kind: "error" },
+        ],
+      },
+    });
+    return nodes[nodes.length - 1];
+  };
+
+  const link = (from: any, fromHandle: string, to: any, toHandle: string) => {
+    edges.push({
+      id: `edge_${Date.now()}_${seq++}`,
+      source: from.id,
+      sourceHandle: fromHandle,
+      target: to.id,
+      targetHandle: toHandle,
+    });
+  };
+
+  if (template === "rag") {
+    const start = addNode("start", "Workflow Input", 60, 120, {}, { inputs: [], outputs: [{ id: "out", label: "Payload Out", type: "output", kind: "data" }] });
+    const retrieval = addNode("retrieval", "Vector Retrieval", 380, 60, { strategy: "hybrid" });
+    const agent = addNode("agent", "Agent Invocation", 700, 120, {});
+    const finalMsg = addNode("final_message", "Final Output", 1020, 120, {}, { inputs: [{ id: "in", label: "Result In", type: "input", kind: "data" }], outputs: [] });
+    link(start, "out", retrieval, "in");
+    link(retrieval, "out", agent, "in");
+    link(agent, "out", finalMsg, "in");
+  } else if (template === "classifier") {
+    const start = addNode("start", "Workflow Input", 60, 120, {}, { inputs: [], outputs: [{ id: "out", label: "Payload Out", type: "output", kind: "data" }] });
+    const router = addNode("router", "Intent Router", 380, 120, { routes: ["support", "billing", "fallback"] }, {
+      inputs: [{ id: "in", label: "Input Query", type: "input", kind: "data" }],
+      outputs: [
+        { id: "route_support", label: "Route: support", type: "output", kind: "route" },
+        { id: "route_billing", label: "Route: billing", type: "output", kind: "route" },
+        { id: "route_fallback", label: "Route: fallback", type: "output", kind: "route" },
+      ],
+    });
+    const agent = addNode("agent", "Agent Invocation", 700, 60, {});
+    const finalMsg = addNode("final_message", "Final Output", 1020, 120, {}, { inputs: [{ id: "in", label: "Result In", type: "input", kind: "data" }], outputs: [] });
+    link(start, "out", router, "in");
+    link(router, "route_support", agent, "in");
+    link(router, "route_billing", agent, "in");
+    link(router, "route_fallback", agent, "in");
+    link(agent, "out", finalMsg, "in");
+  } else if (template === "multi-agent") {
+    const start = addNode("start", "Workflow Input", 60, 160, {}, { inputs: [], outputs: [{ id: "out", label: "Payload Out", type: "output", kind: "data" }] });
+    const agent1 = addNode("agent", "Agent Invocation 1", 380, 40, {});
+    const agent2 = addNode("agent", "Agent Invocation 2", 380, 200, {});
+    const gather = addNode("gather", "Gather / Merge", 700, 120, {}, {
+      inputs: [
+        { id: "in_multi", label: "Branch 1", type: "input", kind: "data" },
+        { id: "in_multi_2", label: "Branch 2", type: "input", kind: "data" },
+      ],
+      outputs: [{ id: "out", label: "Merged Array", type: "output", kind: "data" }],
+    });
+    const finalMsg = addNode("final_message", "Final Output", 1020, 120, {}, { inputs: [{ id: "in", label: "Result In", type: "input", kind: "data" }], outputs: [] });
+    link(start, "out", agent1, "in");
+    link(start, "out", agent2, "in");
+    link(agent1, "out", gather, "in_multi");
+    link(agent2, "out", gather, "in_multi_2");
+    link(gather, "out", finalMsg, "in");
+  }
+
+  return { nodes, edges };
 }
 
 export function CreateWorkflowDialog({
@@ -33,7 +116,8 @@ export function CreateWorkflowDialog({
         name: name.trim(),
         description,
       });
-      onSuccess(newWf.id);
+      const starterGraph = template === "blank" ? undefined : buildStarterGraph(template);
+      onSuccess(newWf.id, starterGraph);
     } catch (err: any) {
       setError(err?.message || "Failed to create workflow");
     } finally {

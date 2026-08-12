@@ -264,7 +264,8 @@ export const api = {
         request<HubLink>(`/api/hubs/${hubId}/links`, { method: "POST", body: JSON.stringify(payload) }),
       revoke: (hubId: string, linkId: string) =>
         request<void>(`/api/hubs/${hubId}/links/${linkId}`, { method: "DELETE" }),
-      dependents: (hubId: string) => request<HubLink[]>(`/api/hubs/${hubId}/dependents`),
+      dependents: (hubId: string) =>
+        request<HubLink[]>(`/api/hubs/${hubId}/links?direction=incoming`),
     },
   },
 
@@ -379,6 +380,28 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(data),
       }),
+    getDraft: (hubId: string, workflowId: string) =>
+      request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/draft`),
+    updateDraft: async (hubId: string, workflowId: string, graph: any) => {
+      // The backend draft endpoint uses If-Match optimistic locking. Fetch the
+      // current ETag first (via GET /draft) and send it as If-Match so the PUT
+      // succeeds even for published workflows (which require the header).
+      let ifMatch: string | undefined;
+      try {
+        const draftRes = await fetch(
+          `${getClientConfig().baseUrl}/api/hubs/${hubId}/workflows/${workflowId}/draft`,
+          { headers: { "X-API-Key": getClientConfig().apiKey } }
+        );
+        ifMatch = draftRes.headers.get("ETag") || undefined;
+      } catch (e) {
+        // If we cannot fetch the ETag, fall through and attempt the PUT without it.
+      }
+      return request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/draft`, {
+        method: "PUT",
+        body: JSON.stringify(graph),
+        headers: ifMatch ? { "If-Match": ifMatch } : {},
+      });
+    },
     delete: (hubId: string, workflowId: string) =>
       request<any>(`/api/hubs/${hubId}/workflows/${workflowId}`, { method: "DELETE" }),
     run: (hubId: string, workflowId: string, inputData: any) =>
@@ -386,9 +409,20 @@ export const api = {
         method: "POST",
         body: JSON.stringify(inputData),
       }),
+    validate: (hubId: string, workflowId: string, graph?: any) =>
+      request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/validate`, {
+        method: "POST",
+        body: JSON.stringify(graph ? { graph } : {}),
+      }),
     runs: {
       list: (hubId: string, workflowId: string) =>
         request<any[]>(`/api/hubs/${hubId}/workflows/${workflowId}/runs`),
+      get: (hubId: string, workflowId: string, runId: string) =>
+        request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/runs/${runId}`),
+      streamUrl: (hubId: string, workflowId: string, runId: string): string => {
+        const base = typeof window !== "undefined" ? window.location.origin : "";
+        return `${base}/api/hubs/${hubId}/workflows/${workflowId}/runs/${runId}/stream`;
+      },
     },
   },
 
@@ -591,5 +625,34 @@ export const api = {
       remove: (provider: string) =>
         request<void>(`/api/settings/credentials/${provider}`, { method: "DELETE" }),
     },
+  },
+
+  // External Database Credentials API Namespace (Task 12)
+  dbCredentials: {
+    list: (hubId: string) =>
+      request<any[]>(`/api/hubs/${hubId}/db-credentials`),
+    get: (hubId: string, id: string) =>
+      request<any>(`/api/hubs/${hubId}/db-credentials/${id}`),
+    create: (hubId: string, data: Record<string, any>) =>
+      request<any>(`/api/hubs/${hubId}/db-credentials`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (hubId: string, id: string, data: Record<string, any>) =>
+      request<any>(`/api/hubs/${hubId}/db-credentials/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    remove: (hubId: string, id: string) =>
+      request<void>(`/api/hubs/${hubId}/db-credentials/${id}`, { method: "DELETE" }),
+    test: (hubId: string, id: string) =>
+      request<any>(`/api/hubs/${hubId}/db-credentials/${id}/test`, { method: "POST" }),
+    listDbTools: (hubId: string) =>
+      request<any[]>(`/api/mcp/hubs/${hubId}/db-tools`),
+    invokeDbTool: (hubId: string, toolName: string, parameters: Record<string, any>) =>
+      request<any>(`/api/mcp/hubs/${hubId}/db-tools/invoke`, {
+        method: "POST",
+        body: JSON.stringify({ tool_name: toolName, parameters }),
+      }),
   },
 };

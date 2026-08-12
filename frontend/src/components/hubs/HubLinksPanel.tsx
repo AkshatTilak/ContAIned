@@ -219,8 +219,12 @@ export function HubLinksPanel() {
               ) : (
                 outgoingLinks.map((link) => (
                   <tr key={link.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="p-3.5 font-semibold text-slate-100">{link.target_hub_name}</td>
-                    <td className="p-3.5 font-mono text-slate-400 uppercase">{link.target_hub_type}</td>
+                    <td className="p-3.5 font-semibold text-slate-100">
+                      {link.target_hub_name || hubsById[link.target_hub_id]?.name || link.target_hub_id}
+                    </td>
+                    <td className="p-3.5 font-mono text-slate-400 uppercase">
+                      {link.target_hub_type || hubsById[link.target_hub_id]?.hub_type || "—"}
+                    </td>
                     <td className="p-3.5">
                       <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-950/60 text-indigo-300 border border-indigo-800/40 uppercase">
                         {link.access_level}
@@ -259,7 +263,7 @@ export function HubLinksPanel() {
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-950/60 border-b border-slate-800 text-slate-400 font-semibold">
               <tr>
-                <th className="p-3.5">Source Hub ID</th>
+                <th className="p-3.5">Source Hub</th>
                 <th className="p-3.5">Access Level</th>
                 <th className="p-3.5">Granted Date</th>
               </tr>
@@ -274,7 +278,14 @@ export function HubLinksPanel() {
               ) : (
                 incomingLinks.map((link) => (
                   <tr key={link.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="p-3.5 font-mono text-slate-200">{link.source_hub_id}</td>
+                    <td className="p-3.5">
+                      <span className="font-semibold text-slate-100">
+                        {link.source_hub_name || hubsById[link.source_hub_id]?.name || link.source_hub_id}
+                      </span>
+                      {link.source_hub_name || hubsById[link.source_hub_id]?.name ? (
+                        <span className="ml-2 text-[10px] font-mono text-slate-500">{link.source_hub_id}</span>
+                      ) : null}
+                    </td>
                     <td className="p-3.5">
                       <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700 uppercase">
                         {link.access_level}
