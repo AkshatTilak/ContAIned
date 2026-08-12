@@ -198,8 +198,7 @@ export function WorkflowNodeCard({
   return (
     <div
       onClick={() => onSelect(node.id)}
-      style={{ left: `${node.position.x}px`, top: `${node.position.y}px` }}
-      className={`absolute w-64 rounded-xl border p-3.5 shadow-xl backdrop-blur-md transition-all group select-none cursor-pointer ${
+      className={`w-64 rounded-xl border p-3.5 shadow-xl backdrop-blur-md transition-all group select-none cursor-pointer ${
         isSelected
           ? "bg-slate-900/90 border-indigo-500 ring-2 ring-indigo-500/20 shadow-indigo-500/10 z-30"
           : `${config.bg} ${config.border} hover:border-slate-700 z-10`
@@ -272,6 +271,8 @@ export function WorkflowNodeCard({
               <div key={port.id} className="flex items-center space-x-2 relative group/port">
                 <div
                   onMouseUp={() => onEndConnection(node.id, port.id, "input")}
+                  data-node-id={node.id}
+                  data-port-id={port.id}
                   className={`w-3.5 h-3.5 rounded-full border border-slate-900 transition-all -ml-5 cursor-pointer hover:scale-125 ${
                     isConnecting ? "bg-indigo-400 ring-4 ring-indigo-500/30 animate-pulse" : "bg-slate-700 hover:bg-indigo-400"
                   }`}
@@ -304,6 +305,8 @@ export function WorkflowNodeCard({
                       e.stopPropagation();
                       onStartConnection(node.id, port.id, "output", e);
                     }}
+                    data-node-id={node.id}
+                    data-port-id={port.id}
                     className={`w-3.5 h-3.5 rounded-full border border-slate-900 transition-all -mr-5 cursor-crosshair hover:scale-125 ${portColor}`}
                     title={`Drag connection from ${port.label}`}
                   />

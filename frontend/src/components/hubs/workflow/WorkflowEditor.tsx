@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   GitFork,
@@ -500,6 +501,49 @@ export function WorkflowEditor() {
     pushHistory,
   ]);
 
+  // Auto-bind default available linked hub resources to unlinked nodes
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    let modified = false;
+    const updatedNodes = nodes.map((node) => {
+      const newData = { ...node.data };
+      let nodeChanged = false;
+      if (node.type === "agent" && !newData.agent_id && availableAgents.length > 0) {
+        newData.agent_id = availableAgents[0].id;
+        newData.agent_name = availableAgents[0].name || availableAgents[0].id;
+        newData.hub_id = hubId;
+        nodeChanged = true;
+      }
+      if (node.type === "retrieval" && !newData.collection_id && availableCollections.length > 0) {
+        newData.collection_id = availableCollections[0].id;
+        newData.collection_name = availableCollections[0].name || availableCollections[0].id;
+        newData.hub_id = hubId;
+        nodeChanged = true;
+      }
+      if (node.type === "eval" && !newData.suite_id && availableEvalSuites.length > 0) {
+        newData.suite_id = availableEvalSuites[0].id;
+        newData.suite_name = availableEvalSuites[0].name || availableEvalSuites[0].id;
+        newData.hub_id = hubId;
+        nodeChanged = true;
+      }
+      if ((node.type === "db_store" || node.type === "database_query") && !newData.credential_id && availableCredentials.length > 0) {
+        newData.credential_id = availableCredentials[0].id;
+        newData.credential_name = availableCredentials[0].name || availableCredentials[0].id;
+        newData.hub_id = hubId;
+        nodeChanged = true;
+      }
+      if (nodeChanged) {
+        modified = true;
+        return { ...node, data: newData };
+      }
+      return node;
+    });
+
+    if (modified) {
+      setNodes(updatedNodes);
+    }
+  }, [availableAgents, availableCollections, availableEvalSuites, availableCredentials, hubId]);
+
   const handleAddNode = (type: string, overridePos?: { x: number; y: number }) => {
     const config = NODE_CONFIGS[type] || { label: type.toUpperCase() };
     const newNodeCount = nodes.length + 1;
@@ -531,11 +575,30 @@ export function WorkflowEditor() {
       }
     }
 
+    const initialData: Record<string, any> = {};
+    if (type === "agent" && availableAgents.length > 0) {
+      initialData.agent_id = availableAgents[0].id;
+      initialData.agent_name = availableAgents[0].name || availableAgents[0].id;
+      initialData.hub_id = hubId;
+    } else if (type === "retrieval" && availableCollections.length > 0) {
+      initialData.collection_id = availableCollections[0].id;
+      initialData.collection_name = availableCollections[0].name || availableCollections[0].id;
+      initialData.hub_id = hubId;
+    } else if (type === "eval" && availableEvalSuites.length > 0) {
+      initialData.suite_id = availableEvalSuites[0].id;
+      initialData.suite_name = availableEvalSuites[0].name || availableEvalSuites[0].id;
+      initialData.hub_id = hubId;
+    } else if ((type === "db_store" || type === "database_query") && availableCredentials.length > 0) {
+      initialData.credential_id = availableCredentials[0].id;
+      initialData.credential_name = availableCredentials[0].name || availableCredentials[0].id;
+      initialData.hub_id = hubId;
+    }
+
     const newNode: WorkflowNodeData = {
       id: `node_${Date.now()}`,
       type,
       label: `${config.label} ${newNodeCount}`,
-      data: {},
+      data: initialData,
       position: pos,
       ports: getDefaultPortsForType(type, {}),
     };
@@ -674,10 +737,16 @@ export function WorkflowEditor() {
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
-  return (
-    <div className="space-y-6 pb-12">
+  const editorContent = (
+    <div
+      className={
+        isFullscreen
+          ? "fixed inset-0 z-[9999] bg-[#090d16] p-6 overflow-hidden flex flex-col h-screen w-screen space-y-4"
+          : "space-y-6 pb-12"
+      }
+    >
       {/* Editor Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4 shrink-0">
         <div className="flex items-center space-x-3">
           <button
             onClick={() => navigate(routes.workflowHub.workflows(hubId || ""))}
@@ -734,6 +803,15 @@ export function WorkflowEditor() {
             <span>Run Test</span>
           </button>
 
+          <button
+            onClick={handleToggleFullscreen}
+            title={isFullscreen ? "Exit Fullscreen Workspace (Esc)" : "Fullscreen Workspace"}
+            className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs rounded-xl border border-slate-700 transition-colors"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-indigo-400" /> : <Maximize2 className="w-3.5 h-3.5 text-indigo-400" />}
+            <span>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</span>
+          </button>
+
           {isDirty && can("edit_resource") && !isArchived && (
             <button
               onClick={handleSaveDraft}
@@ -749,7 +827,7 @@ export function WorkflowEditor() {
 
       {/* Validation Issues Panel */}
       {showIssuesPanel && (
-        <div className={`rounded-xl border p-4 ${
+        <div className={`rounded-xl border p-4 shrink-0 ${
           validationIssues.length === 0
             ? "bg-emerald-950/20 border-emerald-800/40"
             : "bg-amber-950/20 border-amber-800/40"
@@ -796,9 +874,9 @@ export function WorkflowEditor() {
       )}
 
       {/* Main Workspace Layout (Palette | Canvas | Properties Drawer) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[650px]">
+      <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 ${isFullscreen ? "flex-1 min-h-0" : "min-h-[650px]"}`}>
         {/* Left Column: Categorized Node Palette (3 Cols) */}
-        <div className="lg:col-span-3 bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 space-y-4 flex flex-col justify-between custom-scrollbar overflow-y-auto max-h-[650px]">
+        <div className={`lg:col-span-3 bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 space-y-4 flex flex-col justify-between custom-scrollbar overflow-y-auto ${isFullscreen ? "h-full max-h-none" : "max-h-[650px]"}`}>
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase font-mono text-slate-400">Node Palette</h3>
 
@@ -937,7 +1015,7 @@ export function WorkflowEditor() {
         </div>
 
         {/* Center Column: Interactive Visual Canvas (6 Cols) */}
-        <div className="lg:col-span-6 flex flex-col">
+        <div className={`lg:col-span-6 flex flex-col ${isFullscreen ? "h-full" : ""}`}>
           <WorkflowCanvas
             nodes={nodes}
             edges={edges}
@@ -955,7 +1033,7 @@ export function WorkflowEditor() {
         </div>
 
         {/* Right Column: Node Properties Drawer (3 Cols) */}
-        <div className="lg:col-span-3 bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 space-y-4 custom-scrollbar overflow-y-auto max-h-[650px]">
+        <div className={`lg:col-span-3 bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 space-y-4 custom-scrollbar overflow-y-auto ${isFullscreen ? "h-full max-h-none" : "max-h-[650px]"}`}>
           <h3 className="text-xs font-bold uppercase font-mono text-slate-400">Node Configuration</h3>
 
           {selectedNode ? (
@@ -1310,9 +1388,14 @@ export function WorkflowEditor() {
           onClose={() => setIsRunModalOpen(false)}
           hubId={hubId}
           workflowId={workflowId}
-          workflowName={workflow.name}
         />
       )}
     </div>
   );
+
+  if (isFullscreen) {
+    return createPortal(editorContent, document.body);
+  }
+
+  return editorContent;
 }

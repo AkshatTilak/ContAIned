@@ -298,9 +298,9 @@ export function MembersPanel() {
                     </td>
                   )}
                 </tr>
-                );
-              })}
-            )}
+              );
+            })
+          )}
           </tbody>
         </table>
       </div>

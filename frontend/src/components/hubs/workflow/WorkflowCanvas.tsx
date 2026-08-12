@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { WorkflowNodeCard } from "./WorkflowNodeCard";
 import type { WorkflowNodeData } from "./WorkflowNodeCard";
 import { X, AlertTriangle, Maximize2, Minimize2, ZoomIn, ZoomOut, Focus } from "lucide-react";
@@ -85,14 +86,28 @@ export function WorkflowCanvas({
 
   // Calculate absolute screen pixel coordinates for port handles.
   const getPortCoordinates = (nodeId: string, portId: string, portType: "input" | "output") => {
+    // 1. Try DOM measurement for exact center of port dot relative to canvas container
+    if (containerRef.current) {
+      const el = containerRef.current.querySelector(
+        `[data-node-id="${nodeId}"][data-port-id="${portId}"]`
+      );
+      if (el) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const portRect = el.getBoundingClientRect();
+        return {
+          x: portRect.left + portRect.width / 2 - containerRect.left,
+          y: portRect.top + portRect.height / 2 - containerRect.top,
+        };
+      }
+    }
+
+    // 2. Fallback before mount
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return { x: 0, y: 0 };
 
-    const CARD_WIDTH = 256; // 64 * 4px = 256px
-    const HEADER_HEIGHT = 85;
-
+    const CARD_WIDTH = 256;
     let gx = node.position.x;
-    let gy = node.position.y + HEADER_HEIGHT;
+    let gy = node.position.y + 115;
 
     if (portType === "output") {
       gx += CARD_WIDTH;
@@ -104,14 +119,18 @@ export function WorkflowCanvas({
   const handleMouseDownNode = (nodeId: string, e: React.MouseEvent) => {
     // Space+drag pans the canvas; do not start a node drag in that case.
     if (spaceDown) return;
+    // Stop propagation so the canvas background onClick (which clears selection) never fires.
+    e.stopPropagation();
     onSelectNode(nodeId);
     setDraggingNodeId(nodeId);
     const node = nodes.find((n) => n.id === nodeId);
-    if (node) {
+    if (node && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      // Compute offset in canvas-local coords so handleMouseMove stays consistent.
       const screen = toScreen(node.position.x, node.position.y);
       setDragOffset({
-        x: e.clientX - screen.x,
-        y: e.clientY - screen.y,
+        x: (e.clientX - rect.left) - screen.x,
+        y: (e.clientY - rect.top) - screen.y,
       });
     }
   };
@@ -295,9 +314,7 @@ export function WorkflowCanvas({
       onClick={() => onSelectNode(null)}
       tabIndex={0}
       className={`relative bg-slate-950/90 border border-slate-800 rounded-2xl overflow-hidden custom-scrollbar select-none ${
-        isFullscreen
-          ? "fixed inset-0 z-[100] w-screen h-screen rounded-none border-0"
-          : "w-full h-[650px]"
+        isFullscreen ? "w-full h-full min-h-[550px]" : "w-full h-[650px]"
       } ${spaceDown ? "cursor-grab" : "cursor-crosshair"}`}
       style={{
         backgroundImage: `radial-gradient(circle, #334155 1px, transparent 1px)`,
@@ -443,7 +460,9 @@ export function WorkflowCanvas({
         {nodes.map((node) => (
           <div
             key={node.id}
+            style={{ position: "absolute", left: node.position.x, top: node.position.y }}
             onMouseDown={(e) => handleMouseDownNode(node.id, e)}
+            onClick={(e) => e.stopPropagation()}
             className="relative"
           >
             <WorkflowNodeCard
