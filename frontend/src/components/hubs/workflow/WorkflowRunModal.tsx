@@ -122,7 +122,7 @@ export function WorkflowRunModal({
       const runRecord = await api.workflows.run(hubId, workflowId, {
         input: parsedInput,
         use_draft: useDraft,
-        stream: true,
+        stream: false,
       });
       const runId: string = runRecord?.id || runRecord?.run_id;
       if (!runId) throw new Error("No run_id returned from server");
@@ -170,6 +170,20 @@ export function WorkflowRunModal({
     } catch (err: any) {
       setError(err?.message || "Workflow execution failed!");
       setIsRunning(false);
+    }
+  };
+
+  const handleGrantLink = async (targetHubId: string) => {
+    if (!hubId) return;
+    try {
+      await api.hubs.links.create(hubId, {
+        target_hub_id: targetHubId,
+        access_level: "use",
+      });
+      setError(null);
+      handleRun();
+    } catch (err: any) {
+      alert(err?.message || "Failed to grant link");
     }
   };
 
@@ -242,9 +256,22 @@ export function WorkflowRunModal({
 
           {/* Error Banner */}
           {error && (
-            <div className="p-3 bg-red-950/60 border border-red-800/60 rounded-xl text-red-300 text-xs flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="p-3 bg-red-950/60 border border-red-800/60 rounded-xl text-red-300 text-xs flex items-center justify-between gap-3">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+              {(error.includes("HUB_LINK_REQUIRED") || error.includes("not linked to target hub")) && (
+                <button
+                  onClick={() => {
+                    const match = error.match(/target hub ['"]([^'"]+)['"]/i);
+                    if (match?.[1]) handleGrantLink(match[1]);
+                  }}
+                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-lg transition-colors shrink-0 shadow"
+                >
+                  Grant Link & Retry
+                </button>
+              )}
             </div>
           )}
 

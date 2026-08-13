@@ -12,6 +12,7 @@ import {
   CheckSquare,
   Users,
   Archive,
+  Trash2,
   MoreVertical,
   ArrowUpDown,
   RefreshCw,
@@ -86,6 +87,18 @@ export function HubDirectory() {
       setHubs(hubsList);
     } catch (err: any) {
       setHubListStatus("error", err?.message || "Failed to load hubs");
+    }
+  };
+
+  const handleDeleteHub = async (e: React.MouseEvent, hubId: string, hubName: string) => {
+    e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete the hub "${hubName}"? This action cannot be undone.`)) {
+      try {
+        await api.hubs.delete(hubId);
+        fetchAllHubs();
+      } catch (err: any) {
+        alert(err?.message || "Failed to delete hub");
+      }
     }
   };
 
@@ -319,12 +332,21 @@ export function HubDirectory() {
                               <p className="text-xs font-mono text-slate-500 truncate">{hub.slug}</p>
                             </div>
                           </div>
-                          {hub.is_archived && (
-                            <span className="flex items-center space-x-1 text-[10px] uppercase font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">
-                              <Archive className="w-3 h-3" />
-                              <span>Archived</span>
-                            </span>
-                          )}
+                          <div className="flex items-center space-x-1.5">
+                            {hub.is_archived && (
+                              <span className="flex items-center space-x-1 text-[10px] uppercase font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">
+                                <Archive className="w-3 h-3" />
+                                <span>Archived</span>
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => handleDeleteHub(e, hub.id, hub.name)}
+                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800/80 rounded-lg transition-colors"
+                              title="Delete Hub Workspace"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
 
                         {hub.description && (

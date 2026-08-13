@@ -19,6 +19,11 @@ StoreType = Literal["qdrant", "neo4j", "postgres", "opensearch"]
 RESERVED_SLUGS = frozenset({"new", "admin", "settings"})
 
 
+class InitialLinkCreate(BaseModel):
+    target_hub_id: str
+    access_level: LinkAccess = "use"
+
+
 class HubBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -31,6 +36,7 @@ class HubCreate(HubBase):
     accent: Optional[str] = Field(default=None, max_length=20)
     icon: Optional[str] = Field(default=None, max_length=40)
     settings_json: dict[str, Any] = Field(default_factory=dict)
+    initial_links: Optional[list[InitialLinkCreate]] = Field(default_factory=list)
 
     @field_validator("slug")
     @classmethod

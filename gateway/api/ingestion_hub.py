@@ -671,6 +671,19 @@ async def list_documents(
     query = query.order_by(SyntraFlowDocument.created_at.desc()).offset(offset).limit(limit)
     docs = (await db.execute(query)).scalars().all()
 
+    # Batch query actual chunk counts for the retrieved documents
+    doc_ids = [doc.id for doc in docs]
+    chunk_counts: Dict[str, int] = {}
+    if doc_ids:
+        chunk_count_stmt = (
+            select(SyntraFlowChunk.document_id, func.count(SyntraFlowChunk.id))
+            .where(SyntraFlowChunk.document_id.in_(doc_ids), SyntraFlowChunk.hub_id == ctx.hub_id)
+            .group_by(SyntraFlowChunk.document_id)
+        )
+        chunk_count_res = await db.execute(chunk_count_stmt)
+        for d_id, count in chunk_count_res.all():
+            chunk_counts[str(d_id)] = count
+
     items = [
         {
             "id": str(doc.id),
@@ -679,6 +692,7 @@ async def list_documents(
             "filename": doc.filename,
             "file_hash": doc.file_hash,
             "file_type": doc.filename.split(".")[-1] if "." in doc.filename else "unknown",
+            "chunks_count": chunk_counts.get(str(doc.id), 0),
             "created_at": doc.created_at.isoformat() if doc.created_at else None,
         }
         for doc in docs

@@ -147,6 +147,14 @@ export interface AuditEntry {
   created_at: string;
 }
 
+export interface AgentCollectionBinding {
+  hub_id: string;
+  collection_id: string;
+  alias?: string;
+  top_k?: number;
+  status?: string;
+}
+
 export interface AgentResponse {
   id: string;
   hub_id: string;
@@ -156,6 +164,7 @@ export interface AgentResponse {
   system_prompt: string;
   model_id: string;
   tools: string[];
+  collection_bindings?: AgentCollectionBinding[];
   temperature: number;
   max_tokens: number;
   is_active?: boolean;
@@ -171,6 +180,7 @@ export interface AgentCreatePayload {
   system_prompt: string;
   model_id: string;
   tools?: string[];
+  collection_bindings?: AgentCollectionBinding[];
   temperature?: number;
   max_tokens?: number;
 }
@@ -182,6 +192,7 @@ export interface AgentUpdatePayload {
   system_prompt?: string;
   model_id?: string;
   tools?: string[];
+  collection_bindings?: AgentCollectionBinding[];
   temperature?: number;
   max_tokens?: number;
 }

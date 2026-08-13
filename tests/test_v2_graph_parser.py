@@ -9,14 +9,14 @@ def test_graph_parser_valid_topology():
     graph_json = {
         "nodes": [
             {"id": "classify", "type": "ClassifierNode"},
-            {"id": "retrieval", "type": "RetrievalNode"},
+            {"id": "agent", "type": "AgentNode"},
             {"id": "coding", "type": "CodingNode"},
             {"id": "gather", "type": "SynthesisNode"}
         ],
         "edges": [
-            {"id": "e1", "source": "classify", "target": "retrieval"},
+            {"id": "e1", "source": "classify", "target": "agent"},
             {"id": "e2", "source": "classify", "target": "coding"},
-            {"id": "e3", "source": "retrieval", "target": "gather"},
+            {"id": "e3", "source": "agent", "target": "gather"},
             {"id": "e4", "source": "coding", "target": "gather"}
         ]
     }
@@ -26,6 +26,25 @@ def test_graph_parser_valid_topology():
 
     compiled_graph = parser.build_langgraph()
     assert compiled_graph is not None
+
+
+def test_graph_parser_rejects_removed_tool_node():
+    """Vector retrieval / MCP / DB are tools, not standalone nodes — rejected."""
+    graph_json = {
+        "nodes": [
+            {"id": "classify", "type": "ClassifierNode"},
+            {"id": "retrieval", "type": "RetrievalNode"},
+            {"id": "gather", "type": "SynthesisNode"}
+        ],
+        "edges": [
+            {"id": "e1", "source": "classify", "target": "retrieval"},
+            {"id": "e2", "source": "retrieval", "target": "gather"}
+        ]
+    }
+
+    parser = GraphParser(graph_json)
+    with pytest.raises(GraphValidationError, match="removed node type"):
+        parser.validate_graph()
 
 
 def test_graph_parser_invalid_edge_node():

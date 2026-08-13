@@ -127,12 +127,15 @@ async def register_loaders_from_db() -> None:
         from inference.models.sensevoice import load_sensevoice
         from inference.models.classifier import load_classifier
         from inference.models.glm_ocr import load_glm_ocr
+        from inference.models.harrier import load_harrier
 
         vram.register_loader("baidu-ocr", load_baidu_ocr, 5000)
         vram.register_loader("jina-clip-v2", load_jina_clip, 1000)
         vram.register_loader("sensevoice-small", load_sensevoice, 250)
         vram.register_loader("arch-router-1.5b", load_classifier, 2000)
         vram.register_loader("THUDM/GLM-OCR", load_glm_ocr, 2000)
+        vram.register_loader("harrier-0.6b", load_harrier, 1000)
+        vram.register_loader("harrier", load_harrier, 1000)
 
 
 @app.post("/reload")

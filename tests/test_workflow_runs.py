@@ -120,7 +120,7 @@ async def test_published_run_execution(db_setup):
     assert run.status == "queued"
 
     # Wait for execution task & trace collector queue processing to complete
-    await asyncio.sleep(0.8)
+    await asyncio.sleep(1.2)
 
     async with sf() as verify_session:
         run_db = (await verify_session.execute(

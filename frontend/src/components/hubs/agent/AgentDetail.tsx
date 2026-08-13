@@ -47,6 +47,13 @@ export function AgentDetail() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Knowledge Tab State
+  const [boundBindings, setBoundBindings] = useState<{ hub_id: string; collection_id: string; alias?: string; top_k?: number }[]>([]);
+  const [linkedHubsData, setLinkedHubsData] = useState<{ hub: any; collections: any[] }[]>([]);
+  const [loadingKnowledge, setLoadingKnowledge] = useState(false);
+  const [isSavingBindings, setIsSavingBindings] = useState(false);
+  const [bindingsSuccess, setBindingsSuccess] = useState(false);
+
   // Test Tab State
   const [testPrompt, setTestPrompt] = useState("");
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -99,6 +106,14 @@ export function AgentDetail() {
       setSystemPrompt(data.system_prompt || "");
       setTemperature(data.temperature ?? 0.7);
       setMaxTokens(data.max_tokens ?? 2048);
+      setBoundBindings(
+        data.collection_bindings?.map((b: any) => ({
+          hub_id: b.hub_id,
+          collection_id: b.collection_id,
+          alias: b.alias,
+          top_k: b.top_k || 5,
+        })) || []
+      );
       setIsDirty(false);
     } catch (err: any) {
       setError(err?.message || "Failed to load agent detail");
@@ -107,10 +122,66 @@ export function AgentDetail() {
     }
   };
 
+  const fetchKnowledgeData = async () => {
+    if (!hubId) return;
+    setLoadingKnowledge(true);
+    try {
+      const links = await api.hubs.links.list(hubId);
+      const allHubs = await api.hubs.list();
+      const hubsMap = new Map(allHubs.map((h: any) => [h.id, h]));
+
+      const ingestionLinks = links.filter((l: any) => {
+        const target = hubsMap.get(l.target_hub_id);
+        return target && target.hub_type === "ingestion";
+      });
+
+      const results = await Promise.all(
+        ingestionLinks.map(async (l: any) => {
+          const targetHub = hubsMap.get(l.target_hub_id);
+          try {
+            const res = await api.ingestion.collections.list(l.target_hub_id);
+            const cols = Array.isArray(res) ? res : res.collections || [];
+            return { hub: targetHub, collections: cols };
+          } catch {
+            return { hub: targetHub, collections: [] };
+          }
+        })
+      );
+      setLinkedHubsData(results);
+    } catch (err) {
+      console.error("Failed to load knowledge data:", err);
+    } finally {
+      setLoadingKnowledge(false);
+    }
+  };
+
   useEffect(() => {
     fetchAgent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hubId, agentId]);
+
+  useEffect(() => {
+    if (activeTab === "knowledge") {
+      fetchKnowledgeData();
+    }
+  }, [activeTab, hubId]);
+
+  const handleSaveBindings = async () => {
+    if (!hubId || !agentId) return;
+    setIsSavingBindings(true);
+    try {
+      await api.agents.update(hubId, agentId, {
+        collection_bindings: boundBindings,
+      });
+      setBindingsSuccess(true);
+      setTimeout(() => setBindingsSuccess(false), 3000);
+      fetchAgent();
+    } catch (err: any) {
+      console.error("Failed to save collection bindings:", err);
+    } finally {
+      setIsSavingBindings(false);
+    }
+  };
 
   const handleSaveConfig = async () => {
     if (!hubId || !agentId) return;
@@ -198,85 +269,115 @@ export function AgentDetail() {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold font-display text-slate-100">{agent.name}</h1>
-              <span className="px-2 py-0.5 text-xs font-mono font-semibold uppercase bg-indigo-950/60 text-indigo-400 border border-indigo-800/40 rounded">
-                {agent.model_id}
-              </span>
-            </div>
-            <p className="text-xs font-mono text-slate-500 mt-0.5">
-              endpoint: {agent.endpoint_slug || agent.id}
+            <h2 className="text-xl font-bold font-display text-slate-100 flex items-center space-x-2">
+              <Bot className="w-5 h-5 text-indigo-400" />
+              <span>{name || agent.name}</span>
+            </h2>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              endpoint: agent/{agent.endpoint_slug || agent.id.slice(0, 8)}
             </p>
           </div>
         </div>
+
+        <div className="flex items-center space-x-2">
+          {saveSuccess && (
+            <span className="text-xs text-emerald-400 font-semibold flex items-center space-x-1">
+              <Check className="w-3.5 h-3.5" />
+              <span>Saved</span>
+            </span>
+          )}
+          <button
+            onClick={handleSaveConfig}
+            disabled={!isDirty || isSaving || !can("edit_resource") || isArchived}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center space-x-1.5"
+          >
+            {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            <span>{isSaving ? "Saving..." : "Save Configuration"}</span>
+          </button>
+        </div>
       </div>
 
-      {/* Workspace Inner Navigation Tabs */}
-      <div className="flex items-center space-x-1 border-b border-slate-800/80 pb-2">
-        {[
-          { id: "config", label: "Configuration", icon: Settings },
-          { id: "knowledge", label: "Knowledge", icon: Layers },
-          { id: "endpoint", label: "Endpoint", icon: Code },
-          { id: "invocations", label: "Invocations", icon: Activity },
-          { id: "test", label: "Test Arena", icon: Play },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as AgentDetailTab)}
-              className={`flex items-center space-x-2 px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
-                isActive
-                  ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/40"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      {/* Tabs Bar */}
+      <div className="flex items-center space-x-2 border-b border-slate-800/60 pb-2">
+        <button
+          onClick={() => setActiveTab("config")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+            activeTab === "config" ? "bg-indigo-600/20 text-indigo-300 border border-indigo-800/40" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Settings className="w-3.5 h-3.5" />
+          <span>Config & Prompt</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("knowledge")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+            activeTab === "knowledge" ? "bg-indigo-600/20 text-indigo-300 border border-indigo-800/40" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Knowledge & Collections</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("endpoint")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+            activeTab === "endpoint" ? "bg-indigo-600/20 text-indigo-300 border border-indigo-800/40" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Code className="w-3.5 h-3.5" />
+          <span>Endpoint API</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("invocations")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+            activeTab === "invocations" ? "bg-indigo-600/20 text-indigo-300 border border-indigo-800/40" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Activity className="w-3.5 h-3.5" />
+          <span>Execution Logs</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("test")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1.5 ${
+            activeTab === "test" ? "bg-indigo-600/20 text-indigo-300 border border-indigo-800/40" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Play className="w-3.5 h-3.5" />
+          <span>Test Arena</span>
+        </button>
       </div>
 
-      {/* TAB 1: CONFIGURATION */}
+      {/* TAB 1: CONFIG */}
       {activeTab === "config" && (
-        <div className="space-y-6">
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-6 space-y-6 shadow-lg">
-            <div className="flex items-center justify-between border-b border-slate-800/60 pb-4">
-              <h3 className="text-base font-bold text-slate-100 font-display">System Prompt & Model Parameters</h3>
-              {isDirty && (
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => {
-                      setSystemPrompt(agent.system_prompt || "");
-                      setModelId(agent.model_id || "gpt-4o");
-                      setIsDirty(false);
-                    }}
-                    className="flex items-center space-x-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg transition-colors"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Discard</span>
-                  </button>
-                  {can("edit_resource") && !isArchived && (
-                    <button
-                      onClick={handleSaveConfig}
-                      disabled={isSaving}
-                      className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg shadow transition-colors"
-                    >
-                      {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                      <span>Save Config</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {saveSuccess && (
-              <div className="p-3 bg-emerald-950/40 border border-emerald-800/40 rounded-lg text-xs text-emerald-300">
-                Agent configuration updated successfully.
+        <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-6 space-y-6 shadow-lg">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Agent Name *</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  disabled={!can("edit_resource") || isArchived}
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-60"
+                />
               </div>
-            )}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Agent Role / Description</label>
+                <input
+                  type="text"
+                  value={role}
+                  onChange={(e) => {
+                    setRole(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  disabled={!can("edit_resource") || isArchived}
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 disabled:opacity-60"
+                />
+              </div>
+            </div>
 
             <div className="space-y-4">
               <div>
@@ -347,19 +448,178 @@ export function AgentDetail() {
 
       {/* TAB 2: KNOWLEDGE */}
       {activeTab === "knowledge" && (
-        <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-6 space-y-4 shadow-lg">
+        <div className="bg-slate-900/50 border border-slate-800/80 rounded-xl p-6 space-y-6 shadow-lg">
           <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
-            <h3 className="text-base font-bold text-slate-100 font-display flex items-center space-x-2">
-              <Layers className="w-4 h-4 text-indigo-400" />
-              <span>Bound Ingestion Collections</span>
-            </h3>
+            <div>
+              <h3 className="text-base font-bold text-slate-100 font-display flex items-center space-x-2">
+                <Layers className="w-4 h-4 text-indigo-400" />
+                <span>Bound Ingestion Collections</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Agents may only bind collections from linked Ingestion Hubs. To consume an unlinked collection, grant a hub link in the Links tab first.
+              </p>
+            </div>
+            <button
+              onClick={handleSaveBindings}
+              disabled={isSavingBindings || !can("edit_resource") || isArchived}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all flex items-center space-x-1.5"
+            >
+              {isSavingBindings ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : bindingsSuccess ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>{isSavingBindings ? "Saving..." : bindingsSuccess ? "Saved!" : "Save Bindings"}</span>
+            </button>
           </div>
-          <p className="text-xs text-slate-400">
-            Agents may only bind collections from linked Ingestion Hubs. To consume an unlinked collection, grant a hub link in the Links tab first.
-          </p>
-          <div className="p-8 text-center text-xs text-slate-500 border border-slate-800/60 rounded-xl bg-slate-950/40">
-            No collection bindings assigned yet.
-          </div>
+
+          {loadingKnowledge ? (
+            <div className="p-8 text-center space-y-3">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-400 mx-auto" />
+              <p className="text-xs text-slate-400">Loading collections from linked ingestion hubs...</p>
+            </div>
+          ) : linkedHubsData.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-400 border border-slate-800/60 rounded-xl bg-slate-950/40 space-y-3">
+              <Link2 className="w-8 h-8 text-slate-600 mx-auto" />
+              <p className="font-semibold text-slate-300">No Linked Ingestion Hubs Found</p>
+              <p className="text-slate-500 max-w-sm mx-auto">
+                This agent hub does not have any active outgoing links to an Ingestion Hub.
+                Grant a link to an ingestion hub in the <strong>Links</strong> tab to enable vector knowledge retrieval.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {linkedHubsData.map(({ hub, collections }) => (
+                <div key={hub.id} className="border border-slate-800/80 rounded-xl bg-slate-950/40 p-4 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
+                    <div className="flex items-center space-x-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: hub.accent || "#10b981" }}
+                      />
+                      <span className="font-bold text-sm text-slate-100">{hub.name}</span>
+                      <span className="text-xs font-mono text-slate-500">
+                        ({hub.hub_type}/{hub.slug})
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-indigo-400 bg-indigo-950/50 px-2 py-0.5 rounded border border-indigo-800/40">
+                      {collections.length} collection{collections.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+
+                  {collections.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic p-2">
+                      No document collections created in this ingestion hub yet.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                      {collections.map((col: any) => {
+                        const isBound = boundBindings.some(
+                          (b) => b.hub_id === hub.id && b.collection_id === col.id
+                        );
+                        const currentBinding = boundBindings.find(
+                          (b) => b.hub_id === hub.id && b.collection_id === col.id
+                        );
+
+                        const toggleBinding = () => {
+                          if (isBound) {
+                            setBoundBindings((prev) =>
+                              prev.filter(
+                                (b) => !(b.hub_id === hub.id && b.collection_id === col.id)
+                              )
+                            );
+                          } else {
+                            setBoundBindings((prev) => [
+                              ...prev,
+                              { hub_id: hub.id, collection_id: col.id, alias: col.name, top_k: 5 },
+                            ]);
+                          }
+                        };
+
+                        return (
+                          <div
+                            key={col.id}
+                            className={`p-3.5 rounded-xl border transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                              isBound
+                                ? "bg-indigo-950/20 border-indigo-500/60 ring-1 ring-indigo-500/20"
+                                : "bg-slate-900/40 border-slate-800/80 hover:border-slate-700"
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="checkbox"
+                                checked={isBound}
+                                onChange={toggleBinding}
+                                disabled={!can("edit_resource") || isArchived}
+                                className="w-4 h-4 rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                              />
+                              <div>
+                                <span className="font-semibold text-xs text-slate-200">{col.name}</span>
+                                <div className="flex items-center space-x-2 mt-0.5">
+                                  <span className="text-[10px] font-mono text-slate-400">
+                                    Embed: {col.embedding_model || "jina-clip-v2"}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-slate-500">
+                                    Dim: {col.vector_dimension || 1024}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {isBound && (
+                              <div className="flex items-center space-x-3 pl-7 sm:pl-0">
+                                <div className="flex items-center space-x-1.5">
+                                  <label className="text-[11px] font-mono text-slate-400">Alias:</label>
+                                  <input
+                                    type="text"
+                                    value={currentBinding?.alias || ""}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setBoundBindings((prev) =>
+                                        prev.map((b) =>
+                                          b.hub_id === hub.id && b.collection_id === col.id
+                                            ? { ...b, alias: val }
+                                            : b
+                                        )
+                                      );
+                                    }}
+                                    placeholder={col.name}
+                                    className="w-28 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] font-mono text-slate-200 focus:outline-none focus:border-indigo-500"
+                                  />
+                                </div>
+                                <div className="flex items-center space-x-1.5">
+                                  <label className="text-[11px] font-mono text-slate-400">Top-K:</label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={20}
+                                    value={currentBinding?.top_k || 5}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value) || 5;
+                                      setBoundBindings((prev) =>
+                                        prev.map((b) =>
+                                          b.hub_id === hub.id && b.collection_id === col.id
+                                            ? { ...b, top_k: val }
+                                            : b
+                                        )
+                                      );
+                                    }}
+                                    className="w-14 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] font-mono text-slate-200 focus:outline-none focus:border-indigo-500"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

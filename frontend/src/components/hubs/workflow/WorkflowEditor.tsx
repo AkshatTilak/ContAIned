@@ -15,9 +15,7 @@ import {
   Loader2,
   Sparkles,
   Bot,
-  Database,
   Award,
-  Wrench,
   Split,
   FileCode,
   Globe,
@@ -119,6 +117,181 @@ function ResourceSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+interface ToolBindingAdderProps {
+  availableCollections: any[];
+  collectionsLoading: boolean;
+  collectionsError: string | null;
+  availableCredentials: any[];
+  credentialsLoading: boolean;
+  credentialsError: string | null;
+  onAdd: (tool: Record<string, any>) => void;
+  onRetryCollections: () => void;
+  onRetryCredentials: () => void;
+}
+
+const TOOL_TYPES = [
+  { value: "retrieval", label: "Vector Retrieval" },
+  { value: "mcp", label: "MCP Tool" },
+  { value: "db", label: "Database Query" },
+  { value: "web_search", label: "Web Search" },
+  { value: "api_call", label: "API Call" },
+];
+
+/**
+ * Lets a user bind a capability (tool) to an agent node. Vector retrieval,
+ * MCP tools, and database access are tools the agent invokes during its turn —
+ * not standalone workflow nodes.
+ */
+function ToolBindingAdder({
+  availableCollections,
+  collectionsLoading,
+  collectionsError,
+  availableCredentials,
+  credentialsLoading,
+  credentialsError,
+  onAdd,
+  onRetryCollections,
+  onRetryCredentials,
+}: ToolBindingAdderProps) {
+  const [type, setType] = useState("retrieval");
+  const [collectionId, setCollectionId] = useState("");
+  const [credentialId, setCredentialId] = useState("");
+  const [toolName, setToolName] = useState("");
+  const [url, setUrl] = useState("");
+  const [label, setLabel] = useState("");
+
+  const canAdd =
+    (type === "retrieval" && collectionId) ||
+    (type === "mcp" && toolName) ||
+    (type === "db" && credentialId) ||
+    type === "web_search" ||
+    (type === "api_call" && url);
+
+  const handleAdd = () => {
+    if (!canAdd) return;
+    const tool: Record<string, any> = { type, enabled: true };
+    if (label) tool.label = label;
+    if (type === "retrieval") {
+      const col = availableCollections.find((c) => c.id === collectionId);
+      tool.collection_id = collectionId;
+      tool.collection_name = col?.name || collectionId;
+      tool.hub_id = col?.hub_id || "";
+      tool.label = tool.label || col?.name || "Vector Retrieval";
+    } else if (type === "mcp") {
+      tool.tool_name = toolName;
+      tool.label = tool.label || toolName;
+    } else if (type === "db") {
+      const cred = availableCredentials.find((c) => c.id === credentialId);
+      tool.credential_id = credentialId;
+      tool.credential_name = cred?.name || credentialId;
+      tool.hub_id = cred?.hub_id || "";
+      tool.label = tool.label || cred?.name || "Database Query";
+    } else if (type === "api_call") {
+      tool.url = url;
+      tool.method = "GET";
+      tool.label = tool.label || url;
+    } else if (type === "web_search") {
+      tool.label = tool.label || "Web Search";
+    }
+    onAdd(tool);
+    setCollectionId("");
+    setCredentialId("");
+    setToolName("");
+    setUrl("");
+    setLabel("");
+  };
+
+  return (
+    <div className="space-y-2 bg-slate-900/40 border border-slate-800 rounded-lg p-2">
+      <div className="flex items-center gap-2">
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs"
+        >
+          {TOOL_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Label (optional)"
+          className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs"
+        />
+      </div>
+
+      {type === "retrieval" && (
+        <ResourceSelect
+          loading={collectionsLoading}
+          error={collectionsError}
+          emptyMessage="No linked collections available"
+          loadingLabel="Loading collections…"
+          value={collectionId}
+          onChange={setCollectionId}
+          options={availableCollections.map((col) => ({
+            value: col.id,
+            label: `${col.name} (${col.chunk_count || 0} chunks)`,
+          }))}
+          placeholder="-- Choose Vector Collection --"
+          onRetry={onRetryCollections}
+          accent="cyan"
+        />
+      )}
+
+      {type === "mcp" && (
+        <input
+          type="text"
+          value={toolName}
+          onChange={(e) => setToolName(e.target.value)}
+          placeholder="MCP tool name (e.g. db_query_executor)"
+          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs"
+        />
+      )}
+
+      {type === "db" && (
+        <ResourceSelect
+          loading={credentialsLoading}
+          error={credentialsError}
+          emptyMessage="No linked DB credentials available"
+          loadingLabel="Loading DB credentials…"
+          value={credentialId}
+          onChange={setCredentialId}
+          options={availableCredentials.map((cred) => ({
+            value: cred.id,
+            label: `${cred.name} (${cred.db_type})`,
+          }))}
+          placeholder="-- Choose Database Connection --"
+          onRetry={onRetryCredentials}
+          accent="emerald"
+        />
+      )}
+
+      {type === "api_call" && (
+        <input
+          type="text"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://api.example.com/endpoint"
+          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs"
+        />
+      )}
+
+      <button
+        type="button"
+        onClick={handleAdd}
+        disabled={!canAdd}
+        className="w-full px-2.5 py-1.5 text-[11px] font-medium bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        + Add Tool
+      </button>
+    </div>
   );
 }
 
@@ -316,7 +489,7 @@ export function WorkflowEditor() {
         for (const hid of hubIds) {
           try {
             const res = await api.ingestion.collections.list(hid);
-            const cols = res?.collections || [];
+            const cols = Array.isArray(res) ? res : ((res as any)?.collections || (res as any)?.items || []);
             if (Array.isArray(cols)) collections.push(...cols);
           } catch (e) {}
         }
@@ -511,25 +684,13 @@ export function WorkflowEditor() {
       if (node.type === "agent" && !newData.agent_id && availableAgents.length > 0) {
         newData.agent_id = availableAgents[0].id;
         newData.agent_name = availableAgents[0].name || availableAgents[0].id;
-        newData.hub_id = hubId;
-        nodeChanged = true;
-      }
-      if (node.type === "retrieval" && !newData.collection_id && availableCollections.length > 0) {
-        newData.collection_id = availableCollections[0].id;
-        newData.collection_name = availableCollections[0].name || availableCollections[0].id;
-        newData.hub_id = hubId;
+        newData.hub_id = availableAgents[0].hub_id || hubId;
         nodeChanged = true;
       }
       if (node.type === "eval" && !newData.suite_id && availableEvalSuites.length > 0) {
         newData.suite_id = availableEvalSuites[0].id;
         newData.suite_name = availableEvalSuites[0].name || availableEvalSuites[0].id;
-        newData.hub_id = hubId;
-        nodeChanged = true;
-      }
-      if ((node.type === "db_store" || node.type === "database_query") && !newData.credential_id && availableCredentials.length > 0) {
-        newData.credential_id = availableCredentials[0].id;
-        newData.credential_name = availableCredentials[0].name || availableCredentials[0].id;
-        newData.hub_id = hubId;
+        newData.hub_id = availableEvalSuites[0].hub_id || hubId;
         nodeChanged = true;
       }
       if (nodeChanged) {
@@ -579,19 +740,11 @@ export function WorkflowEditor() {
     if (type === "agent" && availableAgents.length > 0) {
       initialData.agent_id = availableAgents[0].id;
       initialData.agent_name = availableAgents[0].name || availableAgents[0].id;
-      initialData.hub_id = hubId;
-    } else if (type === "retrieval" && availableCollections.length > 0) {
-      initialData.collection_id = availableCollections[0].id;
-      initialData.collection_name = availableCollections[0].name || availableCollections[0].id;
-      initialData.hub_id = hubId;
+      initialData.hub_id = availableAgents[0].hub_id || hubId;
     } else if (type === "eval" && availableEvalSuites.length > 0) {
       initialData.suite_id = availableEvalSuites[0].id;
       initialData.suite_name = availableEvalSuites[0].name || availableEvalSuites[0].id;
-      initialData.hub_id = hubId;
-    } else if ((type === "db_store" || type === "database_query") && availableCredentials.length > 0) {
-      initialData.credential_id = availableCredentials[0].id;
-      initialData.credential_name = availableCredentials[0].name || availableCredentials[0].id;
-      initialData.hub_id = hubId;
+      initialData.hub_id = availableEvalSuites[0].hub_id || hubId;
     }
 
     const newNode: WorkflowNodeData = {
@@ -689,6 +842,19 @@ export function WorkflowEditor() {
     }
   };
 
+  const handleAutoFixLink = async (targetHubId: string) => {
+    if (!hubId) return;
+    try {
+      await api.hubs.links.create(hubId, {
+        target_hub_id: targetHubId,
+        access_level: "use",
+      });
+      await handleValidate();
+    } catch (err: any) {
+      alert(err?.message || "Failed to auto-grant hub link");
+    }
+  };
+
   /** Node IDs that have at least one validation error/warning */
   const invalidNodeIds = new Set<string>(validationIssues.map((i: any) => i.node_id).filter(Boolean));
 
@@ -698,7 +864,6 @@ export function WorkflowEditor() {
 
     const unlinkedNodes = nodes.filter((n) => {
       if (n.type === "agent" && !n.data?.agent_id) return true;
-      if (n.type === "retrieval" && !n.data?.collection_id) return true;
       if (n.type === "eval" && !n.data?.suite_id) return true;
       return false;
     });
@@ -866,6 +1031,17 @@ export function WorkflowEditor() {
                     <span className="text-slate-500 shrink-0">node: {issue.node_id}</span>
                   )}
                   <span className="text-slate-400 flex-1">{issue.message}</span>
+                  {(issue.code === "HUB_LINK_REQUIRED" || issue.message?.includes("not linked to target hub")) && (
+                    <button
+                      onClick={() => {
+                        const targetId = issue.reference?.hub_id || issue.message.match(/target hub ['"]([^'"]+)['"]/i)?.[1];
+                        if (targetId) handleAutoFixLink(targetId);
+                      }}
+                      className="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[10px] rounded transition-colors shrink-0 shadow"
+                    >
+                      Grant Link
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -914,48 +1090,12 @@ export function WorkflowEditor() {
               </button>
 
               <button
-                onClick={() => handleAddNode("retrieval")}
-                disabled={!can("edit_resource") || isArchived}
-                className="w-full p-2.5 bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-left text-xs font-medium text-slate-200 flex items-center space-x-2.5 transition-all"
-              >
-                <Database className="w-4 h-4 text-cyan-400" />
-                <span>Vector Retrieval</span>
-              </button>
-
-              <button
                 onClick={() => handleAddNode("eval")}
                 disabled={!can("edit_resource") || isArchived}
                 className="w-full p-2.5 bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-left text-xs font-medium text-slate-200 flex items-center space-x-2.5 transition-all"
               >
                 <Award className="w-4 h-4 text-purple-400" />
                 <span>Eval Suite Run</span>
-              </button>
-
-              <button
-                onClick={() => handleAddNode("mcp_tool")}
-                disabled={!can("edit_resource") || isArchived}
-                className="w-full p-2.5 bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-left text-xs font-medium text-slate-200 flex items-center space-x-2.5 transition-all"
-              >
-                <Wrench className="w-4 h-4 text-amber-400" />
-                <span>MCP Tool Execution</span>
-              </button>
-
-              <button
-                onClick={() => handleAddNode("database_query")}
-                disabled={!can("edit_resource") || isArchived}
-                className="w-full p-2.5 bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-left text-xs font-medium text-slate-200 flex items-center space-x-2.5 transition-all"
-              >
-                <Database className="w-4 h-4 text-emerald-400" />
-                <span>Database Query</span>
-              </button>
-
-              <button
-                onClick={() => handleAddNode("db_store")}
-                disabled={!can("edit_resource") || isArchived}
-                className="w-full p-2.5 bg-slate-950/80 hover:bg-slate-800 border border-slate-800 rounded-xl text-left text-xs font-medium text-slate-200 flex items-center space-x-2.5 transition-all"
-              >
-                <Database className="w-4 h-4 text-emerald-400" />
-                <span>DB Store</span>
               </button>
             </div>
 
@@ -1075,7 +1215,7 @@ export function WorkflowEditor() {
                                   ...n.data,
                                   agent_id: agentId,
                                   agent_name: selectedAgent?.name || agentId,
-                                  hub_id: hubId,
+                                  hub_id: selectedAgent?.hub_id || hubId,
                                 },
                               }
                             : n
@@ -1091,63 +1231,61 @@ export function WorkflowEditor() {
                     placeholder="-- Choose Provisioned Agent --"
                     onRetry={() => fetchLinkedHubResources("agents")}
                   />
-                </div>
-              )}
 
-              {/* Retrieval Node Configuration */}
-              {selectedNode.type === "retrieval" && (
-                <div className="space-y-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                  <label className="block text-[11px] font-semibold text-cyan-400 mb-1">Select Ingestion Hub Collection</label>
-                  <ResourceSelect
-                    loading={collectionsLoading}
-                    error={collectionsError}
-                    emptyMessage="No linked collections available"
-                    loadingLabel="Loading collections…"
-                    value={selectedNode.data?.collection_id || ""}
-                    onChange={(colId) => {
-                      const selectedCol = availableCollections.find((c) => c.id === colId);
-                      setNodes(
-                        nodes.map((n) =>
-                          n.id === selectedNode.id
-                            ? {
-                                ...n,
-                                data: {
-                                  ...n.data,
-                                  collection_id: colId,
-                                  collection_name: selectedCol?.name || colId,
-                                  hub_id: hubId,
-                                },
-                              }
-                            : n
-                        )
-                      );
-                      setIsDirty(true);
-                      setSaveStatus("dirty");
-                    }}
-                    options={availableCollections.map((col) => ({
-                      value: col.id,
-                      label: `${col.name} (${col.chunk_count || 0} chunks)`,
-                    }))}
-                    placeholder="-- Choose Vector Collection --"
-                    onRetry={() => fetchLinkedHubResources("collections")}
-                    accent="cyan"
-                  />
+                  {/* Agent Tool Bindings */}
+                  <div className="pt-1 border-t border-slate-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[11px] font-semibold text-amber-400">Agent Tools</label>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        {(selectedNode.data?.tools || []).length} bound
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mb-2">
+                      Vector retrieval, MCP, and database access are tools the agent can invoke during its turn.
+                    </p>
 
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-1">Retrieval Strategy</label>
-                    <select
-                      value={selectedNode.data?.strategy || "hybrid"}
-                      onChange={(e) => {
-                        const strat = e.target.value;
-                        setNodes(nodes.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, strategy: strat } } : n)));
+                    {((selectedNode.data?.tools || []) as any[]).map((tool: any, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 mb-1.5 bg-slate-900/70 border border-slate-800 rounded-lg px-2 py-1.5">
+                        <span className="text-[10px] font-mono text-amber-400 uppercase w-20 shrink-0">{tool.type}</span>
+                        <span className="text-[10px] font-mono text-slate-300 truncate flex-1">
+                          {tool.label || tool.collection_name || tool.tool_name || tool.credential_name || tool.url || tool.type}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const tools = [...((selectedNode.data?.tools || []) as any[])];
+                            tools.splice(idx, 1);
+                            setNodes(nodes.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, tools } } : n)));
+                            setIsDirty(true);
+                            setSaveStatus("dirty");
+                          }}
+                          className="text-slate-500 hover:text-rose-400"
+                          title="Remove tool"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {((selectedNode.data?.tools || []) as any[]).length === 0 && (
+                      <p className="text-[10px] text-slate-600 italic mb-2">No tools bound. Add a tool below.</p>
+                    )}
+
+                    <ToolBindingAdder
+                      availableCollections={availableCollections}
+                      collectionsLoading={collectionsLoading}
+                      collectionsError={collectionsError}
+                      availableCredentials={availableCredentials}
+                      credentialsLoading={credentialsLoading}
+                      credentialsError={credentialsError}
+                      onAdd={(tool) => {
+                        const tools = [...((selectedNode.data?.tools || []) as any[]), tool];
+                        setNodes(nodes.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, tools } } : n)));
                         setIsDirty(true);
+                        setSaveStatus("dirty");
                       }}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs"
-                    >
-                      <option value="vector">Dense Vector Search</option>
-                      <option value="hybrid">Hybrid (BM25 + Vector + Graph)</option>
-                      <option value="graph">Graph Traversal Only</option>
-                    </select>
+                      onRetryCollections={() => fetchLinkedHubResources("collections")}
+                      onRetryCredentials={() => fetchLinkedHubResources("credentials")}
+                    />
                   </div>
                 </div>
               )}
@@ -1210,168 +1348,6 @@ export function WorkflowEditor() {
                   />
                 </div>
               )}
-
-              {/* Database Query Node Configuration */}
-              {(selectedNode.type === "database_query" || selectedNode.type === "DatabaseQueryNode") && (
-                <div className="space-y-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                  <label className="block text-[11px] font-semibold text-emerald-400 mb-1">Select Database Connection</label>
-                  <ResourceSelect
-                    loading={credentialsLoading}
-                    error={credentialsError}
-                    emptyMessage="No linked DB credentials available"
-                    loadingLabel="Loading DB credentials…"
-                    value={selectedNode.data?.credential_id || ""}
-                    onChange={(credId) => {
-                      const selectedCred = availableCredentials.find((c) => c.id === credId);
-                      setNodes(
-                        nodes.map((n) =>
-                          n.id === selectedNode.id
-                            ? {
-                                ...n,
-                                data: {
-                                  ...n.data,
-                                  credential_id: credId,
-                                  credential_name: selectedCred?.name || credId,
-                                  hub_id: hubId,
-                                },
-                              }
-                            : n
-                        )
-                      );
-                      setIsDirty(true);
-                      setSaveStatus("dirty");
-                    }}
-                    options={availableCredentials.map((cred) => ({
-                      value: cred.id,
-                      label: `${cred.name} (${cred.db_type})`,
-                    }))}
-                    placeholder="-- Choose Database Connection --"
-                    onRetry={() => fetchLinkedHubResources("credentials")}
-                    accent="emerald"
-                  />
-
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-1">Parametrized SQL Query</label>
-                    <textarea
-                      rows={4}
-                      value={selectedNode.data?.query_template || ""}
-                      onChange={(e) => {
-                        const q = e.target.value;
-                        setNodes(nodes.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, query_template: q } } : n)));
-                        setIsDirty(true);
-                        setSaveStatus("dirty");
-                      }}
-                      placeholder="SELECT * FROM users WHERE user_id = :user_id"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono focus:outline-none focus:border-emerald-500 text-xs resize-y"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-mono text-slate-400 mb-1">Timeout (s)</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={selectedNode.data?.timeout_s || 30}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          setNodes(nodes.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, timeout_s: v } } : n)));
-                          setIsDirty(true);
-                        }}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-mono text-slate-400 mb-1">Max Rows</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={selectedNode.data?.max_rows || 500}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          setNodes(nodes.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, max_rows: v } } : n)));
-                          setIsDirty(true);
-                        }}
-                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* DB Store Node Configuration */}
-              {(selectedNode.type === "db_store" || selectedNode.type === "DBStoreNode") && (
-                <div className="space-y-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                  <label className="block text-[11px] font-semibold text-emerald-400 mb-1">Select Database Connection</label>
-                  <ResourceSelect
-                    loading={credentialsLoading}
-                    error={credentialsError}
-                    emptyMessage="No linked DB credentials available"
-                    loadingLabel="Loading DB credentials…"
-                    value={selectedNode.data?.credential_id || ""}
-                    onChange={(credId) => {
-                      const selectedCred = availableCredentials.find((c) => c.id === credId);
-                      setNodes(
-                        nodes.map((n) =>
-                          n.id === selectedNode.id
-                            ? {
-                                ...n,
-                                data: {
-                                  ...n.data,
-                                  credential_id: credId,
-                                  credential_name: selectedCred?.name || credId,
-                                  hub_id: hubId,
-                                },
-                              }
-                            : n
-                        )
-                      );
-                      setIsDirty(true);
-                      setSaveStatus("dirty");
-                    }}
-                    options={availableCredentials.map((cred) => ({
-                      value: cred.id,
-                      label: `${cred.name} (${cred.db_type})`,
-                    }))}
-                    placeholder="-- Choose Database Connection --"
-                    onRetry={() => fetchLinkedHubResources("credentials")}
-                    accent="emerald"
-                  />
-
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-1">Target Table / Collection</label>
-                    <input
-                      type="text"
-                      value={selectedNode.data?.target_table || ""}
-                      onChange={(e) => {
-                        const t = e.target.value;
-                        setNodes(nodes.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, target_table: t } } : n)));
-                        setIsDirty(true);
-                        setSaveStatus("dirty");
-                      }}
-                      placeholder="users"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono focus:outline-none focus:border-emerald-500 text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-400 mb-1">Operation</label>
-                    <select
-                      value={selectedNode.data?.operation || "insert"}
-                      onChange={(e) => {
-                        const op = e.target.value;
-                        setNodes(nodes.map((n) => (n.id === selectedNode.id ? { ...n, data: { ...n.data, operation: op } } : n)));
-                        setIsDirty(true);
-                      }}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-slate-200 font-mono text-xs"
-                    >
-                      <option value="insert">Insert</option>
-                      <option value="upsert">Upsert</option>
-                      <option value="append">Append</option>
-                    </select>
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <p className="text-xs text-slate-500 italic p-4 text-center border border-dashed border-slate-800 rounded-xl">
@@ -1388,6 +1364,7 @@ export function WorkflowEditor() {
           onClose={() => setIsRunModalOpen(false)}
           hubId={hubId}
           workflowId={workflowId}
+          workflowName={workflow?.name || "Workflow"}
         />
       )}
     </div>

@@ -244,6 +244,8 @@ export const api = {
       request<Hub>(`/api/hubs/${hubId}/archive`, { method: "POST" }),
     unarchive: (hubId: string) =>
       request<Hub>(`/api/hubs/${hubId}/unarchive`, { method: "POST" }),
+    delete: (hubId: string) =>
+      request<void>(`/api/hubs/${hubId}?force=true`, { method: "DELETE" }),
     checkSlug: (hubType: HubType, slug: string) =>
       request<{ available: boolean }>(`/api/hubs/slug-available?hub_type=${hubType}&slug=${encodeURIComponent(slug)}`),
     members: {
@@ -273,7 +275,7 @@ export const api = {
   ingestion: {
     collections: {
       list: (hubId: string) =>
-        request<{ status: string; collections: any[]; count: number }>(`/api/hubs/${hubId}/ingestion/collections`),
+        request<any[] | { status: string; collections: any[]; count: number }>(`/api/hubs/${hubId}/ingestion/collections`),
       create: (hubId: string, payload: any) =>
         request<{ status: string; collection: any }>(`/api/hubs/${hubId}/ingestion/collections`, {
           method: "POST",
@@ -307,6 +309,8 @@ export const api = {
     documents: {
       list: (hubId: string, limit: number = 10, offset: number = 0) =>
         request<PaginatedDocumentsResponse>(`/api/hubs/${hubId}/ingestion/documents?limit=${limit}&offset=${offset}`),
+      getChunks: (hubId: string, docId: string, limit: number = 50, offset: number = 0) =>
+        request<{ items: any[]; total_count: number }>(`/api/hubs/${hubId}/ingestion/documents/${docId}/chunks?limit=${limit}&offset=${offset}`),
       delete: (hubId: string, docId: string) =>
         request<{ status: string; message: string }>(`/api/hubs/${hubId}/ingestion/documents/${docId}`, {
           method: "DELETE",
@@ -405,7 +409,7 @@ export const api = {
     delete: (hubId: string, workflowId: string) =>
       request<any>(`/api/hubs/${hubId}/workflows/${workflowId}`, { method: "DELETE" }),
     run: (hubId: string, workflowId: string, inputData: any) =>
-      request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/runs`, {
+      request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/run`, {
         method: "POST",
         body: JSON.stringify(inputData),
       }),
@@ -420,8 +424,8 @@ export const api = {
       get: (hubId: string, workflowId: string, runId: string) =>
         request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/runs/${runId}`),
       streamUrl: (hubId: string, workflowId: string, runId: string): string => {
-        const base = typeof window !== "undefined" ? window.location.origin : "";
-        return `${base}/api/hubs/${hubId}/workflows/${workflowId}/runs/${runId}/stream`;
+        const { baseUrl } = getClientConfig();
+        return `${baseUrl}/api/hubs/${hubId}/workflows/${workflowId}/runs/${runId}/stream`;
       },
     },
   },

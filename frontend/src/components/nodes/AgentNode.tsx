@@ -5,7 +5,7 @@ import { Bot, Terminal } from "lucide-react";
 export const AgentNode = memo(({ data }: any) => {
   const label = data?.label || "Subagent Node";
   const modelId = data?.model_id || "Arch-Router-1.5B";
-  const tools: string[] = data?.tools || ["retrieval"];
+  const tools: any[] = data?.tools || [];
   const hasPromptOverride = Boolean(data?.system_prompt);
   const status = data?.status || "idle"; // idle, running, error
 
@@ -48,11 +48,15 @@ export const AgentNode = memo(({ data }: any) => {
       </div>
 
       <div className="flex flex-wrap gap-1 pt-1">
-        {tools.map((tool) => (
-          <span key={tool} className="px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[9px] text-amber-400 border border-amber-500/20 font-mono truncate max-w-[120px]">
-            {tool}
-          </span>
-        ))}
+        {tools.map((tool, idx) => {
+          const ttype = typeof tool === "string" ? tool : tool?.type;
+          const tlabel = typeof tool === "string" ? tool : tool?.label || ttype;
+          return (
+            <span key={idx} className="px-1.5 py-0.5 rounded bg-[var(--bg-input)] text-[9px] text-amber-400 border border-amber-500/20 font-mono truncate max-w-[120px]">
+              {tlabel}
+            </span>
+          );
+        })}
       </div>
 
       <Handle type="source" position={Position.Bottom} className="!bg-amber-400 !w-3 !h-3" />

@@ -126,6 +126,20 @@ async def create_hub(session: AsyncSession, *, data: HubCreate, owner_id: str) -
     )
     session.add(member)
     await session.flush()
+
+    if getattr(data, "initial_links", None):
+        for link_item in data.initial_links:
+            try:
+                await create_link(
+                    session,
+                    source_hub_id=hub.id,
+                    target_hub_id=link_item.target_hub_id,
+                    access_level=link_item.access_level,
+                    created_by=owner_id,
+                )
+            except Exception as e:
+                logger.warning("Failed to create initial link to %s: %s", link_item.target_hub_id, e)
+
     return hub
 
 
@@ -166,31 +180,33 @@ async def archive_hub(session: AsyncSession, *, hub_id: str, archived: bool) -> 
     return hub
 
 
-async def delete_hub_if_empty(session: AsyncSession, *, hub_id: str) -> None:
-    """Delete a Hub if it owns no resources across hub-owned models."""
+async def delete_hub_if_empty(session: AsyncSession, *, hub_id: str, force: bool = False) -> None:
+    """Delete a Hub. If force=True, marks is_deleted=True even if non-membership resources exist."""
     hub = await get_hub(session, hub_id)
     if not hub:
         raise HubNotFoundError(f"Hub '{hub_id}' not found.")
 
-    counts = {}
-    total_resources = 0
-    for m in Base.registry.mappers:
-        cls = m.class_
-        if cls in (Hub, HubMember, AuditLog, HubLink):
-            continue
-        if hasattr(cls, "hub_id"):
-            stmt = select(func.count()).select_from(cls).where(cls.hub_id == hub_id)
-            if hasattr(cls, "is_deleted"):
-                stmt = stmt.where(cls.is_deleted == False)
-            cnt = (await session.execute(stmt)).scalar() or 0
-            if cnt > 0:
-                counts[getattr(cls, "__tablename__", str(cls))] = cnt
-                total_resources += cnt
+    if not force:
+        counts = {}
+        total_resources = 0
+        for m in Base.registry.mappers:
+            cls = m.class_
+            if cls in (Hub, HubMember, AuditLog, HubLink):
+                continue
+            if hasattr(cls, "hub_id"):
+                stmt = select(func.count()).select_from(cls).where(cls.hub_id == hub_id)
+                if hasattr(cls, "is_deleted"):
+                    stmt = stmt.where(cls.is_deleted == False)
+                cnt = (await session.execute(stmt)).scalar() or 0
+                if cnt > 0:
+                    counts[getattr(cls, "__tablename__", str(cls))] = cnt
+                    total_resources += cnt
 
-    if total_resources > 0:
-        raise HubNotEmptyError(f"Cannot delete hub '{hub_id}': it still owns {total_resources} resources ({counts}).")
+        if total_resources > 0:
+            raise HubNotEmptyError(f"Cannot delete hub '{hub_id}': it still owns {total_resources} resources ({counts}).")
 
-    await session.delete(hub)
+    hub.is_deleted = True
+    hub.deleted_at = datetime.utcnow()
     await session.flush()
 
 

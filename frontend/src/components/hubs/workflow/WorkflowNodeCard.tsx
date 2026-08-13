@@ -1,9 +1,7 @@
 import React from "react";
 import {
   Bot,
-  Database,
   Award,
-  Wrench,
   GitBranch,
   Split,
   FileCode,
@@ -59,18 +57,10 @@ export const NODE_CONFIGS: Record<string, { label: string; icon: any; category: 
   AgentNode: { label: "Agent Invocation", icon: Bot, category: "hub", color: "text-indigo-400", border: "border-indigo-500/40", bg: "bg-indigo-950/20", description: "Invoke an Agent Hub agent" },
   multi_agent: { label: "Multi-Agent Consensus", icon: Zap, category: "hub", color: "text-indigo-400", border: "border-indigo-500/40", bg: "bg-indigo-950/20", description: "Team consensus across multiple agents" },
   MultiAgentNode: { label: "Multi-Agent Consensus", icon: Zap, category: "hub", color: "text-indigo-400", border: "border-indigo-500/40", bg: "bg-indigo-950/20", description: "Team consensus across multiple agents" },
-  retrieval: { label: "Vector Retrieval", icon: Database, category: "hub", color: "text-cyan-400", border: "border-cyan-500/40", bg: "bg-cyan-950/20", description: "Search Ingestion Hub collection" },
-  RetrievalNode: { label: "Vector Retrieval", icon: Database, category: "hub", color: "text-cyan-400", border: "border-cyan-500/40", bg: "bg-cyan-950/20", description: "Search Ingestion Hub collection" },
   eval: { label: "Eval Suite", icon: Award, category: "hub", color: "text-purple-400", border: "border-purple-500/40", bg: "bg-purple-950/20", description: "Run evaluation suite in Eval Hub" },
   EvalNode: { label: "Eval Suite", icon: Award, category: "hub", color: "text-purple-400", border: "border-purple-500/40", bg: "bg-purple-950/20", description: "Run evaluation suite in Eval Hub" },
-  mcp_tool: { label: "MCP Tool", icon: Wrench, category: "hub", color: "text-amber-400", border: "border-amber-500/40", bg: "bg-amber-950/20", description: "Execute registered MCP server tool" },
-  MCPToolNode: { label: "MCP Tool", icon: Wrench, category: "hub", color: "text-amber-400", border: "border-amber-500/40", bg: "bg-amber-950/20", description: "Execute registered MCP server tool" },
   api_call: { label: "API Call", icon: Globe, category: "hub", color: "text-teal-400", border: "border-teal-500/40", bg: "bg-teal-950/20", description: "Make an external HTTP API request" },
   APICallNode: { label: "API Call", icon: Globe, category: "hub", color: "text-teal-400", border: "border-teal-500/40", bg: "bg-teal-950/20", description: "Make an external HTTP API request" },
-  database_query: { label: "Database Query", icon: Database, category: "hub", color: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-950/20", description: "Run a parametrized read-only query against an external database" },
-  DatabaseQueryNode: { label: "Database Query", icon: Database, category: "hub", color: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-950/20", description: "Run a parametrized read-only query against an external database" },
-  db_store: { label: "DB Store", icon: Database, category: "hub", color: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-950/20", description: "Persist a record into an external database" },
-  DBStoreNode: { label: "DB Store", icon: Database, category: "hub", color: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-950/20", description: "Persist a record into an external database" },
 
   // Classifier
   classifier: { label: "Classifier", icon: GitBranch, category: "logic", color: "text-violet-400", border: "border-violet-500/40", bg: "bg-violet-950/20", description: "Classify input into categories" },
@@ -133,27 +123,7 @@ export function getDefaultPortsForType(nodeType: string, dataConfig: Record<stri
       outputs: [{ id: "out", label: "Merged Array", type: "output", kind: "data" }],
     };
   }
-  if (nodeType === "database_query" || nodeType === "DatabaseQueryNode") {
-    return {
-      inputs: [{ id: "in", label: "Params In", type: "input", kind: "data" }],
-      outputs: [
-        { id: "out", label: "Result Rows", type: "output", kind: "data" },
-        { id: "row_count", label: "Row Count", type: "output", kind: "data" },
-        { id: "error", label: "On Error", type: "output", kind: "error" },
-      ],
-    };
-  }
-  if (nodeType === "db_store" || nodeType === "DBStoreNode") {
-    return {
-      inputs: [{ id: "in", label: "Record In", type: "input", kind: "data" }],
-      outputs: [
-        { id: "out", label: "Affected", type: "output", kind: "data" },
-        { id: "error", label: "On Error", type: "output", kind: "error" },
-      ],
-    };
-  }
-
-  // Standard nodes (agent, retrieval, eval, transform, coding, web_search, etc.)
+  // Standard nodes (agent, eval, transform, coding, web_search, etc.)
   return {
     inputs: [{ id: "in", label: "Input Data", type: "input", kind: "data" }],
     outputs: [
@@ -188,7 +158,6 @@ export function WorkflowNodeCard({
   // Linked resource resolution check
   const isResourceLinked = () => {
     if (node.type === "agent" && !node.data?.agent_id) return false;
-    if (node.type === "retrieval" && !node.data?.collection_id) return false;
     if (node.type === "eval" && !node.data?.suite_id) return false;
     return true;
   };
@@ -242,9 +211,9 @@ export function WorkflowNodeCard({
             Agent: {node.data?.agent_name || node.data?.agent_id || "Unlinked"}
           </p>
         )}
-        {node.type === "retrieval" && (
-          <p className="font-mono text-[10px] text-cyan-300 truncate">
-            Collection: {node.data?.collection_name || node.data?.collection_id || "Unlinked"}
+        {node.type === "agent" && (node.data?.tools || []).length > 0 && (
+          <p className="font-mono text-[10px] text-amber-300 truncate">
+            Tools: {(node.data?.tools || []).map((t: any) => t.type).join(", ")}
           </p>
         )}
         {node.type === "eval" && (
@@ -257,7 +226,7 @@ export function WorkflowNodeCard({
             Cond: {node.data?.condition || "score >= 0.7"}
           </p>
         )}
-        {(!["agent", "retrieval", "eval", "if_else"].includes(node.type)) && (
+        {(!["agent", "eval", "if_else"].includes(node.type)) && (
           <p className="text-[10px] text-slate-500 line-clamp-1">{config.description}</p>
         )}
       </div>

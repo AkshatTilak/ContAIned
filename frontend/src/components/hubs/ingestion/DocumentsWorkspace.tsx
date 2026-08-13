@@ -145,14 +145,12 @@ export function DocumentsWorkspace() {
   };
 
   const handlePreviewChunks = async (doc: any) => {
+    if (!hubId) return;
     setPreviewDoc(doc);
     setLoadingChunks(true);
     try {
-      // Fetch document chunks using API
-      setChunks([
-        { chunk_index: 0, token_count: 128, text: `Sample extracted chunk text from document ${doc.filename}...` },
-        { chunk_index: 1, token_count: 240, text: `Subsequent vector embedding chunk snippet for evaluation...` },
-      ]);
+      const res = await api.ingestion.documents.getChunks(hubId, doc.id);
+      setChunks(res?.items || []);
     } catch {
       setChunks([]);
     } finally {

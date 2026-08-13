@@ -15,7 +15,7 @@ class NodeReference(BaseModel):
     """Qualified cross-hub resource reference on a workflow node."""
     model_config = ConfigDict(from_attributes=True)
 
-    type: Literal["agent", "collection", "workflow", "mcp_tool"]
+    type: Literal["agent", "collection", "workflow", "mcp_tool", "credential"]
     hub_id: str
     resource_id: str
 
@@ -33,6 +33,54 @@ class NodeReference(BaseModel):
             if res_id and not data.get("resource_id"):
                 data["resource_id"] = res_id
         return data
+
+
+class ToolBinding(BaseModel):
+    """A capability an agent node can invoke during its turn.
+
+    Vector retrieval, MCP tools, and external database access are NOT standalone
+    workflow nodes — they are tools bound to an agent node. Each binding carries
+    a `type` plus the resource references needed to resolve and execute it.
+
+    Supported tool types:
+      - `retrieval`  : vector search over an Ingestion Hub collection
+      - `mcp`        : a registered MCP server tool
+      - `db`         : a read-only query / schema tool over an ExternalCredential
+      - `web_search` : web search capability
+      - `api_call`   : an external HTTP API call
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    type: Literal["retrieval", "mcp", "db", "web_search", "api_call"]
+    label: Optional[str] = Field(default=None, description="Human-readable tool label")
+    enabled: bool = Field(default=True, description="Whether the tool is active for the agent")
+
+    # retrieval
+    hub_id: Optional[str] = Field(default=None, description="Ingestion Hub ID (retrieval)")
+    collection_id: Optional[str] = Field(default=None, description="Collection ID (retrieval)")
+
+    # mcp
+    server_id: Optional[str] = Field(default=None, description="MCP server ID (mcp)")
+    tool_name: Optional[str] = Field(default=None, description="MCP tool name (mcp)")
+
+    # db
+    credential_id: Optional[str] = Field(default=None, description="ExternalCredential ID (db)")
+
+    # api_call
+    url: Optional[str] = Field(default=None, description="Request URL (api_call)")
+    method: Optional[str] = Field(default="GET", description="HTTP method (api_call)")
+
+    @model_validator(mode="after")
+    def _validate_required_refs(self) -> "ToolBinding":
+        if self.type == "retrieval" and not (self.hub_id and self.collection_id):
+            raise ValueError("retrieval tool requires hub_id and collection_id")
+        if self.type == "mcp" and not (self.server_id and self.tool_name):
+            raise ValueError("mcp tool requires server_id and tool_name")
+        if self.type == "db" and not self.credential_id:
+            raise ValueError("db tool requires credential_id")
+        if self.type == "api_call" and not self.url:
+            raise ValueError("api_call tool requires url")
+        return self
 
 
 class WorkflowGraph(BaseModel):

@@ -87,14 +87,12 @@ def upgrade() -> None:
                existing_nullable=False,
                existing_server_default=sa.text('1024'))
         if op.get_bind().dialect.name != "sqlite":
-            try:
-                batch_op.drop_constraint(batch_op.f('uq_collection_hub_name'), type_='unique')
-            except Exception:
-                pass
-            try:
-                batch_op.create_unique_constraint('uq_syntraflow_collections_hub_name', ['hub_id', 'name'])
-            except Exception:
-                pass
+            inspector = sa.inspect(op.get_bind())
+            existing_uqs = {c["name"] for c in inspector.get_unique_constraints("syntraflow_collections") if c.get("name")}
+            if "uq_collection_hub_name" in existing_uqs:
+                batch_op.drop_constraint("uq_collection_hub_name", type_="unique")
+            if "uq_syntraflow_collections_hub_name" not in existing_uqs:
+                batch_op.create_unique_constraint("uq_syntraflow_collections_hub_name", ["hub_id", "name"])
         batch_op.create_index(batch_op.f('ix_syntraflow_collections_name'), ['name'], unique=False)
 
     with op.batch_alter_table('syntraflow_documents', schema=None) as batch_op:

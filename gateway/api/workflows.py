@@ -8,7 +8,7 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -475,24 +475,45 @@ async def diff_versions(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": {"code": "WORKFLOW_NOT_FOUND", "message": f"Workflow '{wf_id}' not found."}})
 
 
+class WorkflowValidatePayload(BaseModel):
+    """Payload for validating graph payload (supports nested graph key or direct nodes/edges)."""
+    graph: Optional[Dict[str, Any]] = None
+    nodes: Optional[List[Dict[str, Any]]] = None
+    edges: Optional[List[Dict[str, Any]]] = None
+
+
 @router.post("/{wf_id}/validate", response_model=ValidationResult)
 async def validate_workflow(
     wf_id: str,
-    graph: Optional[Dict[str, Any]] = None,
+    payload: Optional[WorkflowValidatePayload] = Body(None),
     ctx: HubContext = Depends(require_hub(hub_type="workflow", min_role="viewer")),
     db: AsyncSession = Depends(get_async_db),
 ):
     """Validate workflow graph payload without modifying draft state."""
-    if graph is None:
-        draft = await version_service.get_draft(db, hub_id=ctx.hub.id, workflow_id=wf_id)
-        graph = draft.graph_json
+    graph = None
+    if payload:
+        if payload.graph:
+            graph = payload.graph
+        elif payload.nodes is not None or payload.edges is not None:
+            graph = {"nodes": payload.nodes or [], "edges": payload.edges or []}
 
-    issues = await validate_workflow_graph(db, graph_json=graph, source_hub_id=ctx.hub.id, strict=False)
-    is_valid = not any(i.severity == "error" for i in issues)
-    return ValidationResult(is_valid=is_valid, errors=issues)
+    if not graph:
+        draft = await version_service.get_draft(db, hub_id=ctx.hub.id, workflow_id=wf_id)
+        graph = draft.graph_json or {}
+
+    res = await validate_workflow_graph(db, graph_json=graph, source_hub_id=ctx.hub.id, strict=False)
+    if isinstance(res, ValidationResult):
+        return res
+    if hasattr(res, "errors"):
+        return ValidationResult(is_valid=getattr(res, "is_valid", True), errors=getattr(res, "errors", []))
+    if isinstance(res, tuple):
+        is_v, errs = res
+        return ValidationResult(is_valid=is_v, errors=errs if isinstance(errs, list) else [])
+    return res
 
 
 @router.post("/{wf_id}/run")
+@router.post("/{wf_id}/runs")
 async def run_workflow(
     wf_id: str,
     payload: WorkflowRunRequest,
@@ -569,6 +590,35 @@ async def get_run(
         return await run_service.get_run(db, hub_id=ctx.hub.id, run_id=run_id)
     except run_service.RunNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": {"code": "RUN_NOT_FOUND", "message": f"Run '{run_id}' not found."}})
+
+
+@router.get("/{wf_id}/runs/{run_id}/stream")
+async def stream_run_events(
+    wf_id: str,
+    run_id: str,
+    ctx: HubContext = Depends(require_hub(hub_type="workflow", min_role="viewer")),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Stream real-time SSE execution events for a workflow run."""
+    try:
+        await run_service.get_run(db, hub_id=ctx.hub.id, run_id=run_id)
+    except run_service.RunNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": {"code": "RUN_NOT_FOUND", "message": f"Run '{run_id}' not found."}})
+
+    async def _sse_generator():
+        async for evt in run_service.stream_run(run_id):
+            yield f"event: {evt['event']}\ndata: {json.dumps(evt['data'])}\n\n"
+
+    return StreamingResponse(
+        _sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+            "X-Run-Id": run_id,
+        },
+    )
 
 
 @router.post("/{wf_id}/runs/{run_id}/cancel", response_model=WorkflowRunDetail)

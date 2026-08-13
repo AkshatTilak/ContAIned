@@ -175,15 +175,22 @@ export function JobsWorkspace() {
                       </div>
                     </td>
                     <td className="p-3.5">
-                      <div className="flex items-center space-x-3 max-w-xs">
-                        <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                            style={{ width: `${job.progress || (job.status === "completed" ? 100 : 0)}%` }}
-                          />
-                        </div>
-                        <span className="font-mono text-[11px] text-slate-400">{job.progress || (job.status === "completed" ? 100 : 0)}%</span>
-                      </div>
+                      {(() => {
+                        const pct = typeof job.progress === "number" && job.progress > 0
+                          ? (job.progress <= 1.0 ? Math.round(job.progress * 100) : Math.round(job.progress))
+                          : (job.status === "completed" ? 100 : 0);
+                        return (
+                          <div className="flex items-center space-x-3 max-w-xs">
+                            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="font-mono text-[11px] text-slate-400">{pct}%</span>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-3.5">{renderStatusBadge(job.status)}</td>
                     <td className="p-3.5 font-mono text-slate-400">

@@ -346,14 +346,15 @@ async def unarchive_hub_endpoint(
     return ctx.hub
 
 
-@router.delete("/{hub_id}", status_code=status.HTTP_24_NO_CONTENT if hasattr(status, "HTTP_24_NO_CONTENT") else status.HTTP_204_NO_CONTENT)
+@router.delete("/{hub_id}")
 async def delete_empty_hub(
-    ctx: HubContext = Depends(require_hub(min_role=HUB_ROLE_OWNER)),
+    force: bool = Query(True),
+    ctx: HubContext = Depends(require_hub(min_role=HUB_ROLE_OWNER, allow_archived=True)),
     db: AsyncSession = Depends(get_async_db),
 ):
-    """Hard-delete a hub if and only if it has zero non-membership resources."""
+    """Delete a hub workspace."""
     try:
-        await delete_hub_if_empty(db, hub_id=ctx.hub_id)
+        await delete_hub_if_empty(db, hub_id=ctx.hub_id, force=force)
         await _log_audit_event(
             db,
             hub_id=ctx.hub_id,
@@ -361,7 +362,7 @@ async def delete_empty_hub(
             action="delete",
             resource_type="hub",
             resource_id=ctx.hub_id,
-            summary=f"Deleted empty hub '{ctx.hub_id}'",
+            summary=f"Deleted hub '{ctx.hub_id}'",
         )
         await db.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)

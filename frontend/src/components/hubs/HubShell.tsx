@@ -35,6 +35,7 @@ import {
   Play,
   BarChart3,
   Archive,
+  Trash2,
   AlertTriangle,
 } from "lucide-react";
 
@@ -154,6 +155,18 @@ export function HubShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hubId, hubType]);
 
+  const handleDeleteHub = async () => {
+    if (!hub) return;
+    if (window.confirm(`Are you sure you want to delete the hub "${hub.name}"? This action cannot be undone.`)) {
+      try {
+        await api.hubs.delete(hub.id);
+        navigate("/");
+      } catch (err: any) {
+        alert(err?.message || "Failed to delete hub");
+      }
+    }
+  };
+
   const handleUnarchive = async () => {
     if (!hub) return;
     try {
@@ -267,6 +280,16 @@ export function HubShell() {
                 </p>
               </div>
             </div>
+            {contextValue.can("archive_hub") && (
+              <button
+                onClick={handleDeleteHub}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs font-semibold rounded-lg border border-red-800/40 transition-colors"
+                title="Delete Hub Workspace"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Hub</span>
+              </button>
+            )}
           </div>
 
           {/* Navigation Tabs Bar */}
