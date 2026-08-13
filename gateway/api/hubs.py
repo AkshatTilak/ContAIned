@@ -670,7 +670,7 @@ async def list_linkable_targets(
 
     all_user_hubs = await list_hubs_for_user(db, user_id=user_id, is_platform_admin=is_admin)
     linkable = []
-    for h in all_user_hubs:
+    for h, _role in all_user_hubs:
         if h.id == ctx.hub_id:
             continue
         if is_link_direction_allowed(ctx.hub.hub_type, h.hub_type):

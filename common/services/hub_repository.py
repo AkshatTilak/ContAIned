@@ -1,5 +1,6 @@
 """Hub Repository Layer — Structurally hub-scoped data access helpers (hubs.md §3, §4.2, §5.3)."""
 
+from datetime import datetime
 from typing import Optional, TypeVar, Sequence
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
