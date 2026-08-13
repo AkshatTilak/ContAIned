@@ -34,12 +34,23 @@ from common.config.settings import settings
 from common.clients.postgres import get_async_db
 from gateway.main import app as gateway_app
 
+from sqlalchemy import event
+
 logger = logging.getLogger("tests.conftest")
 
 # Log Directory setup
 LOG_DIR = ROOT_DIR / "tests" / "logs" / datetime.now().strftime("%Y%m%d_%H%M%S")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "test_run.jsonl"
+
+# Thread/Task test diagnostic storage
+current_test_diagnostics = {
+    "nodeid": None,
+    "trace_id": None,
+    "db_queries": [],
+    "http_requests": [],
+}
+_session_test_results = []
 
 
 def pytest_configure(config):
@@ -70,15 +81,48 @@ def test_settings():
 # Real Service Database Fixtures
 # ──────────────────────────────────────────────
 
+def _before_cursor_execute(conn, cursor, statement, parameters, context, execmany):
+    conn.info.setdefault("query_start_time", []).append(time.perf_counter())
+
+
+def _after_cursor_execute(conn, cursor, statement, parameters, context, execmany):
+    start_times = conn.info.get("query_start_time", [])
+    if start_times:
+        start_time = start_times.pop()
+        duration_ms = (time.perf_counter() - start_time) * 1000.0
+        stmt_short = statement.strip()[:200]
+        current_test_diagnostics["db_queries"].append({
+            "statement": stmt_short,
+            "duration_ms": round(duration_ms, 2),
+        })
+
+
+import uuid
+
+
+@pytest.fixture(autouse=True)
+def setup_test_diagnostics(request):
+    """Reset diagnostics and generate X-Test-Trace-ID per test."""
+    trace_id = f"test-{uuid.uuid4().hex[:12]}"
+    current_test_diagnostics["nodeid"] = request.node.nodeid
+    current_test_diagnostics["trace_id"] = trace_id
+    current_test_diagnostics["db_queries"] = []
+    current_test_diagnostics["http_requests"] = []
+    yield
+
+
+from sqlalchemy.pool import NullPool
+
+
 @pytest.fixture(scope="session")
 def test_engine():
     """Session-scoped SQLAlchemy engine connecting to test database."""
     engine = create_async_engine(
         settings.DATABASE_URL,
-        pool_size=5,
-        max_overflow=10,
-        pool_pre_ping=True,
+        poolclass=NullPool,
     )
+    event.listen(engine.sync_engine, "before_cursor_execute", _before_cursor_execute)
+    event.listen(engine.sync_engine, "after_cursor_execute", _after_cursor_execute)
     yield engine
     asyncio.run(engine.dispose())
 
@@ -149,6 +193,31 @@ async def neo4j_driver():
         yield None
 
 
+class TracingASGITransport(httpx.ASGITransport):
+    """Custom ASGI Transport that injects X-Test-Trace-ID header and logs HTTP metrics."""
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        trace_id = current_test_diagnostics.get("trace_id") or "no-trace-id"
+        request.headers["X-Test-Trace-ID"] = trace_id
+        start_time = time.perf_counter()
+        response = await super().handle_async_request(request)
+        duration_ms = (time.perf_counter() - start_time) * 1000.0
+
+        req_bytes = len(request.content) if request.content else 0
+        content_bytes = getattr(response, "_content", None)
+        resp_bytes = len(content_bytes) if content_bytes is not None else int(response.headers.get("content-length", 0))
+
+        current_test_diagnostics["http_requests"].append({
+            "method": request.method,
+            "url": str(request.url),
+            "status_code": response.status_code,
+            "duration_ms": round(duration_ms, 2),
+            "req_bytes": req_bytes,
+            "resp_bytes": resp_bytes,
+            "trace_id": trace_id,
+        })
+        return response
+
+
 @pytest.fixture
 async def gateway_client(real_db_session) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Async HTTP client fixture with database dependency override against Gateway ASGI app."""
@@ -156,10 +225,11 @@ async def gateway_client(real_db_session) -> AsyncGenerator[httpx.AsyncClient, N
         yield real_db_session
 
     gateway_app.dependency_overrides[get_async_db] = override_get_db
-    transport = httpx.ASGITransport(app=gateway_app)
+    transport = TracingASGITransport(app=gateway_app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     gateway_app.dependency_overrides.clear()
+
 
 
 # ──────────────────────────────────────────────
@@ -169,22 +239,21 @@ async def gateway_client(real_db_session) -> AsyncGenerator[httpx.AsyncClient, N
 @pytest.fixture
 async def seed_user(real_db_session) -> Callable:
     """Factory fixture to create test users in DB."""
-    from common.models.user import User
-    from common.security.passwords import hash_password
+    from common.models.database import User
+    from gateway.auth.passwords import hash_password
 
     async def _create_user(
         email: str = "test_user_seed@contained.ai",
-        full_name: str = "Seed Test User",
+        display_name: str = "Seed Test User",
         role: str = "admin",
         password: str = "TestPass123!"
     ) -> User:
         user = User(
             email=email,
-            full_name=full_name,
-            role=role,
+            display_name=display_name,
+            platform_role=role,
             password_hash=hash_password(password),
-            is_active=True,
-            is_approved=True,
+            status="active",
         )
         real_db_session.add(user)
         await real_db_session.flush()
@@ -197,15 +266,16 @@ async def seed_user(real_db_session) -> Callable:
 @pytest.fixture
 async def seed_hub(real_db_session, seed_user) -> Callable:
     """Factory fixture to create test hubs linked to user."""
-    from common.models.hub import Hub, HubMember
+    from common.models.database import Hub, HubMember
 
-    async def _create_hub(owner=None, name: str = "Seed Test Hub", slug: str = "seed-test-hub") -> Hub:
+    async def _create_hub(owner=None, name: str = "Seed Test Hub", slug: str = "seed-test-hub", hub_type: str = "agent") -> Hub:
         if owner is None:
             owner = await seed_user()
 
         hub = Hub(
             name=name,
             slug=slug,
+            hub_type=hub_type,
             description="Integration test hub",
             owner_id=owner.id,
         )
@@ -216,7 +286,7 @@ async def seed_hub(real_db_session, seed_user) -> Callable:
         member = HubMember(
             hub_id=hub.id,
             user_id=owner.id,
-            role="owner",
+            hub_role="owner",
         )
         real_db_session.add(member)
         await real_db_session.flush()
@@ -226,10 +296,12 @@ async def seed_hub(real_db_session, seed_user) -> Callable:
     return _create_hub
 
 
+
 @pytest.fixture
 async def seed_workflow(real_db_session, seed_hub) -> Callable:
     """Factory fixture to create test workflows linked to hub."""
-    from common.models.workflow import Workflow
+    from common.models.database import Workflow
+
 
     async def _create_workflow(hub=None, name: str = "Seed Test Workflow") -> Workflow:
         if hub is None:
@@ -341,7 +413,7 @@ def inference_process():
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
-    """Capture test execution metrics and write structured JSON logs."""
+    """Capture test execution metrics, failure diagnostics, and write structured JSON logs."""
     outcome = yield
     report = outcome.get_result()
 
@@ -352,12 +424,69 @@ def pytest_runtest_makereport(item, call):
             "duration": getattr(report, "duration", 0.0),
             "markers": [mark.name for mark in item.iter_markers()],
             "timestamp": datetime.now().isoformat(),
+            "trace_id": current_test_diagnostics.get("trace_id"),
+            "db_query_count": len(current_test_diagnostics.get("db_queries", [])),
+            "db_total_duration_ms": round(sum(q["duration_ms"] for q in current_test_diagnostics.get("db_queries", [])), 2),
+            "http_request_count": len(current_test_diagnostics.get("http_requests", [])),
         }
-        if report.failed and report.longrepr:
-            log_entry["failure_summary"] = str(report.longrepr)
+        if report.failed:
+            if report.longrepr:
+                log_entry["failure_summary"] = str(report.longrepr)
+            log_entry["diagnostics"] = {
+                "recent_http_requests": current_test_diagnostics.get("http_requests", [])[-10:],
+                "recent_db_queries": current_test_diagnostics.get("db_queries", [])[-10:],
+            }
+
+        _session_test_results.append(log_entry)
 
         try:
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(json.dumps(log_entry) + "\n")
         except Exception as e:
             logger.error(f"Failed writing test structured log: {e}")
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Generate session summary report at end of test run."""
+    total = len(_session_test_results)
+    if total == 0:
+        return
+
+    passed = sum(1 for r in _session_test_results if r["outcome"] == "passed")
+    failed = sum(1 for r in _session_test_results if r["outcome"] == "failed")
+    skipped = sum(1 for r in _session_test_results if r["outcome"] == "skipped")
+
+    slowest = sorted(_session_test_results, key=lambda x: x["duration"], reverse=True)[:5]
+    db_heavy = sorted(_session_test_results, key=lambda x: x["db_query_count"], reverse=True)[:5]
+
+    summary = {
+        "total_tests": total,
+        "passed": passed,
+        "failed": failed,
+        "skipped": skipped,
+        "slowest_tests": [{"name": t["test_name"], "duration": t["duration"]} for t in slowest],
+        "most_db_heavy_tests": [{"name": t["test_name"], "db_queries": t["db_query_count"]} for t in db_heavy],
+        "finished_at": datetime.now().isoformat(),
+    }
+
+    summary_file = LOG_DIR / "summary.json"
+    try:
+        with open(summary_file, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2)
+    except Exception as e:
+        logger.error(f"Failed writing summary log: {e}")
+
+    print("\n" + "=" * 60)
+    print("               TEST RUN OBSERVABILITY SUMMARY               ")
+    print("=" * 60)
+    print(f"Total: {total} | Passed: {passed} | Failed: {failed} | Skipped: {skipped}")
+    print("-" * 60)
+    print("Top Slowest Tests:")
+    for t in slowest[:3]:
+        print(f"  - {t['test_name']}: {t['duration']:.2f}s")
+    print("-" * 60)
+    print("Top DB-Heavy Tests:")
+    for t in db_heavy[:3]:
+        print(f"  - {t['test_name']}: {t['db_query_count']} queries ({t['db_total_duration_ms']}ms)")
+    print("=" * 60 + "\n")
+
