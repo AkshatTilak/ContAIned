@@ -202,7 +202,16 @@ class TracingASGITransport(httpx.ASGITransport):
         response = await super().handle_async_request(request)
         duration_ms = (time.perf_counter() - start_time) * 1000.0
 
-        req_bytes = len(request.content) if request.content else 0
+        # Safely measure request body size. Multipart/streaming bodies raise
+        # httpx.RequestNotRead when accessed via `request.content`; read them first.
+        try:
+            req_bytes = len(request.content) if request.content else 0
+        except httpx.RequestNotRead:
+            try:
+                await request.aread()
+                req_bytes = len(request.content)
+            except Exception:
+                req_bytes = 0
         content_bytes = getattr(response, "_content", None)
         resp_bytes = len(content_bytes) if content_bytes is not None else int(response.headers.get("content-length", 0))
 

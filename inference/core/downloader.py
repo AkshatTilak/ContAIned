@@ -66,11 +66,10 @@ def download_model_from_hub(model_id: str, quantization: Optional[str] = None) -
     # 2. Check offline mode
     is_offline = os.environ.get("HF_HUB_OFFLINE") == "1"
     
-    # 3. Setup cache directory priority: env var > settings > default cache
-    cache_dir = os.environ.get("MODEL_CACHE_DIR")
-    if not cache_dir:
-        cache_dir = settings.HF_HOME
+    # 3. Setup cache directory priority: env var > settings.MODEL_CACHE_DIR > HF_HOME
+    cache_dir = os.environ.get("MODEL_CACHE_DIR") or settings.MODEL_CACHE_DIR
     cache_dir = os.path.expanduser(cache_dir)
+    os.makedirs(cache_dir, exist_ok=True)
 
     logger.info("Checking model weights for '%s' in cache directory: %s", model_id, cache_dir)
 

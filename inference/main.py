@@ -79,7 +79,7 @@ async def register_loaders_from_db() -> None:
         from inference.models.sensevoice import load_sensevoice
         from inference.models.classifier import load_classifier
         from inference.models.glm_ocr import load_glm_ocr
-        from inference.models.harrier import load_harrier
+        from inference.models.harrier import load_harrier, load_harrier_270m
 
         loader_mapping = {
             "THUDM/GLM-OCR": load_glm_ocr,
@@ -88,7 +88,10 @@ async def register_loaders_from_db() -> None:
             "FunAudioLLM/SenseVoiceSmall": load_sensevoice,
             "Arch-Router-1.5B": load_classifier,
             "jinaai/jina-clip-v2": load_jina_clip,
+            "microsoft/harrier-oss-v1-0.6b": load_harrier,
             "harrier-0.6b": load_harrier,
+            "microsoft/harrier-oss-v1-270m": load_harrier_270m,
+            "harrier-270m": load_harrier_270m,
             "harrier": load_harrier,
         }
 
@@ -127,7 +130,7 @@ async def register_loaders_from_db() -> None:
         from inference.models.sensevoice import load_sensevoice
         from inference.models.classifier import load_classifier
         from inference.models.glm_ocr import load_glm_ocr
-        from inference.models.harrier import load_harrier
+        from inference.models.harrier import load_harrier, load_harrier_270m
 
         vram.register_loader("baidu-ocr", load_baidu_ocr, 5000)
         vram.register_loader("jina-clip-v2", load_jina_clip, 1000)
@@ -135,6 +138,9 @@ async def register_loaders_from_db() -> None:
         vram.register_loader("arch-router-1.5b", load_classifier, 2000)
         vram.register_loader("THUDM/GLM-OCR", load_glm_ocr, 2000)
         vram.register_loader("harrier-0.6b", load_harrier, 1000)
+        vram.register_loader("microsoft/harrier-oss-v1-0.6b", load_harrier, 800)
+        vram.register_loader("microsoft/harrier-oss-v1-270m", load_harrier_270m, 400)
+        vram.register_loader("harrier-270m", load_harrier_270m, 400)
         vram.register_loader("harrier", load_harrier, 1000)
 
 

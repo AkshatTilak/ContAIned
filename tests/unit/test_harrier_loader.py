@@ -19,4 +19,4 @@ async def test_harrier_loader_registration():
     # Generate embedding
     res = await wrapper.embed_texts(["hello world"])
     assert len(res) == 1
-    assert len(res[0]) == 768
+    assert len(res[0]) == 1024

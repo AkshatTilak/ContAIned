@@ -132,7 +132,12 @@ class VRAMManager:
                     "baidu-ocr": "THUDM/GLM-OCR",  # map mock ID to default local HF model
                     "sensevoice-small": "FunAudioLLM/SenseVoiceSmall",
                     "jina-clip-v2": "jinaai/jina-clip-v2",
+                    "nomic-embed-vision-v1.5": "nomic-ai/nomic-embed-vision-v1.5",
+                    "nomic-embed-vision-v2": "nomic-ai/nomic-embed-vision-v1.5",
+                    "harrier-0.6b": "microsoft/harrier-oss-v1-0.6b",
+                    "harrier-270m": "microsoft/harrier-oss-v1-270m",
                     "arch-router-1.5b": "Arch-Router-1.5B",
+                    "arch-router-1.5b-q8_0.gguf": "Arch-Router-1.5B",
                 }
                 download_target = repo_id_map.get(name.lower(), name)
                 

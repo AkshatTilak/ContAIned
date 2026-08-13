@@ -94,6 +94,7 @@ class InferenceSettings(BaseSettings):
     )
     VRAM_BUDGET_MB: int = Field(default=8000, alias="VRAM_BUDGET_MB")
     HF_HOME: str = Field(default="~/.cache/huggingface/hub", alias="HF_HOME")
+    MODEL_CACHE_DIR: str = Field(default="./models", alias="MODEL_CACHE_DIR")
     DEVICE: str = Field(default="auto", alias="DEVICE")
 
 

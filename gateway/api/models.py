@@ -344,7 +344,9 @@ async def select_active_model(req: ModelSelectRequest, db: AsyncSession = Depend
 def resolve_local_model_disk_info(model_id: str, framework: Optional[str] = None) -> dict:
     """Resolve expected local disk path and check if model artifacts exist."""
     hf_home = os.path.expanduser(os.environ.get("HF_HOME", "~/.cache/huggingface/hub"))
-    workspace_models = os.path.abspath("models")
+    workspace_models = os.path.abspath(
+        os.path.expanduser(os.environ.get("MODEL_CACHE_DIR") or settings.MODEL_CACHE_DIR)
+    )
     
     # 1. GGUF / local workspace model check
     if model_id.endswith(".gguf") or (framework and "llama-cpp" in framework.lower()) or "arch-router" in model_id.lower():
@@ -355,9 +357,16 @@ def resolve_local_model_disk_info(model_id: str, framework: Optional[str] = None
             "is_downloaded": os.path.exists(target_path)
         }
         
-    # 2. Harrier model check (uses BAAI/bge-base-en-v1.5)
-    if "harrier" in model_id.lower():
-        target_path = os.path.join(hf_home, "models--BAAI--bge-base-en-v1.5")
+    # 2. Harrier model check
+    harrier_repos = {
+        "harrier-270m": "microsoft/harrier-oss-v1-270m",
+        "harrier-0.6b": "microsoft/harrier-oss-v1-0.6b",
+        "microsoft/harrier-oss-v1-270m": "microsoft/harrier-oss-v1-270m",
+        "microsoft/harrier-oss-v1-0.6b": "microsoft/harrier-oss-v1-0.6b",
+    }
+    harrier_repo = harrier_repos.get(model_id.lower())
+    if harrier_repo:
+        target_path = os.path.join(hf_home, f"models--{harrier_repo.replace('/', '--')}")
         return {
             "local_path": target_path,
             "is_downloaded": os.path.exists(target_path)

@@ -380,7 +380,7 @@ export function IngestionUploadModal({
                     <option value="harrier-0.6b">Harrier 0.6B (768d Local CPU/GPU)</option>
                     <option value="harrier-270m">Harrier 270M (768d Local CPU/GPU)</option>
                     <option value="BAAI/bge-base-en-v1.5">BGE Base English v1.5 (768d)</option>
-                    <option value="nomic-embed-vision-v2">Nomic Embed Vision v2 (768d)</option>
+                    <option value="nomic-embed-vision-v1.5">Nomic Embed Vision v1.5 (768d)</option>
                   </select>
                 </div>
 
