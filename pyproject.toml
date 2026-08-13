@@ -121,6 +121,16 @@ sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-rsxX --strict-markers"
+markers = [
+    "unit: Unit tests with no external I/O dependencies",
+    "integration: Real service integration tests (Postgres, Qdrant, Redis, Neo4j, Kafka)",
+    "e2e: End-to-end multi-step workflow and full user journey tests",
+    "live_api: Live external API integration tests (Google Gemini, LiteLLM)",
+    "streaming: WebSocket and SSE real-time streaming tests",
+    "performance: Performance benchmark, load, and latency tests",
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]
