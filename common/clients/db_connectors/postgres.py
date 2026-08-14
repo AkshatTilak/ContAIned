@@ -48,9 +48,16 @@ class PostgresConnector(BaseDatabaseConnector):
             self._pool = None
             self._connected = False
 
-    async def test_connection(self) -> bool:
-        if not self._pool:
+    async def _ensure_pool(self) -> None:
+        import asyncio
+        loop = asyncio.get_running_loop()
+        if self._pool is None or getattr(self._pool, "_loop", None) != loop or (getattr(self._pool, "_loop", None) and self._pool._loop.is_closed()):
+            self._pool = None
+            self._connected = False
             await self.connect()
+
+    async def test_connection(self) -> bool:
+        await self._ensure_pool()
         try:
             async with self._pool.acquire() as conn:
                 await conn.fetchval("SELECT 1")
@@ -67,8 +74,7 @@ class PostgresConnector(BaseDatabaseConnector):
         max_rows: int = BaseDatabaseConnector.MAX_ROWS,
     ) -> List[Dict[str, Any]]:
         self._assert_safe(query)
-        if not self._pool:
-            await self.connect()
+        await self._ensure_pool()
 
         timeout = float(timeout_s)
         async with self._pool.acquire() as conn:

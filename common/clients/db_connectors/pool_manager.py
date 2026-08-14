@@ -31,10 +31,16 @@ class ConnectorPoolManager:
     """Manages lifecycle and connection pools for external database credentials."""
 
     _instance: Optional["ConnectorPoolManager"] = None
-    _lock = asyncio.Lock()
 
     def __init__(self) -> None:
         self._connectors: Dict[str, BaseDatabaseConnector] = {}
+        self._lock_obj: Optional[asyncio.Lock] = None
+
+    @property
+    def _lock(self) -> asyncio.Lock:
+        if self._lock_obj is None:
+            self._lock_obj = asyncio.Lock()
+        return self._lock_obj
 
     @classmethod
     def get_instance(cls) -> "ConnectorPoolManager":
@@ -52,12 +58,20 @@ class ConnectorPoolManager:
         if cid in self._connectors:
             conn = self._connectors[cid]
             if conn._connected:
-                return conn
+                # If the connector has a pool attached to an old closed/different event loop, discard it
+                pool = getattr(conn, "_pool", None)
+                if pool is None or getattr(pool, "_loop", None) == asyncio.get_running_loop():
+                    return conn
+                self._connectors.pop(cid, None)
 
         async with self._lock:
             # Double check after acquiring lock
             if cid in self._connectors and self._connectors[cid]._connected:
-                return self._connectors[cid]
+                conn = self._connectors[cid]
+                pool = getattr(conn, "_pool", None)
+                if pool is None or getattr(pool, "_loop", None) == asyncio.get_running_loop():
+                    return conn
+                self._connectors.pop(cid, None)
 
             db_type = (credential_row.db_type or "").lower()
             connector_cls = DRIVER_MAP.get(db_type)

@@ -108,6 +108,7 @@ async def execute_db_tool(
     parameters: Dict[str, Any],
     *,
     hub_id: Optional[str] = None,
+    session_factory: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Dispatch a database MCP tool call to the appropriate connector.
 
@@ -119,8 +120,8 @@ async def execute_db_tool(
         return {"status": "error", "error": "Missing 'credential_id' parameter"}
 
     try:
-        session_factory = get_sessionmaker()
-        async with session_factory() as session:  # type: AsyncSession
+        sf = session_factory or get_sessionmaker()
+        async with sf() as session:  # type: AsyncSession
             cred = await _load_credential(session, credential_id)
             if not cred:
                 return {"status": "error", "error": f"ExternalCredential '{credential_id}' not found"}

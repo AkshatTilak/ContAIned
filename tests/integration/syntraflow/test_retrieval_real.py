@@ -246,7 +246,7 @@ async def test_retrieval_multi_dimension_collections(
     seed_hub,
     real_db_session: AsyncSession,
 ):
-    """Test retrieval on both Harrier 0.6B and Jina CLIP 1,024-dim collections."""
+    """Test retrieval on Harrier 0.6B (1,024-dim) and Harrier 270M (640-dim) collections."""
     owner = await seed_user(email="retrieval_multidim@contained.ai", role="member")
     hub = await seed_hub(owner=owner, name="MultiDim Hub", slug="multidim-hub", hub_type="ingestion")
     headers = await _auth_headers(owner)
@@ -259,13 +259,13 @@ async def test_retrieval_multi_dimension_collections(
     )
     col_harrier_id = col_harrier_resp.json()["id"]
 
-    # 2. 1024-dim collection
-    col1024_resp = await gateway_client.post(
+    # 2. Harrier 270M 640-dim collection
+    col640_resp = await gateway_client.post(
         f"/api/hubs/{hub.id}/ingestion/collections",
-        json={"name": "Jina 1024 Catalog", "embedding_model": "jina-clip-v2", "vector_dimension": 1024},
+        json={"name": "Harrier 270M Catalog", "embedding_model": "harrier-270m", "vector_dimension": 640},
         headers=headers,
     )
-    col1024_id = col1024_resp.json()["id"]
+    col640_id = col640_resp.json()["id"]
 
     # Search Harrier 0.6B collection
     search_harrier = await gateway_client.post(
@@ -275,10 +275,10 @@ async def test_retrieval_multi_dimension_collections(
     )
     assert search_harrier.status_code == 200
 
-    # Search 1024-dim collection
-    search_1024 = await gateway_client.post(
+    # Search 640-dim Harrier 270M collection
+    search_640 = await gateway_client.post(
         f"/api/hubs/{hub.id}/ingestion/search",
-        json={"query": "multidim vector test", "collection_id": col1024_id},
+        json={"query": "multidim vector test", "collection_id": col640_id},
         headers=headers,
     )
-    assert search_1024.status_code == 200
+    assert search_640.status_code == 200

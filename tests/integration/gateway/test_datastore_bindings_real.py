@@ -34,7 +34,7 @@ async def test_create_datastore_binding(gateway_client: AsyncClient, seed_user, 
         json={
             "name": "qdrant-main",
             "store_type": "qdrant",
-            "connection_uri": "http://localhost:6334",
+            "connection_uri": "http://localhost:6333",
             "is_default": True,
         },
         headers=headers,
@@ -50,7 +50,7 @@ async def test_create_datastore_binding(gateway_client: AsyncClient, seed_user, 
     binding = (await real_db_session.execute(stmt)).scalar_one_or_none()
     assert binding is not None
     assert binding.store_type == "qdrant"
-    assert binding.connection_uri == "http://localhost:6334"
+    assert binding.connection_uri == "http://localhost:6333"
 
 
 @pytest.mark.asyncio
@@ -109,7 +109,7 @@ async def test_list_datastores_and_synthetic_defaults(
         json={
             "name": "qdrant-main",
             "store_type": "qdrant",
-            "connection_uri": "http://localhost:6334",
+            "connection_uri": "http://localhost:6333",
         },
         headers=headers,
     )
@@ -139,7 +139,7 @@ async def test_unbind_datastore_cleanup(
         json={
             "name": "qdrant-temp",
             "store_type": "qdrant",
-            "connection_uri": "http://localhost:6334",
+            "connection_uri": "http://localhost:6333",
         },
         headers=headers,
     )

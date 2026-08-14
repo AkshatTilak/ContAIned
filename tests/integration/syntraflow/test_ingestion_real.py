@@ -7,6 +7,8 @@ API embedder (gemini/gemini-embedding-2), and PDF/OCR text extraction.
 
 import asyncio
 import io
+from pathlib import Path
+
 import pytest
 from httpx import AsyncClient
 from qdrant_client import AsyncQdrantClient
@@ -19,6 +21,7 @@ from projects.syntraflow.src.database.models import SyntraFlowChunk, SyntraFlowD
 
 pytestmark = pytest.mark.integration
 
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
 async def _auth_headers(user) -> dict:
     token = create_access_token(user_id=user.id, email=user.email, platform_role=user.platform_role)
@@ -221,17 +224,12 @@ async def test_ingestion_pdf_text_extraction_real(
     assert col_resp.status_code == 201
     col_id = col_resp.json()["id"]
 
-    pdf_bytes = (
-        b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
-        b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
-        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n"
-        b"4 0 obj\n<< /Length 55 >>\nstream\nBT /F1 12 Tf 100 700 Td (SyntraFlow PDF Ingestion Test Document) Tj ET\nendstream\nendobj\n"
-        b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n"
-        b"xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000246 00000 n \n0000000351 00000 n \n"
-        b"trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n423\n%%EOF"
-    )
+    # Use a real PDF document from the scratch folder for realistic text extraction.
+    pdf_path = ROOT_DIR / "scratch" / "resume_ai_ml_akshat.pdf"
+    assert pdf_path.exists(), f"Test PDF not found at {pdf_path}"
+    pdf_bytes = pdf_path.read_bytes()
 
-    files = {"file": ("test_doc.pdf", io.BytesIO(pdf_bytes), "application/pdf")}
+    files = {"file": ("resume_ai_ml_akshat.pdf", io.BytesIO(pdf_bytes), "application/pdf")}
     data = {"collection_id": col_id, "chunk_strategy": "recursive"}
 
     upload_resp = await gateway_client.post(
@@ -246,6 +244,6 @@ async def test_ingestion_pdf_text_extraction_real(
     res = await _wait_for_job_completion(gateway_client, hub.id, job_id, headers)
     assert res["status"] == "completed"
 
-    doc_stmt = select(SyntraFlowDocument).where(SyntraFlowDocument.hub_id == hub.id, SyntraFlowDocument.filename == "test_doc.pdf")
+    doc_stmt = select(SyntraFlowDocument).where(SyntraFlowDocument.hub_id == hub.id, SyntraFlowDocument.filename == "resume_ai_ml_akshat.pdf")
     doc = (await real_db_session.execute(doc_stmt)).scalar_one_or_none()
     assert doc is not None

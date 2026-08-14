@@ -252,11 +252,13 @@ async def seed_user(real_db_session) -> Callable:
     from gateway.auth.passwords import hash_password
 
     async def _create_user(
-        email: str = "test_user_seed@contained.ai",
+        email: str = None,
         display_name: str = "Seed Test User",
         role: str = "admin",
         password: str = "TestPass123!"
     ) -> User:
+        if email is None:
+            email = f"test_user_{uuid.uuid4().hex[:8]}@contained.ai"
         user = User(
             email=email,
             display_name=display_name,
@@ -277,9 +279,11 @@ async def seed_hub(real_db_session, seed_user) -> Callable:
     """Factory fixture to create test hubs linked to user."""
     from common.models.database import Hub, HubMember
 
-    async def _create_hub(owner=None, name: str = "Seed Test Hub", slug: str = "seed-test-hub", hub_type: str = "agent") -> Hub:
+    async def _create_hub(owner=None, name: str = "Seed Test Hub", slug: str = None, hub_type: str = "agent") -> Hub:
         if owner is None:
             owner = await seed_user()
+        if slug is None:
+            slug = f"seed-hub-{uuid.uuid4().hex[:8]}"
 
         hub = Hub(
             name=name,
@@ -343,17 +347,29 @@ async def seed_workflow(real_db_session, seed_hub) -> Callable:
 
 @pytest.fixture(scope="session")
 def gateway_process():
-    """Session-scoped subprocess starting Gateway uvicorn server on port 8100."""
+    """Session-scoped process fixture connecting to or starting Gateway uvicorn server on port 8000."""
+    port = getattr(settings, "APP_PORT", 8000)
+    health_url = f"http://127.0.0.1:{port}/health"
+    
+    # Check if Gateway service is already running
+    try:
+        resp = httpx.get(health_url, timeout=1.0)
+        if resp.status_code == 200:
+            logger.info(f"Gateway is already running on port {port}. Reusing running service.")
+            yield None
+            return
+    except Exception:
+        pass
+
     cmd = [
         sys.executable, "-m", "uvicorn",
         "gateway.main:app",
         "--host", "127.0.0.1",
-        "--port", "8100",
+        "--port", str(port),
     ]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
     # Wait for health check
-    health_url = "http://127.0.0.1:8100/health"
     start_time = time.time()
     healthy = False
     while time.time() - start_time < 15:
@@ -368,29 +384,42 @@ def gateway_process():
 
     if not healthy:
         proc.terminate()
-        logger.warning("Gateway process failed to become healthy within 15s; proceed with transport fixture.")
+        logger.warning(f"Gateway process failed to become healthy on port {port} within 15s; proceed with transport fixture.")
 
     yield proc
 
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+    if proc and proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
 
 
 @pytest.fixture(scope="session")
 def inference_process():
-    """Session-scoped subprocess starting Inference uvicorn server on port 8110."""
+    """Session-scoped process fixture connecting to or starting Inference uvicorn server on port 8001."""
+    port = getattr(settings, "INFERENCE_SERVER_PORT", 8001)
+    health_url = f"http://127.0.0.1:{port}/health"
+
+    # Check if Inference service is already running
+    try:
+        resp = httpx.get(health_url, timeout=1.0)
+        if resp.status_code == 200:
+            logger.info(f"Inference server is already running on port {port}. Reusing running service.")
+            yield None
+            return
+    except Exception:
+        pass
+
     cmd = [
         sys.executable, "-m", "uvicorn",
         "inference.main:app",
         "--host", "127.0.0.1",
-        "--port", "8110",
+        "--port", str(port),
     ]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    health_url = "http://127.0.0.1:8110/health"
     start_time = time.time()
     healthy = False
     while time.time() - start_time < 15:
@@ -405,15 +434,16 @@ def inference_process():
 
     if not healthy:
         proc.terminate()
-        logger.warning("Inference process failed to become healthy within 15s; proceed with mock/direct calls.")
+        logger.warning(f"Inference process failed to become healthy on port {port} within 15s; proceed with mock/direct calls.")
 
     yield proc
 
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+    if proc and proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
 
 
 # ──────────────────────────────────────────────

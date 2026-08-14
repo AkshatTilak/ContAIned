@@ -95,6 +95,7 @@ from gateway.api.mcp_manager import router as mcp_manager_router
 from gateway.api.api_keys import router as api_keys_router
 from gateway.api.proxy import router as proxy_router
 from gateway.api.credentials import router as credentials_router
+from gateway.api.db_credentials import router as db_credentials_router
 
 router.include_router(hubs_router)
 router.include_router(ingestion_hub_router)
@@ -111,6 +112,7 @@ router.include_router(mcp_manager_router)
 router.include_router(api_keys_router)
 router.include_router(proxy_router)
 router.include_router(credentials_router)
+router.include_router(db_credentials_router)
 
 # Dynamically load project API routers
 # Make changes in .env ACTIVE_PROJECTS to register/deregister projects.

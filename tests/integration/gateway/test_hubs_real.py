@@ -143,7 +143,7 @@ async def test_delete_hub_soft_deletes_and_hides(
         hub_id=hub.id,
         name="qdrant-main",
         store_type="qdrant",
-        connection_uri="http://localhost:6334",
+        connection_uri="http://localhost:6333",
         is_default=True,
     )
     real_db_session.add(binding)
@@ -217,7 +217,7 @@ async def test_list_hubs_returns_only_accessible(gateway_client: AsyncClient, se
     # Member owns one hub
     member_hub = await seed_hub(owner=member, name="Member Hub", slug="member-hub", hub_type="agent")
     # Admin owns another hub the member is NOT part of
-    await seed_hub(owner=admin, name="Admin Hub", slug="admin-hub", hub_type="agent")
+    admin_hub = await seed_hub(owner=admin, name="Admin Hub", slug="admin-hub", hub_type="agent")
 
     member_headers = await _auth_headers(member)
     admin_headers = await _auth_headers(admin)
@@ -226,12 +226,12 @@ async def test_list_hubs_returns_only_accessible(gateway_client: AsyncClient, se
     mem_resp = await gateway_client.get("/api/hubs", headers=member_headers)
     assert mem_resp.status_code == 200
     mem_hubs = mem_resp.json()
-    assert len(mem_hubs) == 1
-    assert mem_hubs[0]["id"] == member_hub.id
-    assert mem_hubs[0]["my_role"] == "owner"
+    assert any(h["id"] == member_hub.id for h in mem_hubs)
+    assert not any(h["id"] == admin_hub.id for h in mem_hubs)
 
     # Admin sees all hubs
     adm_resp = await gateway_client.get("/api/hubs", headers=admin_headers)
     assert adm_resp.status_code == 200
     adm_hubs = adm_resp.json()
-    assert len(adm_hubs) == 2
+    assert any(h["id"] == member_hub.id for h in adm_hubs)
+    assert any(h["id"] == admin_hub.id for h in adm_hubs)

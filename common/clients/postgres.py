@@ -17,12 +17,23 @@ from common.config.settings import settings
 logger = logging.getLogger("common.database")
 
 _engine = None
+_engine_loop = None
 _SessionLocal = None
 
 
 def get_engine():
     """Get or initialize the SQLAlchemy database engine."""
-    global _engine
+    global _engine, _engine_loop, _SessionLocal
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+
+    if _engine is not None and current_loop is not None and _engine_loop is not None:
+        if _engine_loop != current_loop or _engine_loop.is_closed():
+            _engine = None
+            _SessionLocal = None
+
     if _engine is None:
         try:
             _engine = create_async_engine(
@@ -31,6 +42,7 @@ def get_engine():
                 max_overflow=20,
                 pool_pre_ping=True,
             )
+            _engine_loop = current_loop
         except SQLAlchemyError as e:
             logger.error("Failed to initialize database engine: %s", e)
             raise ConnectionError("Database initialization failed") from e
@@ -40,9 +52,10 @@ def get_engine():
 def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
     """Get or initialize the session maker."""
     global _SessionLocal
-    if _SessionLocal is None:
+    engine = get_engine()
+    if _SessionLocal is None or _SessionLocal.kw.get("bind") != engine:
         _SessionLocal = async_sessionmaker(
-            bind=get_engine(),
+            bind=engine,
             expire_on_commit=False,
             class_=AsyncSession,
         )

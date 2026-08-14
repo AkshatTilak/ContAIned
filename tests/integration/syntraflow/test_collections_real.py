@@ -40,7 +40,7 @@ async def test_create_list_delete_collections_real(
         f"/api/hubs/{hub.id}/ingestion/collections",
         json={
             "name": "Doc Base Alpha",
-            "embedding_model": "jina-clip-v2",
+            "embedding_model": "harrier-0.6b",
             "vector_dimension": 1024,
             "description": "Integration test vector catalog",
         },
@@ -110,10 +110,11 @@ async def test_collection_schema_sync_real(
     headers = await _auth_headers(owner)
 
     # Create collection with Harrier 0.6B's 1,024-dim output.
+    # (Collection names allow only alphanumeric/space/dash/underscore — no dots.)
     resp_harrier = await gateway_client.post(
         f"/api/hubs/{hub.id}/ingestion/collections",
         json={
-            "name": "Harrier 0.6B Collection",
+            "name": "Harrier 06B Collection",
             "embedding_model": "harrier-0.6b",
             "vector_dimension": 1024,
         },
@@ -122,7 +123,7 @@ async def test_collection_schema_sync_real(
     assert resp_harrier.status_code == 201, f"Failed Harrier collection creation: {resp_harrier.text}"
 
     if qdrant_client:
-        phys_name = physical_collection_name(hub.slug, "Harrier 0.6B Collection")
+        phys_name = physical_collection_name(hub.slug, "Harrier 06B Collection")
         info = await qdrant_client.get_collection(phys_name)
         # Vector size verification
         vector_size = info.config.params.vectors.size

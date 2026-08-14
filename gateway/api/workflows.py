@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.clients.postgres import get_async_db
-from common.models.database import AuditLog, EvalFlowTrace
+from common.models.database import AuditLog, EvalFlowTrace, WorkflowVersion
 from common.services.audit import sanitize_actor_user_id
 from common.schemas.workflows import (
     WorkflowCreate,
@@ -399,7 +399,7 @@ async def update_draft(
                     "server_version_number": conflict.server_version_number,
                     "server_graph": conflict.server_graph,
                     "updated_by": conflict.updated_by,
-                    "updated_at": conflict.updated_at.isoformat() if conflict.updated_at else None,
+                    "updated_at": conflict.updated_at.isoformat() if hasattr(conflict.updated_at, "isoformat") else conflict.updated_at,
                 }
             },
         )
@@ -470,7 +470,25 @@ async def diff_versions(
 ):
     """Compare graph topology between base and head versions."""
     try:
-        return await version_service.diff_versions(db, hub_id=ctx.hub.id, workflow_id=wf_id, base_version=base, head_version=head)
+        stmt_base = select(WorkflowVersion).where(
+            WorkflowVersion.workflow_id == wf_id,
+            WorkflowVersion.version_number == base,
+        )
+        base_ver = (await db.execute(stmt_base)).scalar_one_or_none()
+        if not base_ver:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": {"code": "VERSION_NOT_FOUND", "message": f"Base version '{base}' not found."}})
+
+        stmt_head = select(WorkflowVersion).where(
+            WorkflowVersion.workflow_id == wf_id,
+            WorkflowVersion.version_number == head,
+        )
+        head_ver = (await db.execute(stmt_head)).scalar_one_or_none()
+        if not head_ver:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": {"code": "VERSION_NOT_FOUND", "message": f"Head version '{head}' not found."}})
+
+        return version_service.diff_versions(base_ver.graph_json or {}, head_ver.graph_json or {})
+    except HTTPException:
+        raise
     except version_service.WorkflowNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": {"code": "WORKFLOW_NOT_FOUND", "message": f"Workflow '{wf_id}' not found."}})
 
@@ -631,6 +649,8 @@ async def cancel_run(
     """Cancel a running workflow execution."""
     try:
         run = await run_service.cancel_run(db, hub_id=ctx.hub.id, run_id=run_id, actor_id=ctx.user_id)
+        if isinstance(run, WorkflowRunDetail):
+            return run
         return WorkflowRunDetail.model_validate(run)
     except run_service.RunNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": {"code": "RUN_NOT_FOUND", "message": f"Run '{run_id}' not found."}})
