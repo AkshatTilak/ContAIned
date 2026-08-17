@@ -49,7 +49,7 @@ function buildStarterGraph(template: string): { nodes: any[]; edges: any[] } {
     const start = addNode("start", "Workflow Input", 60, 120, {}, { inputs: [], outputs: [{ id: "out", label: "Payload Out", type: "output", kind: "data" }] });
     // Vector retrieval is a tool bound to the agent node, not a standalone node.
     const agent = addNode("agent", "Agent Invocation", 380, 120, {
-      tools: [{ type: "retrieval", enabled: true, label: "Vector Retrieval" }],
+      tools: [],
     });
     const finalMsg = addNode("final_message", "Final Output", 700, 120, {}, { inputs: [{ id: "in", label: "Result In", type: "input", kind: "data" }], outputs: [] });
     link(start, "out", agent, "in");

@@ -235,3 +235,37 @@ async def test_list_hubs_returns_only_accessible(gateway_client: AsyncClient, se
     adm_hubs = adm_resp.json()
     assert any(h["id"] == member_hub.id for h in adm_hubs)
     assert any(h["id"] == admin_hub.id for h in adm_hubs)
+
+
+@pytest.mark.asyncio
+async def test_delete_hub_and_immediate_recreation_same_slug(
+    gateway_client: AsyncClient, seed_user
+):
+    """Deleting a hub frees its name and slug so a new hub can be created with the exact same slug."""
+    owner = await seed_user(email="hub_recycler@contained.ai", role="admin")
+    headers = await _auth_headers(owner)
+
+    # 1. Create first hub
+    create_resp1 = await gateway_client.post(
+        "/api/hubs",
+        json={"name": "Recyclable Hub", "slug": "recyclable-hub", "hub_type": "ingestion"},
+        headers=headers,
+    )
+    assert create_resp1.status_code == 201
+    hub_id_1 = create_resp1.json()["id"]
+
+    # 2. Delete first hub
+    del_resp = await gateway_client.delete(f"/api/hubs/{hub_id_1}", headers=headers)
+    assert del_resp.status_code == 204
+
+    # 3. Immediately re-create new hub with the exact same slug and type
+    create_resp2 = await gateway_client.post(
+        "/api/hubs",
+        json={"name": "Recyclable Hub", "slug": "recyclable-hub", "hub_type": "ingestion"},
+        headers=headers,
+    )
+    assert create_resp2.status_code == 201, f"Failed to recreate hub with reused slug: {create_resp2.text}"
+    hub_id_2 = create_resp2.json()["id"]
+    assert hub_id_2 != hub_id_1
+    assert create_resp2.json()["slug"] == "recyclable-hub"
+

@@ -534,26 +534,42 @@ async def ingest_document_file(
     is_video_audio = ext in VIDEO_EXTENSIONS or ext in AUDIO_EXTENSIONS
 
     from projects.syntraflow.src.worker import process_ingestion_job
-    ingest_coro = process_ingestion_job(
-        job_id=str(job.id),
-        file_hash=file_hash,
-        filename=filename,
-        temp_filepath=temp_filepath,
-        is_video_audio=is_video_audio,
-        hub_id=ctx.hub_id,
-        collection_id=collection.id,
-        chunker_type=chunk_strategy,
-        chunk_size=chunk_size or 512,
-        chunk_overlap=chunk_overlap or 64,
-        pre_processors=pre_procs,
-        post_processors=post_procs,
-        pipeline_config=pipeline_cfg,
-        db_session=db,
-    )
     if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("TESTING") == "1":
-        await ingest_coro
+        await process_ingestion_job(
+            job_id=str(job.id),
+            file_hash=file_hash,
+            filename=filename,
+            temp_filepath=temp_filepath,
+            is_video_audio=is_video_audio,
+            hub_id=ctx.hub_id,
+            collection_id=collection.id,
+            chunker_type=chunk_strategy,
+            chunk_size=chunk_size or 512,
+            chunk_overlap=chunk_overlap or 64,
+            pre_processors=pre_procs,
+            post_processors=post_procs,
+            pipeline_config=pipeline_cfg,
+            db_session=db,
+        )
     else:
-        asyncio.create_task(ingest_coro)
+        asyncio.create_task(
+            process_ingestion_job(
+                job_id=str(job.id),
+                file_hash=file_hash,
+                filename=filename,
+                temp_filepath=temp_filepath,
+                is_video_audio=is_video_audio,
+                hub_id=ctx.hub_id,
+                collection_id=collection.id,
+                chunker_type=chunk_strategy,
+                chunk_size=chunk_size or 512,
+                chunk_overlap=chunk_overlap or 64,
+                pre_processors=pre_procs,
+                post_processors=post_procs,
+                pipeline_config=pipeline_cfg,
+                db_session=None,
+            )
+        )
 
     await _log_audit_event(
         db,
@@ -622,26 +638,42 @@ async def ingest_raw_text(
         f.write(file_bytes)
 
     from projects.syntraflow.src.worker import process_ingestion_job
-    ingest_coro = process_ingestion_job(
-        job_id=str(job.id),
-        file_hash=file_hash,
-        filename=filename,
-        temp_filepath=temp_filepath,
-        is_video_audio=False,
-        hub_id=ctx.hub_id,
-        collection_id=collection.id,
-        chunker_type=payload.chunker_type,
-        chunk_size=payload.chunk_size or 512,
-        chunk_overlap=payload.chunk_overlap or 64,
-        pre_processors=payload.pre_processors,
-        post_processors=payload.post_processors,
-        pipeline_config=pipeline_cfg,
-        db_session=db,
-    )
     if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("TESTING") == "1":
-        await ingest_coro
+        await process_ingestion_job(
+            job_id=str(job.id),
+            file_hash=file_hash,
+            filename=filename,
+            temp_filepath=temp_filepath,
+            is_video_audio=False,
+            hub_id=ctx.hub_id,
+            collection_id=collection.id,
+            chunker_type=payload.chunker_type,
+            chunk_size=payload.chunk_size or 512,
+            chunk_overlap=payload.chunk_overlap or 64,
+            pre_processors=payload.pre_processors,
+            post_processors=payload.post_processors,
+            pipeline_config=pipeline_cfg,
+            db_session=db,
+        )
     else:
-        asyncio.create_task(ingest_coro)
+        asyncio.create_task(
+            process_ingestion_job(
+                job_id=str(job.id),
+                file_hash=file_hash,
+                filename=filename,
+                temp_filepath=temp_filepath,
+                is_video_audio=False,
+                hub_id=ctx.hub_id,
+                collection_id=collection.id,
+                chunker_type=payload.chunker_type,
+                chunk_size=payload.chunk_size or 512,
+                chunk_overlap=payload.chunk_overlap or 64,
+                pre_processors=payload.pre_processors,
+                post_processors=payload.post_processors,
+                pipeline_config=pipeline_cfg,
+                db_session=None,
+            )
+        )
 
     await _log_audit_event(
         db,

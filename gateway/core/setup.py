@@ -115,6 +115,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
                 await session.commit()
                 logger.info("Database API keys table seeded with default key 'sk_live_default_key'.")
 
+            # Ensure local-admin-id user row exists in PostgreSQL for API key / local dev operations
+            res_admin_user = await session.execute(select(User).where(User.id == "local-admin-id"))
+            if not res_admin_user.scalar_one_or_none():
+                now_admin = datetime.utcnow()
+                local_admin = User(
+                    id="local-admin-id",
+                    email="admin@contained.local",
+                    display_name="API Key Admin",
+                    platform_role="admin",
+                    status="active",
+                    created_at=now_admin,
+                )
+                session.add(local_admin)
+                await session.commit()
+                logger.info("Seeded local admin user record (local-admin-id).")
+
             async def reconcile_bootstrap_account(
                 email: str | None,
                 password: str | None,

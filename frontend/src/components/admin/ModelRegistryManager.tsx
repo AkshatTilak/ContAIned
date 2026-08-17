@@ -315,7 +315,7 @@ export function ModelRegistryManager() {
                 <>
                   <option value="huggingface">HuggingFace (GGUF/Gemma)</option>
                   <option value="funasr">FunASR</option>
-                  <option value="paddleocr">PaddleOCR</option>
+                  <option value="baidu">Baidu OCR</option>
                   <option value="pip">Python PIP package</option>
                 </>
               )}

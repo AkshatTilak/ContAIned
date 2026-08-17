@@ -1,4 +1,4 @@
-"""Authentication ASGI middleware for JWT validation."""
+"""Authentication ASGI middleware for JWT and API Key request validation."""
 
 import logging
 from typing import List
@@ -6,12 +6,18 @@ from typing import List
 from common.config.settings import get_settings
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
-from gateway.auth.utils import verify_access_token
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+
+from gateway.auth.resolver import (
+    LOCAL_ADMIN_USER,
+    extract_credentials,
+    resolve_api_key_user,
+    resolve_jwt_user,
+)
 
 logger = logging.getLogger("gateway.auth.middleware")
 
-# Endpoints exempt from JWT validation
+# Endpoints exempt from mandatory authentication
 WHITELIST_PREFIXES: List[str] = [
     "/auth/login",
     "/auth/register",
@@ -26,123 +32,75 @@ WHITELIST_PREFIXES: List[str] = [
     "/redoc",
     "/favicon.ico",
     "/static",
-    "/v1",  # External API routes use API key authentication (S5-07)
-    "/qdrant",      # Infrastructure proxy iframe route (direct mount)
-    "/neo4j",       # Infrastructure proxy iframe route (direct mount)
-    "/api/qdrant",  # Infrastructure proxy iframe route (legacy)
-    "/api/neo4j",   # Infrastructure proxy iframe route (legacy)
-    "/dashboard",   # Qdrant dashboard static assets route
-    "/collections", # Qdrant dashboard collections API proxy route
-    "/telemetry",   # Qdrant dashboard telemetry API proxy route
+    "/v1",            # External API routes handled by APIKeyMiddleware (S5-07)
+    "/qdrant",        # Infrastructure proxy iframe route (direct mount)
+    "/neo4j",         # Infrastructure proxy iframe route (direct mount)
+    "/api/qdrant",    # Infrastructure proxy iframe route (legacy)
+    "/api/neo4j",     # Infrastructure proxy iframe route (legacy)
+    "/dashboard",     # Qdrant dashboard static assets route
+    "/collections",   # Qdrant dashboard collections API proxy route
+    "/telemetry",     # Qdrant dashboard telemetry API proxy route
     "/api/telemetry", # Telemetry WebSocket and SSE streaming route
-    "/cluster",     # Qdrant dashboard cluster API proxy route
-    "/aliases",     # Qdrant dashboard aliases API proxy route
+    "/cluster",       # Qdrant dashboard cluster API proxy route
+    "/aliases",       # Qdrant dashboard aliases API proxy route
 ]
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """ASGI Middleware to validate JWT tokens on incoming requests."""
+    """ASGI Middleware to validate JWT tokens and API keys on incoming requests."""
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         settings = get_settings()
 
-        # If authentication is disabled globally, skip middleware processing
+        # If authentication is disabled globally, inject local admin user
         if not getattr(settings, "AUTH_ENABLED", False):
-            request.state.user = {
-                "sub": "local-admin-id",
-                "email": "admin@contained.local",
-                "platform_role": "admin",
-            }
+            request.state.user = LOCAL_ADMIN_USER
             return await call_next(request)
-
-        path = request.url.path
 
         # Bypass OPTIONS requests (CORS preflights)
         if request.method == "OPTIONS":
             return await call_next(request)
 
-        # Check if exempt endpoint
+        path = request.url.path
         is_exempt = any(path.startswith(prefix) for prefix in WHITELIST_PREFIXES)
 
-        # Extract token from Authorization header, cookie, or query parameter
-        token: str = ""
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header[7:].strip()
-        elif "auth_token" in request.cookies:
-            token = request.cookies["auth_token"]
-        elif "token" in request.query_params:
-            token = request.query_params["token"]
-        elif "auth_token" in request.query_params:
-            token = request.query_params["auth_token"]
+        token, raw_api_key = extract_credentials(request)
 
-        # If token is an API key (sk-...) or path is in /v1, delegate to APIKeyMiddleware
-        if token.startswith("sk-") or path.startswith("/v1"):
+        # 1. API Key Authentication (Headers: X-API-Key or Bearer: sk-...)
+        if raw_api_key:
+            if path.startswith("/v1"):
+                return await call_next(request)
+
+            api_user = await resolve_api_key_user(request, raw_api_key)
+            if api_user:
+                request.state.user = api_user
+                request.state.api_key = raw_api_key
+                return await call_next(request)
+            elif is_exempt:
+                return await call_next(request)
+
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or inactive API key"},
+            )
+
+        # 2. JWT Token Authentication
+        if token:
+            jwt_user, error_response = await resolve_jwt_user(request, token)
+            if error_response and not is_exempt:
+                return error_response
+            if jwt_user:
+                request.state.user = jwt_user
+                request.state.token = token
             return await call_next(request)
 
-        if not token:
-            # If endpoint is exempt or X-API-Key is provided, allow request through
-            if is_exempt or request.headers.get("X-API-Key") or request.headers.get("x-api-key"):
-                return await call_next(request)
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Missing authentication credentials"},
-            )
+        # 3. No Credentials Provided
+        if is_exempt:
+            return await call_next(request)
 
-        try:
-            payload = verify_access_token(token)
-            user_id = payload.get("sub") or payload.get("id")
-
-            from gateway.auth.utils import hash_token, is_token_revoked
-            token_h = hash_token(token)
-            if is_token_revoked(token_h):
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Session has been revoked or logged out"},
-                )
-
-            if user_id:
-                try:
-                    from common.clients.postgres import get_async_db
-                    from common.models.database import User
-
-                    get_db_fn = request.app.dependency_overrides.get(get_async_db, get_async_db)
-                    async for db in get_db_fn():
-                        user_obj = await db.get(User, user_id)
-                        if user_obj is None:
-                            return JSONResponse(
-                                status_code=401,
-                                content={"detail": "Authenticated user no longer exists"},
-                            )
-                        if getattr(user_obj, "is_deleted", False):
-                            return JSONResponse(
-                                status_code=403,
-                                content={"detail": {"reason": "ACCOUNT_SOFT_DELETED", "status": "deleted"}},
-                            )
-                        if user_obj.status != "active":
-                            reason_map = {
-                                "pending": "ACCOUNT_PENDING_APPROVAL",
-                                "suspended": "ACCOUNT_SUSPENDED",
-                                "rejected": "ACCOUNT_REJECTED",
-                            }
-                            reason_code = reason_map.get(user_obj.status, "ACCOUNT_NOT_ACTIVE")
-                            return JSONResponse(
-                                status_code=403,
-                                content={"detail": {"reason": reason_code, "status": user_obj.status}},
-                            )
-                        break
-                except Exception as exc:
-                    logger.debug(f"User status DB re-verification skipped: {exc}")
-
-            request.state.user = payload
-            request.state.token = token
-        except Exception as e:
-            logger.warning(f"JWT validation failed for {path}: {e}")
-            return JSONResponse(
-                status_code=401,
-                content={"detail": f"Invalid or expired token: {str(e)}"},
-            )
-
-        return await call_next(request)
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Missing authentication credentials"},
+        )

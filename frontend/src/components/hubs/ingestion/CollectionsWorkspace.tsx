@@ -76,7 +76,7 @@ export function CollectionsWorkspace() {
           });
         }
         embeddingObj.available?.forEach((entry: any) => {
-          if (!items.some((m) => m.id === entry.model_id)) {
+          if (!items.some((m) => m.id === entry.model_id || m.name.toLowerCase() === entry.display_name.toLowerCase())) {
             items.push({
               id: entry.model_id,
               name: entry.display_name,

@@ -27,10 +27,14 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger("common.services.hub_resolver")
+try:
+    from projects.syntraflow.src.database.models import SyntraFlowCollection
+except ImportError:
+    SyntraFlowCollection = None
 
 RESOURCE_TYPE_MODELS: Dict[str, Any] = {
-    "collection": DatastoreBinding,
+    "collection": SyntraFlowCollection or DatastoreBinding,
+    "datastore_binding": DatastoreBinding,
     "agent": AgentDefinition,
     "workflow": WorkflowDefinition,
     "eval_suite": EvalTestSuite,
@@ -39,6 +43,7 @@ RESOURCE_TYPE_MODELS: Dict[str, Any] = {
 
 RESOURCE_TYPE_HUB_TYPE: Dict[str, str] = {
     "collection": "ingestion",
+    "datastore_binding": "ingestion",
     "agent": "agent",
     "workflow": "workflow",
     "eval_suite": "eval",
@@ -81,18 +86,27 @@ async def resolve_linked(
     with sufficient access_level. Raises HubLinkError (403 on wire) otherwise.
     Strictly non-transitive (single-hop only).
     """
-    model_cls = RESOURCE_TYPE_MODELS.get(target_resource_type)
-    if model_cls is None:
-        raise ValueError(f"Unknown target_resource_type: '{target_resource_type}'. Valid: {list(RESOURCE_TYPE_MODELS.keys())}")
-
-    # hub-resolver: allowlisted unscoped read by primary key
-    stmt = select(model_cls).where(model_cls.id == target_resource_id)
-    res = await session.execute(stmt)
-    row = res.scalar_one_or_none()
+    row = None
+    if target_resource_type == "collection":
+        if SyntraFlowCollection is not None:
+            stmt_sc = select(SyntraFlowCollection).where(SyntraFlowCollection.id == target_resource_id)
+            res_sc = await session.execute(stmt_sc)
+            row = res_sc.scalar_one_or_none()
+        if row is None:
+            stmt_ds = select(DatastoreBinding).where(DatastoreBinding.id == target_resource_id)
+            res_ds = await session.execute(stmt_ds)
+            row = res_ds.scalar_one_or_none()
+    else:
+        model_cls = RESOURCE_TYPE_MODELS.get(target_resource_type)
+        if model_cls is None:
+            raise ValueError(f"Unknown target_resource_type: '{target_resource_type}'. Valid: {list(RESOURCE_TYPE_MODELS.keys())}")
+        stmt = select(model_cls).where(model_cls.id == target_resource_id)
+        res = await session.execute(stmt)
+        row = res.scalar_one_or_none()
 
     if row is None:
         raise HubLinkError(
-            HUB_LINK_REQUIRED,
+            "REFERENCE_TARGET_MISSING",
             f"Resource '{target_resource_id}' not found or inaccessible",
             source_hub_id=source_hub_id,
         )
@@ -100,7 +114,7 @@ async def resolve_linked(
     target_hub_id = getattr(row, "hub_id", None)
     if not target_hub_id:
         raise HubLinkError(
-            HUB_LINK_REQUIRED,
+            "REFERENCE_TARGET_MISSING",
             f"Resource '{target_resource_id}' has no associated hub",
             source_hub_id=source_hub_id,
         )

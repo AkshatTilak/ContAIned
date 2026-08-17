@@ -23,6 +23,7 @@ import { IngestionUploadModal } from "./IngestionUploadModal";
 export function DocumentsWorkspace() {
   const { hubId } = useParams<{ hubId: string }>();
   const { can, isArchived } = useHubPermissions();
+  const addNotification = useStore((state) => state.addNotification);
 
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,13 +46,18 @@ export function DocumentsWorkspace() {
   const [chunks, setChunks] = useState<any[]>([]);
   const [loadingChunks, setLoadingChunks] = useState(false);
 
+  // Deletion Modals
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+
   const fetchDocuments = async () => {
     if (!hubId) return;
     setLoading(true);
     setError(null);
     try {
       const res = await api.ingestion.documents.list(hubId, 50, 0);
-      setDocuments(res.items || []);
+      const items = Array.isArray(res) ? res : (res?.items || []);
+      setDocuments(items);
     } catch (err: any) {
       setError(err?.message || "Failed to load hub documents");
     } finally {
@@ -75,6 +81,18 @@ export function DocumentsWorkspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hubId]);
 
+  const filteredDocs = useMemo(() => {
+    let result = Array.isArray(documents) ? documents : [];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((d) => (d.filename || "").toLowerCase().includes(q));
+    }
+    if (statusFilter !== "all") {
+      result = result.filter((d) => (d.status || "completed") === statusFilter);
+    }
+    return result;
+  }, [documents, searchQuery, statusFilter]);
+
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hubId || !uploadFile) return;
@@ -96,10 +114,6 @@ export function DocumentsWorkspace() {
       setUploading(false);
     }
   };
-
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
-  const addNotification = useStore((state) => state.addNotification);
 
   const handleDeleteDoc = async (docId: string) => {
     if (!hubId) return;
@@ -157,18 +171,6 @@ export function DocumentsWorkspace() {
       setLoadingChunks(false);
     }
   };
-
-  const filteredDocs = useMemo(() => {
-    let result = documents;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter((d) => d.filename.toLowerCase().includes(q));
-    }
-    if (statusFilter !== "all") {
-      result = result.filter((d) => (d.status || "completed") === statusFilter);
-    }
-    return result;
-  }, [documents, searchQuery, statusFilter]);
 
   const toggleSelectAll = () => {
     if (selectedDocIds.size === filteredDocs.length) {

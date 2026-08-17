@@ -102,6 +102,27 @@ export function HubDirectory() {
     }
   };
 
+  const handleToggleArchive = async (e: React.MouseEvent, hubId: string, hubName: string, isArchived: boolean) => {
+    e.stopPropagation();
+    const action = isArchived ? "unarchive" : "archive";
+    if (window.confirm(`Are you sure you want to ${action} the hub "${hubName}"?`)) {
+      try {
+        if (isArchived) {
+          await api.hubs.unarchive(hubId);
+        } else {
+          await api.hubs.archive(hubId);
+        }
+        fetchAllHubs();
+      } catch (err: any) {
+        alert(err?.message || `Failed to ${action} hub`);
+      }
+    }
+  };
+
+  const totalArchivedCount = useMemo(() => {
+    return Object.values(hubsByType).flat().filter((h) => h.is_archived).length;
+  }, [hubsByType]);
+
   useEffect(() => {
     fetchAllHubs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -245,14 +266,19 @@ export function HubDirectory() {
           </div>
 
           {/* Show Archived Toggle */}
-          <label className="flex items-center space-x-2 text-xs font-medium text-slate-400 cursor-pointer select-none">
+          <label className={`flex items-center space-x-2 text-xs font-medium cursor-pointer select-none px-2.5 py-1.5 rounded-lg border transition-all ${
+            showArchived
+              ? "bg-amber-950/40 border-amber-800/60 text-amber-300"
+              : "bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-300"
+          }`}>
             <input
               type="checkbox"
               checked={showArchived}
               onChange={(e) => setShowArchived(e.target.checked)}
-              className="rounded border-slate-800 bg-slate-900 text-indigo-600 focus:ring-0"
+              className="rounded border-slate-750 bg-slate-900 text-amber-500 focus:ring-0 accent-amber-500"
             />
-            <span>Show archived</span>
+            <Archive className="w-3.5 h-3.5" />
+            <span>Show archived {totalArchivedCount > 0 ? `(${totalArchivedCount})` : ""}</span>
           </label>
 
           {/* Sort Selector */}
@@ -312,7 +338,7 @@ export function HubDirectory() {
                       whileHover={{ y: -2 }}
                       className={`p-5 bg-slate-900/50 hover:bg-slate-900/80 border rounded-xl cursor-pointer transition-all flex flex-col justify-between space-y-4 shadow-lg ${
                         hub.is_archived
-                          ? "border-amber-900/40 opacity-75"
+                          ? "border-amber-900/50 bg-amber-950/10 opacity-80"
                           : "border-slate-800/80 hover:border-indigo-500/40"
                       }`}
                     >
@@ -339,6 +365,17 @@ export function HubDirectory() {
                                 <span>Archived</span>
                               </span>
                             )}
+                            <button
+                              onClick={(e) => handleToggleArchive(e, hub.id, hub.name, !!hub.is_archived)}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                hub.is_archived
+                                  ? "text-amber-400 hover:text-amber-300 hover:bg-amber-950/60"
+                                  : "text-slate-500 hover:text-amber-400 hover:bg-slate-800/80"
+                              }`}
+                              title={hub.is_archived ? "Unarchive Hub" : "Archive Hub"}
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               onClick={(e) => handleDeleteHub(e, hub.id, hub.name)}
                               className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800/80 rounded-lg transition-colors"

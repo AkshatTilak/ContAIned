@@ -135,6 +135,9 @@ export function WorkflowRunModal({
       const handleEvent = (eventName: string, raw: string) => {
         try {
           const data = JSON.parse(raw);
+          if (eventName === "ping") {
+            return;
+          }
           if (eventName === "run_end") {
             setRunEndData(data);
             setRunStatus(data.status);
@@ -148,7 +151,7 @@ export function WorkflowRunModal({
         }
       };
 
-      for (const evtName of ["run_start", "node_start", "node_end", "run_end"]) {
+      for (const evtName of ["run_start", "node_start", "node_end", "run_end", "ping"]) {
         es.addEventListener(evtName, (e: MessageEvent) => handleEvent(evtName, e.data));
       }
 
@@ -162,10 +165,28 @@ export function WorkflowRunModal({
         }
       };
 
-      es.onerror = () => {
+      es.onerror = async () => {
+        es.close();
+        // Check if run already reached terminal status on server
+        try {
+          const finishedRun = await api.workflows.runs.get(hubId, workflowId, runId);
+          if (finishedRun && (finishedRun.status === "succeeded" || finishedRun.status === "failed")) {
+            setRunEndData({
+              run_id: finishedRun.id,
+              status: finishedRun.status,
+              duration_ms: finishedRun.duration_ms,
+              output: finishedRun.output_json,
+              error: finishedRun.error_message ? { message: finishedRun.error_message } : null,
+            });
+            setRunStatus(finishedRun.status);
+            setIsRunning(false);
+            return;
+          }
+        } catch {
+          // fallback to error
+        }
         setError("SSE stream connection lost. The run may still be completing.");
         setIsRunning(false);
-        es.close();
       };
     } catch (err: any) {
       setError(err?.message || "Workflow execution failed!");

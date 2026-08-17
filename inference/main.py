@@ -82,14 +82,27 @@ async def register_loaders_from_db() -> None:
         from inference.models.harrier import load_harrier, load_harrier_270m
 
         loader_mapping = {
-            "THUDM/GLM-OCR": load_glm_ocr,
-            "paddleocr": load_baidu_ocr,
-            "FunAudioLLM/SenseVoiceSmall": load_sensevoice,
-            "Arch-Router-1.5B": load_classifier,
-            "jinaai/jina-clip-v2": load_jina_clip,
+            "baidu-ocr": load_baidu_ocr,
+            "glm-ocr": load_glm_ocr,
+            "sensevoice-small": load_sensevoice,
+            "arch-router-1.5b": load_classifier,
+            "jina-clip-v2": load_jina_clip,
             "harrier-0.6b": load_harrier,
             "harrier-270m": load_harrier_270m,
+            "bge-base-en-v1.5": load_harrier,
+            "nomic-embed-vision-v1.5": load_jina_clip,
         }
+
+        # Register canonical model loaders in VRAMManager
+        vram.register_loader("baidu-ocr", load_baidu_ocr, 3000)
+        vram.register_loader("glm-ocr", load_glm_ocr, 2000)
+        vram.register_loader("jina-clip-v2", load_jina_clip, 1000)
+        vram.register_loader("sensevoice-small", load_sensevoice, 250)
+        vram.register_loader("arch-router-1.5b", load_classifier, 2000)
+        vram.register_loader("harrier-0.6b", load_harrier, 800)
+        vram.register_loader("harrier-270m", load_harrier_270m, 400)
+        vram.register_loader("bge-base-en-v1.5", load_harrier, 800)
+        vram.register_loader("nomic-embed-vision-v1.5", load_jina_clip, 1000)
 
         session_factory = get_sessionmaker()
         async with session_factory() as session:
@@ -100,23 +113,11 @@ async def register_loaders_from_db() -> None:
             )
             models = result.scalars().all()
             
-            # Reset loaders
-            vram._loaders.clear()
-            vram._semaphores.clear()
-            
             for model in models:
-                loader_fn = loader_mapping.get(model.model_id)
+                loader_fn = loader_mapping.get(model.model_id) or loader_mapping.get(model.model_id.lower())
                 if loader_fn:
                     vram_mb = model.vram_mb or 1000
-                    # Register under various identifier patterns for robustness
                     vram.register_loader(model.model_id, loader_fn, vram_mb)
-                    vram.register_loader(model.model_id.lower(), loader_fn, vram_mb)
-                    vram.register_loader(model.display_name.lower(), loader_fn, vram_mb)
-                else:
-                    logger.warning(
-                        "No local loader found for model: %s (role=%s)",
-                        model.model_id, model.role
-                    )
             logger.info("Dynamic model loaders registered: %s", list(vram._loaders.keys()))
     except Exception as e:
         logger.error("Failed to dynamically register model loaders from DB registry: %s. Falling back to hardcoded defaults.", e)
@@ -128,13 +129,15 @@ async def register_loaders_from_db() -> None:
         from inference.models.glm_ocr import load_glm_ocr
         from inference.models.harrier import load_harrier, load_harrier_270m
 
-        vram.register_loader("paddleocr", load_baidu_ocr, 3000)
-        vram.register_loader("jinaai/jina-clip-v2", load_jina_clip, 1000)
-        vram.register_loader("FunAudioLLM/SenseVoiceSmall", load_sensevoice, 250)
-        vram.register_loader("Arch-Router-1.5B", load_classifier, 2000)
-        vram.register_loader("THUDM/GLM-OCR", load_glm_ocr, 2000)
+        vram.register_loader("baidu-ocr", load_baidu_ocr, 3000)
+        vram.register_loader("glm-ocr", load_glm_ocr, 2000)
+        vram.register_loader("jina-clip-v2", load_jina_clip, 1000)
+        vram.register_loader("sensevoice-small", load_sensevoice, 250)
+        vram.register_loader("arch-router-1.5b", load_classifier, 2000)
         vram.register_loader("harrier-0.6b", load_harrier, 800)
         vram.register_loader("harrier-270m", load_harrier_270m, 400)
+        vram.register_loader("bge-base-en-v1.5", load_harrier, 800)
+        vram.register_loader("nomic-embed-vision-v1.5", load_jina_clip, 1000)
 
 
 @app.post("/reload")

@@ -167,3 +167,54 @@ async def test_collection_hub_isolation_access_control(
         headers=headers_b,
     )
     assert detail_b_resp.status_code in (404, 403)
+
+
+@pytest.mark.asyncio
+async def test_delete_hub_and_recreate_collection_with_same_name(
+    gateway_client: AsyncClient,
+    seed_user,
+    qdrant_client: AsyncQdrantClient,
+):
+    """Deleting a hub and creating a new hub with the same slug allows creating a collection with the exact same name."""
+    owner = await seed_user(email="lifecycle_tester@contained.ai", role="admin")
+    headers = await _auth_headers(owner)
+
+    # 1. Create first hub
+    hub1_resp = await gateway_client.post(
+        "/api/hubs",
+        json={"name": "Resume Hub", "slug": "resume-lifecycle", "hub_type": "ingestion"},
+        headers=headers,
+    )
+    assert hub1_resp.status_code == 201
+    hub1_id = hub1_resp.json()["id"]
+
+    # 2. Create collection "resume-data" in first hub
+    col1_resp = await gateway_client.post(
+        f"/api/hubs/{hub1_id}/ingestion/collections",
+        json={"name": "resume-data", "embedding_model": "harrier-0.6b", "vector_dimension": 768},
+        headers=headers,
+    )
+    assert col1_resp.status_code == 201
+
+    # 3. Delete first hub
+    del_hub_resp = await gateway_client.delete(f"/api/hubs/{hub1_id}", headers=headers)
+    assert del_hub_resp.status_code == 204
+
+    # 4. Re-create new hub with exact same slug
+    hub2_resp = await gateway_client.post(
+        "/api/hubs",
+        json={"name": "Resume Hub", "slug": "resume-lifecycle", "hub_type": "ingestion"},
+        headers=headers,
+    )
+    assert hub2_resp.status_code == 201
+    hub2_id = hub2_resp.json()["id"]
+
+    # 5. Create collection with the exact same name "resume-data" in new hub (tests physical_name collision resolution)
+    col2_resp = await gateway_client.post(
+        f"/api/hubs/{hub2_id}/ingestion/collections",
+        json={"name": "resume-data", "embedding_model": "harrier-0.6b", "vector_dimension": 768},
+        headers=headers,
+    )
+    assert col2_resp.status_code == 201, f"Failed to recreate collection with same physical name: {col2_resp.text}"
+    assert col2_resp.json()["name"] == "resume-data"
+

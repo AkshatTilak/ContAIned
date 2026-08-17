@@ -97,9 +97,15 @@ async function request<T>(
   const url = `${config.baseUrl}${endpoint}`;
 
   const token = localStorage.getItem("contained_auth_token");
+  const isPublicAuthRoute =
+    endpoint.startsWith("/auth/login") ||
+    endpoint.startsWith("/auth/register") ||
+    endpoint.startsWith("/auth/forgot-password") ||
+    endpoint.startsWith("/auth/reset-password");
+
   const headers: Record<string, string> = {
     "X-API-Key": config.apiKey,
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token && !isPublicAuthRoute ? { Authorization: `Bearer ${token}` } : {}),
     ...((options.headers as Record<string, string>) || {}),
   };
 
@@ -424,8 +430,13 @@ export const api = {
       get: (hubId: string, workflowId: string, runId: string) =>
         request<any>(`/api/hubs/${hubId}/workflows/${workflowId}/runs/${runId}`),
       streamUrl: (hubId: string, workflowId: string, runId: string): string => {
-        const { baseUrl } = getClientConfig();
-        return `${baseUrl}/api/hubs/${hubId}/workflows/${workflowId}/runs/${runId}/stream`;
+        const { baseUrl, apiKey } = getClientConfig();
+        const token = localStorage.getItem("contained_auth_token");
+        const params = new URLSearchParams();
+        if (token) params.append("token", token);
+        if (apiKey) params.append("api_key", apiKey);
+        const q = params.toString() ? `?${params.toString()}` : "";
+        return `${baseUrl}/api/hubs/${hubId}/workflows/${workflowId}/runs/${runId}/stream${q}`;
       },
     },
   },

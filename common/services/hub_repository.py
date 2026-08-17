@@ -5,7 +5,7 @@ from typing import Optional, TypeVar, Sequence
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.models.database import Hub, HubMember, HubLink, DatastoreBinding, AuditLog, Base
+from common.models.database import Hub, HubMember, HubLink, DatastoreBinding, AuditLog, User, Base
 from common.models.hub_enums import is_link_direction_allowed, HUB_ROLE_OWNER
 from common.schemas.hubs import HubCreate, HubUpdate
 
@@ -60,7 +60,11 @@ async def get_hub(session: AsyncSession, hub_id: str) -> Optional[Hub]:
 
 async def get_hub_by_slug(session: AsyncSession, *, hub_type: str, slug: str) -> Optional[Hub]:
     """Fetch a Hub by hub_type and slug."""
-    stmt = select(Hub).where(Hub.hub_type == hub_type, Hub.slug == slug.lower())
+    stmt = select(Hub).where(
+        Hub.hub_type == hub_type,
+        Hub.slug == slug.lower(),
+        Hub.is_deleted.is_(False),
+    )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -102,9 +106,42 @@ async def list_hubs_for_user(
 
 async def create_hub(session: AsyncSession, *, data: HubCreate, owner_id: str) -> Hub:
     """Create a new Hub and enroll the owner as HubMember(role='owner') in one transaction."""
+    import uuid as _uuid
+
     existing = await get_hub_by_slug(session, hub_type=data.hub_type, slug=data.slug)
     if existing:
         raise DuplicateSlugError(f"Hub with slug '{data.slug}' already exists for type '{data.hub_type}'.")
+
+    # Release any legacy soft-deleted hub occupying this slug in Postgres
+    stmt_del = select(Hub).where(
+        Hub.hub_type == data.hub_type,
+        Hub.slug == data.slug.lower(),
+        Hub.is_deleted.is_(True),
+    )
+    res_del = await session.execute(stmt_del)
+    deleted_hub = res_del.scalar_one_or_none()
+    if deleted_hub:
+        deleted_hub.slug = f"{deleted_hub.slug}-del-{_uuid.uuid4().hex[:8]}"
+        await session.flush()
+
+    # Ensure owner exists in users table (e.g. for API key / local admin context)
+    stmt_owner = select(User).where(User.id == owner_id)
+    owner_user = (await session.execute(stmt_owner)).scalar_one_or_none()
+    if not owner_user:
+        stmt_admin = select(User).where(User.platform_role == "admin", User.is_deleted.is_(False))
+        admin_user = (await session.execute(stmt_admin)).scalars().first()
+        if admin_user:
+            owner_id = admin_user.id
+        else:
+            owner_user = User(
+                id=owner_id,
+                email=f"{owner_id}@contained.local",
+                display_name="Platform Admin",
+                platform_role="admin",
+                status="active",
+            )
+            session.add(owner_user)
+            await session.flush()
 
     hub = Hub(
         name=data.name,
@@ -146,6 +183,7 @@ async def create_hub(session: AsyncSession, *, data: HubCreate, owner_id: str) -
 
 async def update_hub(session: AsyncSession, *, hub_id: str, data: HubUpdate) -> Hub:
     """Update a Hub's metadata."""
+    import uuid as _uuid
     hub = await get_hub(session, hub_id)
     if not hub:
         raise HubNotFoundError(f"Hub '{hub_id}' not found.")
@@ -154,6 +192,18 @@ async def update_hub(session: AsyncSession, *, hub_id: str, data: HubUpdate) -> 
         existing = await get_hub_by_slug(session, hub_type=hub.hub_type, slug=data.slug)
         if existing and existing.id != hub_id:
             raise DuplicateSlugError(f"Hub slug '{data.slug}' is already taken for type '{hub.hub_type}'.")
+        
+        stmt_del = select(Hub).where(
+            Hub.hub_type == hub.hub_type,
+            Hub.slug == data.slug.lower(),
+            Hub.is_deleted.is_(True),
+        )
+        res_del = await session.execute(stmt_del)
+        deleted_hub = res_del.scalar_one_or_none()
+        if deleted_hub:
+            deleted_hub.slug = f"{deleted_hub.slug}-del-{_uuid.uuid4().hex[:8]}"
+            await session.flush()
+
         hub.slug = data.slug.lower()
 
     if data.name is not None:
@@ -208,6 +258,8 @@ async def delete_hub_if_empty(session: AsyncSession, *, hub_id: str, force: bool
 
     hub.is_deleted = True
     hub.deleted_at = datetime.utcnow()
+    import uuid as _uuid
+    hub.slug = f"{hub.slug}-del-{_uuid.uuid4().hex[:8]}"
     await session.flush()
 
 

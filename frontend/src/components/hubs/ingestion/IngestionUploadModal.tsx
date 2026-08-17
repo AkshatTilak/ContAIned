@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Upload,
   X,
@@ -26,6 +26,27 @@ interface IngestionUploadModalProps {
   onSuccess: () => void;
 }
 
+const DEFAULT_COMPLETION_MODELS = [
+  { id: "gemini/gemma-4-31b-it", name: "Google Gemma 4 31B IT (High Speed)", provider: "Google" },
+  { id: "gemini/gemma-4-26b-a4b-it", name: "Google Gemma 4 26B A4B IT (Distributed)", provider: "Google" },
+  { id: "gemini/gemma-3-27b-it", name: "Google Gemma 3 27B IT", provider: "Google" },
+  { id: "gemini/gemma-3-12b-it", name: "Google Gemma 3 12B IT", provider: "Google" },
+  { id: "gemini/gemma-3-4b-it", name: "Google Gemma 3 4B IT", provider: "Google" },
+  { id: "gemini/gemini-2.5-flash", name: "Google Gemini 2.5 Flash", provider: "Google" },
+  { id: "gemini/gemini-2.5-pro", name: "Google Gemini 2.5 Pro", provider: "Google" },
+  { id: "gemini/gemini-1.5-flash", name: "Google Gemini 1.5 Flash", provider: "Google" },
+  { id: "gemini/gemini-1.5-pro", name: "Google Gemini 1.5 Pro", provider: "Google" },
+  { id: "groq/llama-3.3-70b-versatile", name: "Groq Llama 3.3 70B", provider: "Groq" },
+  { id: "cerebras/llama3.1-70b", name: "Cerebras Llama 3.1 70B", provider: "Cerebras" },
+  { id: "openrouter/google/gemini-3.5-flash:free", name: "OpenRouter Gemini Flash", provider: "OpenRouter" },
+  { id: "gpt-4o", name: "OpenAI GPT-4o", provider: "OpenAI" },
+  { id: "gpt-4o-mini", name: "OpenAI GPT-4o Mini", provider: "OpenAI" },
+  { id: "claude-3-5-sonnet-20241022", name: "Anthropic Claude 3.5 Sonnet", provider: "Anthropic" },
+  { id: "ollama/llama3", name: "Local Ollama Llama 3", provider: "Local" },
+  { id: "ollama/mistral", name: "Local Ollama Mistral", provider: "Local" },
+  { id: "ollama/qwen2.5", name: "Local Ollama Qwen 2.5", provider: "Local" },
+];
+
 export function IngestionUploadModal({
   hubId,
   collections,
@@ -50,16 +71,53 @@ export function IngestionUploadModal({
   const [asrModel, setAsrModel] = useState<string>("sensevoice-small");
   const [ssimThreshold, setSsimThreshold] = useState<number>(0.3);
 
-  // Post Processors
+  // Post Processors & Models
+  const [availableLLMs, setAvailableLLMs] = useState(DEFAULT_COMPLETION_MODELS);
   const [enableSummary, setEnableSummary] = useState<boolean>(false);
-  const [summaryModel, setSummaryModel] = useState<string>("gemini/gemini-2.5-flash");
+  const [summaryModel, setSummaryModel] = useState<string>("gemini/gemma-4-31b-it");
   const [enableKeyphrase, setEnableKeyphrase] = useState<boolean>(true);
   const [enableTablePreserve, setEnableTablePreserve] = useState<boolean>(true);
   const [enableKG, setEnableKG] = useState<boolean>(false);
-  const [graphModel, setGraphModel] = useState<string>("gemini/gemini-2.5-flash");
+  const [graphModel, setGraphModel] = useState<string>("gemini/gemma-4-31b-it");
 
   const [uploading, setUploading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch dynamic models from Model Registry on mount
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const reg = await api.getModels();
+        const items = [...DEFAULT_COMPLETION_MODELS];
+        Object.values(reg).forEach((roleObj: any) => {
+          if (roleObj?.active && !items.some((m) => m.id === roleObj.active.model_id)) {
+            items.push({
+              id: roleObj.active.model_id,
+              name: roleObj.active.display_name || roleObj.active.model_id,
+              provider: roleObj.active.provider || "Custom",
+            });
+          }
+          roleObj?.available?.forEach((entry: any) => {
+            if (!items.some((m) => m.id === entry.model_id)) {
+              items.push({
+                id: entry.model_id,
+                name: entry.display_name || entry.model_id,
+                provider: entry.provider || "Custom",
+              });
+            }
+          });
+        });
+        if (items.length > 0) {
+          setAvailableLLMs(items);
+        }
+      } catch {
+        // Fallback to DEFAULT_COMPLETION_MODELS
+      }
+    };
+    if (isOpen) {
+      loadModels();
+    }
+  }, [isOpen]);
 
   // Detect category based on file extension
   const fileCategory = useMemo(() => {
@@ -436,9 +494,11 @@ export function IngestionUploadModal({
                           onChange={(e) => setSummaryModel(e.target.value)}
                           className="w-full bg-slate-900 border border-slate-750 rounded-md px-2.5 py-1.5 text-xs text-slate-200"
                         >
-                          <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash</option>
-                          <option value="ollama/llama3">Ollama Llama 3</option>
-                          <option value="gpt-4o">OpenAI GPT-4o</option>
+                          {availableLLMs.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              [{m.provider}] {m.name}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     )}
@@ -472,8 +532,11 @@ export function IngestionUploadModal({
                           onChange={(e) => setGraphModel(e.target.value)}
                           className="w-full bg-slate-900 border border-slate-750 rounded-md px-2.5 py-1.5 text-xs text-slate-200"
                         >
-                          <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash</option>
-                          <option value="ollama/llama3">Ollama Llama 3</option>
+                          {availableLLMs.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              [{m.provider}] {m.name}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     )}
