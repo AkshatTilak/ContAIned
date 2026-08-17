@@ -16,6 +16,8 @@ from common.config.settings import settings
 
 logger = logging.getLogger("common.database")
 
+from sqlalchemy.pool import NullPool
+
 _engine = None
 _engine_loop = None
 _SessionLocal = None
@@ -38,8 +40,7 @@ def get_engine():
         try:
             _engine = create_async_engine(
                 settings.DATABASE_URL,
-                pool_size=10,
-                max_overflow=20,
+                poolclass=NullPool,
                 pool_pre_ping=True,
             )
             _engine_loop = current_loop

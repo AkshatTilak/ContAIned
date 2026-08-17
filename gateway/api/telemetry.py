@@ -9,7 +9,7 @@ import json
 import logging
 import time
 from typing import AsyncGenerator
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from sse_starlette.sse import EventSourceResponse
 
 from common.clients.redis import get_redis_client, publish_event
@@ -196,6 +196,6 @@ async def sse_telemetry_generator() -> AsyncGenerator[dict, None]:
 
 
 @router.get("/stream")
-async def sse_telemetry_endpoint():
+async def sse_telemetry_endpoint(request: Request):
     """SSE endpoint for streaming telemetry data."""
-    return EventSourceResponse(sse_telemetry_generator())
+    return EventSourceResponse(sse_telemetry_generator(), ping=1)

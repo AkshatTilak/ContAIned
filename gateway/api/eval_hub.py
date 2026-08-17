@@ -4,8 +4,10 @@ Mounted at /api/hubs/{hub_id}/eval/* and guarded by require_hub(hub_type="eval")
 Delegates all operations to projects.evalops services.
 """
 
+import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Any, List, Literal, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import Response
@@ -433,7 +435,7 @@ async def trigger_eval_run(
             suite_id=suite.id,
             target=target,
             run_status="queued",
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
         )
     else:
         try:
@@ -451,7 +453,7 @@ async def trigger_eval_run(
                 suite_id=suite.id,
                 target=target,
                 run_status="completed",
-                created_at=datetime.utcnow().isoformat(),
+                created_at=datetime.now(timezone.utc).isoformat(),
             )
         except ValueError as ve:
             err_str = str(ve)

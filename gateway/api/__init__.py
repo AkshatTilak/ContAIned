@@ -6,9 +6,9 @@ Adapted from zypp_ai_monorepo/backend/api/__init__.py.
 
 import importlib
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, status
 
 from common.config.settings import settings
 from common.observability.logger import get_logger, log_security_event
@@ -35,7 +35,6 @@ async def verify_api_key(
         path.startswith("/api/qdrant")
         or path.startswith("/api/neo4j")
         or path.startswith("/api/telemetry")
-        or request.scope.get("type") == "websocket"
     ):
         return
 
@@ -50,28 +49,28 @@ async def verify_api_key(
 
         session_factory = get_sessionmaker()
         async with session_factory() as session:
-            result = await session.execute(
+            key_record = await session.scalar(
                 select(APIKeyModel)
                 .where((APIKeyModel.key == hashed_key) | (APIKeyModel.key == x_api_key))
                 .where(APIKeyModel.is_active == True)
             )
-            db_key = result.scalar_one_or_none()
-            if db_key:
-                request.state.user = {
-                    "sub": db_key.user_id or "api-key-user",
-                    "id": db_key.user_id or "api-key-user",
-                    "platform_role": "admin" if db_key.user_id is None else "member",
-                }
-                request.state.api_key_id = db_key.id
+            if key_record:
+                # Update usage tracking
+                key_record.usage_count = (key_record.usage_count or 0) + 1
+                await session.commit()
                 return
-            else:
-                log_security_event("AUTH_FAILURE", {"reason": "Invalid or inactive X-API-Key", "provided_key": x_api_key})
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Unauthorized: Invalid X-API-Key"
-                )
 
-    log_security_event("AUTH_FAILURE", {"reason": "Missing authentication credentials or X-API-Key"})
+    # 3. Log security failure and reject with 401
+    log_security_event(
+        event_type="UNAUTHORIZED_ACCESS_ATTEMPT",
+        details={
+            "path": path,
+            "method": request.method,
+            "has_api_key": bool(x_api_key),
+            "reason": "Missing or invalid authentication credentials",
+        },
+    )
+
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Unauthorized: Missing authentication credentials or X-API-Key header"
@@ -79,6 +78,7 @@ async def verify_api_key(
 
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_api_key)])
+public_router = APIRouter(prefix="/api")
 
 from gateway.api.hubs import router as hubs_router
 from gateway.api.ingestion_hub import router as ingestion_hub_router
@@ -96,6 +96,11 @@ from gateway.api.api_keys import router as api_keys_router
 from gateway.api.proxy import router as proxy_router
 from gateway.api.credentials import router as credentials_router
 from gateway.api.db_credentials import router as db_credentials_router
+
+from gateway.api.health import router as health_router
+
+public_router.include_router(telemetry_router)
+public_router.include_router(health_router)
 
 router.include_router(hubs_router)
 router.include_router(ingestion_hub_router)

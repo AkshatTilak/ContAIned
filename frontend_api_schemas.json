@@ -1,0 +1,1690 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContAIned API Frontend Types",
+  "definitions": {
+    "HubType": {
+      "type": "string",
+      "enum": [
+        "ingestion",
+        "agent",
+        "workflow",
+        "eval"
+      ]
+    },
+    "HubRole": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "maintainer",
+        "contributor",
+        "viewer"
+      ]
+    },
+    "HubAccessLevel": {
+      "type": "string",
+      "enum": [
+        "read",
+        "use"
+      ]
+    },
+    "PlatformRole": {
+      "type": "string",
+      "enum": [
+        "admin",
+        "member"
+      ]
+    },
+    "UserStatus": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "active",
+        "suspended",
+        "rejected"
+      ]
+    },
+    "Hub": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "hub_type": {
+          "$ref": "#/definitions/HubType"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "owner_id": {
+          "type": "string"
+        },
+        "is_archived": {
+          "type": "boolean"
+        },
+        "my_role": {
+          "$ref": "#/definitions/HubRole"
+        },
+        "resource_count": {
+          "type": "number"
+        },
+        "resource_counts": {
+          "type": "object"
+        },
+        "member_count": {
+          "type": "number"
+        },
+        "last_activity_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "slug",
+        "name",
+        "hub_type",
+        "owner_id",
+        "is_archived",
+        "my_role",
+        "member_count",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "HubMember": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hub_role": {
+          "$ref": "#/definitions/HubRole"
+        },
+        "invited_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hub_id",
+        "user_id",
+        "hub_role",
+        "created_at"
+      ]
+    },
+    "HubLink": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source_hub_id": {
+          "type": "string"
+        },
+        "target_hub_id": {
+          "type": "string"
+        },
+        "source_hub_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_hub_type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HubType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_hub_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_hub_type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HubType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_hub_slug": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "access_level": {
+          "$ref": "#/definitions/HubAccessLevel"
+        },
+        "created_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_hub_id",
+        "target_hub_id",
+        "access_level",
+        "created_at"
+      ]
+    },
+    "DatastoreBinding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "store_type": {
+          "type": "string",
+          "enum": [
+            "qdrant",
+            "neo4j",
+            "postgres",
+            "opensearch"
+          ]
+        },
+        "connection_uri_masked": {
+          "type": "string"
+        },
+        "is_default": {
+          "type": "boolean"
+        },
+        "is_platform_default": {
+          "type": "boolean"
+        },
+        "health_status": {
+          "type": "string",
+          "enum": [
+            "healthy",
+            "degraded",
+            "unreachable",
+            "unknown"
+          ]
+        },
+        "last_health_check": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "config_json": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "hub_id",
+        "name",
+        "store_type",
+        "connection_uri_masked",
+        "is_default",
+        "is_platform_default",
+        "health_status",
+        "config_json"
+      ]
+    },
+    "HubCreatePayload": {
+      "type": "object",
+      "properties": {
+        "hub_type": {
+          "$ref": "#/definitions/HubType"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "accent": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "initial_members": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "hub_type",
+        "name"
+      ]
+    },
+    "HubUpdatePayload": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "accent": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "SystemHealthResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "platform_version": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "active_projects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "services": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "status",
+        "environment",
+        "active_projects",
+        "services"
+      ]
+    },
+    "ModelRegistryEntry": {
+      "type": "object",
+      "properties": {
+        "model_id": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "is_enabled": {
+          "type": "boolean"
+        },
+        "is_default": {
+          "type": "boolean"
+        },
+        "is_selectable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model_id",
+        "display_name",
+        "role",
+        "provider",
+        "is_enabled",
+        "is_default"
+      ]
+    },
+    "ModelRegistryResponse": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    },
+    "UserInvite": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "platform_role": {
+          "$ref": "#/definitions/PlatformRole"
+        },
+        "hub_grants": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "platform_role",
+        "hub_grants"
+      ]
+    },
+    "AuditEntry": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actor_user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actor_email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "action": {
+          "type": "string"
+        },
+        "resource_type": {
+          "type": "string"
+        },
+        "resource_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "before_json": {
+          "type": "object"
+        },
+        "after_json": {
+          "type": "object"
+        },
+        "ip_address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "resource_type",
+        "created_at"
+      ]
+    },
+    "AgentCollectionBinding": {
+      "type": "object",
+      "properties": {
+        "hub_id": {
+          "type": "string"
+        },
+        "collection_id": {
+          "type": "string"
+        },
+        "alias": {
+          "type": "string"
+        },
+        "top_k": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "hub_id",
+        "collection_id"
+      ]
+    },
+    "AgentResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "hub_slug": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "system_prompt": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "collection_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentCollectionBinding"
+          }
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "max_tokens": {
+          "type": "number"
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "endpoint_slug": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hub_id",
+        "name",
+        "role",
+        "system_prompt",
+        "model_id",
+        "tools",
+        "temperature",
+        "max_tokens",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "AgentCreatePayload": {
+      "type": "object",
+      "properties": {
+        "hub_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "system_prompt": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "collection_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentCollectionBinding"
+          }
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "max_tokens": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "role",
+        "system_prompt",
+        "model_id"
+      ]
+    },
+    "AgentUpdatePayload": {
+      "type": "object",
+      "properties": {
+        "hub_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "system_prompt": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "collection_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AgentCollectionBinding"
+          }
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "max_tokens": {
+          "type": "number"
+        }
+      },
+      "required": []
+    },
+    "WorkflowResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tags_json": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string"
+        },
+        "published_version_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "draft_version_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hub_id",
+        "name",
+        "slug",
+        "tags_json",
+        "status",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "WorkflowCreatePayload": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "tags_json": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "IngestionResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "job_id": {
+          "type": "string"
+        },
+        "document_id": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "skipped": {
+          "type": "boolean"
+        },
+        "chunks_count": {
+          "type": "number"
+        },
+        "embeddings_count": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    },
+    "IngestionJobResponse": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "progress": {
+          "type": "number"
+        },
+        "error_msg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "job_id",
+        "hub_id",
+        "status",
+        "progress"
+      ]
+    },
+    "PaginatedJobsResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "total_count": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "number"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/IngestionJobResponse"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "total_count",
+        "limit",
+        "offset",
+        "items"
+      ]
+    },
+    "SyntraFlowDocument": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "file_hash": {
+          "type": "string"
+        },
+        "file_type": {
+          "type": "string"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "hub_id",
+        "filename",
+        "file_hash",
+        "file_type"
+      ]
+    },
+    "PaginatedDocumentsResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "total_count": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "number"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SyntraFlowDocument"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "total_count",
+        "limit",
+        "offset",
+        "items"
+      ]
+    },
+    "DocumentChunk": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "document_id": {
+          "type": "string"
+        },
+        "chunk_index": {
+          "type": "number"
+        },
+        "text": {
+          "type": "string"
+        },
+        "token_count": {
+          "type": "number"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "document_id",
+        "chunk_index",
+        "text",
+        "token_count"
+      ]
+    },
+    "PaginatedChunksResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "document_id": {
+          "type": "string"
+        },
+        "total_count": {
+          "type": "number"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "number"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DocumentChunk"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "document_id",
+        "total_count",
+        "limit",
+        "offset",
+        "items"
+      ]
+    },
+    "EvalSuite": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "target_type": {
+          "type": "string",
+          "enum": [
+            "agent",
+            "workflow",
+            "ingestion_retrieval"
+          ]
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hub_id",
+        "name",
+        "target_type",
+        "target_id",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "EvalCase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "suite_id": {
+          "type": "string"
+        },
+        "input_prompt": {
+          "type": "string"
+        },
+        "expected_output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "assertions_json": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "suite_id",
+        "input_prompt",
+        "assertions_json",
+        "created_at"
+      ]
+    },
+    "EvalRun": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "suite_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "running",
+            "completed",
+            "failed"
+          ]
+        },
+        "pass_rate": {
+          "type": "number"
+        },
+        "avg_faithfulness": {
+          "type": "number"
+        },
+        "avg_relevance": {
+          "type": "number"
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hub_id",
+        "suite_id",
+        "status",
+        "pass_rate",
+        "avg_faithfulness",
+        "avg_relevance",
+        "created_at"
+      ]
+    },
+    "EvalDashboardResponse": {
+      "type": "object",
+      "properties": {
+        "total_suites": {
+          "type": "number"
+        },
+        "total_runs": {
+          "type": "number"
+        },
+        "avg_faithfulness": {
+          "type": "number"
+        },
+        "avg_relevance": {
+          "type": "number"
+        },
+        "pass_rate": {
+          "type": "number"
+        },
+        "recent_runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EvalRun"
+          }
+        }
+      },
+      "required": [
+        "total_suites",
+        "total_runs",
+        "avg_faithfulness",
+        "avg_relevance",
+        "pass_rate",
+        "recent_runs"
+      ]
+    },
+    "EvalRunResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "hub_id": {
+          "type": "string"
+        },
+        "suite_id": {
+          "type": "string"
+        },
+        "total_cases": {
+          "type": "number"
+        },
+        "passed_cases": {
+          "type": "number"
+        },
+        "avg_faithfulness": {
+          "type": "number"
+        },
+        "avg_relevance": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "hub_id",
+        "suite_id",
+        "total_cases",
+        "passed_cases",
+        "avg_faithfulness",
+        "avg_relevance",
+        "status",
+        "created_at"
+      ]
+    },
+    "TestCaseResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "suite_id": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "expected_output": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "pending"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "suite_id",
+        "query",
+        "expected_output"
+      ]
+    },
+    "PlaygroundMessage": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "user",
+            "assistant",
+            "system"
+          ]
+        },
+        "content": {
+          "type": "string"
+        },
+        "tokens": {
+          "type": "number"
+        },
+        "attachment_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ]
+    },
+    "PlaygroundAttachment": {
+      "type": "object",
+      "properties": {
+        "attachment_id": {
+          "type": "string"
+        },
+        "filename": {
+          "type": "string"
+        },
+        "file_type": {
+          "type": "string"
+        },
+        "extracted_text_preview": {
+          "type": "string"
+        },
+        "extracted_text": {
+          "type": "string"
+        },
+        "total_chars": {
+          "type": "number"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attachment_id",
+        "filename",
+        "file_type",
+        "created_at"
+      ]
+    },
+    "PlaygroundSession": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "system_prompt": {
+          "type": "string"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PlaygroundMessage"
+          }
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PlaygroundAttachment"
+          }
+        },
+        "temperature": {
+          "type": "number"
+        },
+        "max_tokens": {
+          "type": "number"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "messages",
+        "created_at",
+        "updated_at"
+      ]
+    },
+    "PlaygroundChatResponse": {
+      "type": "object",
+      "properties": {
+        "response": {
+          "type": "string"
+        },
+        "model_used": {
+          "type": "string"
+        },
+        "input_tokens": {
+          "type": "number"
+        },
+        "output_tokens": {
+          "type": "number"
+        },
+        "latency_ms": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "response",
+        "model_used",
+        "input_tokens",
+        "output_tokens",
+        "latency_ms",
+        "status"
+      ]
+    },
+    "MCPServer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "sse",
+            "stdio",
+            "streamable_http"
+          ]
+        },
+        "auth_type": {
+          "type": "string",
+          "enum": [
+            "none",
+            "bearer",
+            "api_key"
+          ]
+        },
+        "is_internal": {
+          "type": "boolean"
+        },
+        "is_active": {
+          "type": "boolean"
+        },
+        "health_status": {
+          "type": "string",
+          "enum": [
+            "healthy",
+            "unhealthy",
+            "unknown"
+          ]
+        },
+        "last_health_check": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "tool_count": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "url",
+        "transport",
+        "auth_type",
+        "is_internal",
+        "is_active",
+        "health_status",
+        "created_at",
+        "updated_at",
+        "tool_count"
+      ]
+    },
+    "MCPServerCreatePayload": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "transport": {
+          "type": "string"
+        },
+        "auth_type": {
+          "type": "string"
+        },
+        "auth_token": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "url"
+      ]
+    },
+    "MCPServerUpdatePayload": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "transport": {
+          "type": "string"
+        },
+        "auth_type": {
+          "type": "string"
+        },
+        "auth_token": {
+          "type": "string"
+        },
+        "is_active": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "MCPTool": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "server_id": {
+          "type": "string"
+        },
+        "server_name": {
+          "type": "string"
+        },
+        "tool_name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "input_schema_json": {
+          "type": "object"
+        },
+        "is_enabled": {
+          "type": "boolean"
+        },
+        "last_synced": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "server_id",
+        "server_name",
+        "tool_name",
+        "is_enabled",
+        "last_synced"
+      ]
+    },
+    "MCPTestResult": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "success",
+            "error"
+          ]
+        },
+        "result": {
+          "type": [
+            "object",
+            "string",
+            "number",
+            "boolean",
+            "array",
+            "null"
+          ]
+        },
+        "error": {
+          "type": [
+            "object",
+            "string",
+            "number",
+            "boolean",
+            "array",
+            "null"
+          ]
+        },
+        "execution_time_ms": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "status",
+        "execution_time_ms"
+      ]
+    }
+  }
+}

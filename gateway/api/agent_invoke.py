@@ -174,23 +174,35 @@ async def invoke_agent(
             start_t = time.time()
             full_response_text = ""
             try:
-                raw_response = completion_with_fallback(
+                raw_response = await completion_with_fallback(
                     model=agent.model_id,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
                     stream=True,
                 )
-                for chunk in raw_response:
-                    content_chunk = getattr(chunk.choices[0].delta, "content", None) or ""
-                    if content_chunk:
-                        full_response_text += content_chunk
-                        chunk_payload = {
-                            "agent_id": agent.id,
-                            "delta": content_chunk,
-                            "status": "in_progress",
-                        }
-                        yield f"data: {json.dumps(chunk_payload)}\n\n"
+                if hasattr(raw_response, "__aiter__"):
+                    async for chunk in raw_response:
+                        content_chunk = getattr(chunk.choices[0].delta, "content", None) or ""
+                        if content_chunk:
+                            full_response_text += content_chunk
+                            chunk_payload = {
+                                "agent_id": agent.id,
+                                "delta": content_chunk,
+                                "status": "in_progress",
+                            }
+                            yield f"data: {json.dumps(chunk_payload)}\n\n"
+                else:
+                    for chunk in raw_response:
+                        content_chunk = getattr(chunk.choices[0].delta, "content", None) or ""
+                        if content_chunk:
+                            full_response_text += content_chunk
+                            chunk_payload = {
+                                "agent_id": agent.id,
+                                "delta": content_chunk,
+                                "status": "in_progress",
+                            }
+                            yield f"data: {json.dumps(chunk_payload)}\n\n"
 
                 lat_ms = round((time.time() - start_t) * 1000, 2)
                 end_payload = {
@@ -227,7 +239,7 @@ async def invoke_agent(
     # Non-streaming call
     start_t = time.time()
     try:
-        response = completion_with_fallback(
+        response = await completion_with_fallback(
             model=agent.model_id,
             messages=messages,
             temperature=temperature,

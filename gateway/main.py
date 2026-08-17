@@ -19,7 +19,7 @@ from common.observability.limiter import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.middleware import SlowAPIMiddleware
-from gateway.api import router as api_router
+from gateway.api import router as api_router, public_router as public_api_router
 from gateway.api.health import router as health_router
 from gateway.core.setup import lifespan
 
@@ -181,6 +181,7 @@ app.add_api_route("/users/me", delete_me_alias, methods=["DELETE"])
 app.include_router(admin_users_router)
 app.include_router(external_v1_router)
 app.include_router(proxy_router)
+app.include_router(public_api_router)
 app.include_router(api_router)
 
 

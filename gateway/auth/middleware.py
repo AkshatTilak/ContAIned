@@ -34,6 +34,7 @@ WHITELIST_PREFIXES: List[str] = [
     "/dashboard",   # Qdrant dashboard static assets route
     "/collections", # Qdrant dashboard collections API proxy route
     "/telemetry",   # Qdrant dashboard telemetry API proxy route
+    "/api/telemetry", # Telemetry WebSocket and SSE streaming route
     "/cluster",     # Qdrant dashboard cluster API proxy route
     "/aliases",     # Qdrant dashboard aliases API proxy route
 ]
@@ -62,10 +63,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
 
-        # Skip exempt endpoints
-        for prefix in WHITELIST_PREFIXES:
-            if path.startswith(prefix):
-                return await call_next(request)
+        # Check if exempt endpoint
+        is_exempt = any(path.startswith(prefix) for prefix in WHITELIST_PREFIXES)
 
         # Extract token from Authorization header, cookie, or query parameter
         token: str = ""
@@ -79,9 +78,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
         elif "auth_token" in request.query_params:
             token = request.query_params["auth_token"]
 
+        # If token is an API key (sk-...) or path is in /v1, delegate to APIKeyMiddleware
+        if token.startswith("sk-") or path.startswith("/v1"):
+            return await call_next(request)
+
         if not token:
-            # If X-API-Key is provided, delegate authentication to verify_api_key / APIKeyMiddleware
-            if request.headers.get("X-API-Key") or request.headers.get("x-api-key"):
+            # If endpoint is exempt or X-API-Key is provided, allow request through
+            if is_exempt or request.headers.get("X-API-Key") or request.headers.get("x-api-key"):
                 return await call_next(request)
             return JSONResponse(
                 status_code=401,

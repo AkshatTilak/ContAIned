@@ -69,10 +69,21 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         rate_limit = 60
         user_id = None
 
-        session_factory = get_sessionmaker()
-        async with session_factory() as db:
+        override_db = None
+        if hasattr(request.app, "dependency_overrides"):
+            from gateway.auth.dependencies import get_async_db
+            override_fn = request.app.dependency_overrides.get(get_async_db)
+            if override_fn:
+                gen = override_fn()
+                if hasattr(gen, "__anext__"):
+                    try:
+                        override_db = await gen.__anext__()
+                    except Exception:
+                        override_db = None
+
+        if override_db is not None:
             stmt = select(APIKeyModel).where(APIKeyModel.key == hashed_key)
-            res = await db.execute(stmt)
+            res = await override_db.execute(stmt)
             api_key_obj = res.scalar_one_or_none()
             if api_key_obj and api_key_obj.is_active:
                 api_key_id = api_key_obj.id
@@ -80,7 +91,19 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                 rate_limit = api_key_obj.rate_limit or 60
                 user_id = api_key_obj.user_id
                 api_key_obj.usage_count = (api_key_obj.usage_count or 0) + 1
-                await db.commit()
+        else:
+            session_factory = get_sessionmaker()
+            async with session_factory() as db:
+                stmt = select(APIKeyModel).where(APIKeyModel.key == hashed_key)
+                res = await db.execute(stmt)
+                api_key_obj = res.scalar_one_or_none()
+                if api_key_obj and api_key_obj.is_active:
+                    api_key_id = api_key_obj.id
+                    api_key_hub_id = api_key_obj.hub_id
+                    rate_limit = api_key_obj.rate_limit or 60
+                    user_id = api_key_obj.user_id
+                    api_key_obj.usage_count = (api_key_obj.usage_count or 0) + 1
+                    await db.commit()
 
         if not api_key_id:
             return JSONResponse(

@@ -171,7 +171,7 @@ def test_v1_chat_completions_success(mock_completion, valid_api_key):
 
     headers = {"Authorization": f"Bearer {valid_api_key}"}
     payload = {
-        "model": "gemini/gemini-3.5-flash",
+        "model": "gemini/gemma-3-27b-it",
         "messages": [{"role": "user", "content": "Hello"}],
         "temperature": 0.7,
         "max_tokens": 100,

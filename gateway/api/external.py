@@ -72,7 +72,8 @@ async def chat_completions(
     api_key_user_id = getattr(request.state, "api_key_user_id", None) or getattr(request.state, "user_id", None)
 
     agent = None
-    if "/" in req.model:
+    is_standard_provider = any(req.model.startswith(p) for p in ("openai/", "gemini/", "ollama/", "huggingface/", "vllm/", "anthropic/"))
+    if "/" in req.model and not is_standard_provider:
         try:
             agent = await resolve_qualified_agent(
                 db,
@@ -192,17 +193,30 @@ async def chat_completions(
                 }
                 yield f"data: {json.dumps(role_header)}\n\n"
 
-                for chunk in res:
-                    content_chunk = getattr(chunk.choices[0].delta, "content", None) or ""
-                    if content_chunk:
-                        chunk_payload = {
-                            "id": completion_id,
-                            "object": "chat.completion.chunk",
-                            "created": created_timestamp,
-                            "model": req.model,
-                            "choices": [{"index": 0, "delta": {"content": content_chunk}, "finish_reason": None}],
-                        }
-                        yield f"data: {json.dumps(chunk_payload)}\n\n"
+                if hasattr(res, "__aiter__"):
+                    async for chunk in res:
+                        content_chunk = getattr(chunk.choices[0].delta, "content", None) or ""
+                        if content_chunk:
+                            chunk_payload = {
+                                "id": completion_id,
+                                "object": "chat.completion.chunk",
+                                "created": created_timestamp,
+                                "model": req.model,
+                                "choices": [{"index": 0, "delta": {"content": content_chunk}, "finish_reason": None}],
+                            }
+                            yield f"data: {json.dumps(chunk_payload)}\n\n"
+                else:
+                    for chunk in res:
+                        content_chunk = getattr(chunk.choices[0].delta, "content", None) or ""
+                        if content_chunk:
+                            chunk_payload = {
+                                "id": completion_id,
+                                "object": "chat.completion.chunk",
+                                "created": created_timestamp,
+                                "model": req.model,
+                                "choices": [{"index": 0, "delta": {"content": content_chunk}, "finish_reason": None}],
+                            }
+                            yield f"data: {json.dumps(chunk_payload)}\n\n"
 
                 stop_chunk = {
                     "id": completion_id,

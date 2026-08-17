@@ -33,7 +33,7 @@ class AppSettings(BaseSettings):
     TIMEOUT_GRACEFUL_SHUTDOWN: int = Field(default=15, alias="TIMEOUT_GRACEFUL_SHUTDOWN")
     PLATFORM_VERSION: str = Field(default="3.0.0", alias="PLATFORM_VERSION")
     MAX_RAM_MB: int = Field(default=16384, alias="MAX_RAM_MB")
-    DEEPEVAL_MODEL: str = Field(default="gemini/gemini-3.5-flash", alias="DEEPEVAL_MODEL")
+    DEEPEVAL_MODEL: str = Field(default="gemini/gemma-3-27b-it", alias="DEEPEVAL_MODEL")
     EVALOPS_CONSUMER_ENABLED: bool = Field(default=False, alias="EVALOPS_CONSUMER_ENABLED")
     ALLOW_MEMBER_HUB_CREATION: bool = Field(default=True, alias="ALLOW_MEMBER_HUB_CREATION")
     TRUST_PROXY_HEADERS: bool = Field(default=False, alias="TRUST_PROXY_HEADERS")

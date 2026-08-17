@@ -4,6 +4,7 @@ import logging
 import uuid
 from typing import Callable
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -81,10 +82,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         schema = ErrorResponseSchema(
             error_code="VALIDATION_ERROR",
             message="Input validation failed.",
-            details={"errors": exc.errors()},
+            details={"errors": jsonable_encoder(exc.errors())},
             trace_id=trace_id,
         )
-        return JSONResponse(status_code=400, content=schema.model_dump())
+        return JSONResponse(status_code=400, content=jsonable_encoder(schema.model_dump()))
 
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):

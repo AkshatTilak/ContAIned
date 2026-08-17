@@ -113,6 +113,7 @@ from fastapi import APIRouter, Response, status
 
 
 @router.get("/health")
+@router.get("/api/health")
 async def health_check(response: Response) -> dict:
     """System health check — reports active projects, connection status grid, and inference metrics concurrently."""
     results = await asyncio.gather(

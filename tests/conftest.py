@@ -398,8 +398,8 @@ def gateway_process():
 
 @pytest.fixture(scope="session")
 def inference_process():
-    """Session-scoped process fixture connecting to or starting Inference uvicorn server on port 8001."""
-    port = getattr(settings, "INFERENCE_SERVER_PORT", 8001)
+    """Session-scoped process fixture connecting to or starting Inference uvicorn server on port 8010."""
+    port = getattr(settings, "INFERENCE_SERVER_PORT", 8010)
     health_url = f"http://127.0.0.1:{port}/health"
 
     # Check if Inference service is already running

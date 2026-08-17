@@ -247,11 +247,18 @@ async def playground_chat(
                     max_tokens=payload.max_tokens or 1000,
                     stream=True,
                 )
-                async for chunk in response:
-                    delta = chunk.choices[0].delta.content or "" if chunk.choices else ""
-                    if delta:
-                        chunk_data = json.dumps({"content": delta, "model": payload.model_id})
-                        yield f"data: {chunk_data}\n\n"
+                if hasattr(response, "__aiter__"):
+                    async for chunk in response:
+                        delta = chunk.choices[0].delta.content or "" if chunk.choices else ""
+                        if delta:
+                            chunk_data = json.dumps({"content": delta, "model": payload.model_id})
+                            yield f"data: {chunk_data}\n\n"
+                else:
+                    for chunk in response:
+                        delta = chunk.choices[0].delta.content or "" if chunk.choices else ""
+                        if delta:
+                            chunk_data = json.dumps({"content": delta, "model": payload.model_id})
+                            yield f"data: {chunk_data}\n\n"
                 yield "data: [DONE]\n\n"
             except Exception as err:
                 logger.error("Error in streaming response: %s", err)

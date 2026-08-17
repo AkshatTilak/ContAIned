@@ -34,7 +34,7 @@ async def test_create_agent_with_model_config_and_verify_db(
         "name": "Customer Support Agent",
         "role": "support",
         "system_prompt": "You are a polite, helpful customer service agent.",
-        "model_id": "gemini/gemma-3-27b-it",
+        "model_id": "gemini/gemma-4-31b-it",
         "tools": ["web_search", "knowledge_base"],
         "temperature": 0.3,
         "max_tokens": 1500,
@@ -50,7 +50,7 @@ async def test_create_agent_with_model_config_and_verify_db(
     data = resp.json()
     assert data["name"] == "Customer Support Agent"
     assert data["role"] == "support"
-    assert data["model_id"] == "gemini/gemma-3-27b-it"
+    assert data["model_id"] == "gemini/gemma-4-31b-it"
     assert data["endpoint_slug"] == "customer-support-agent"
     assert data["tools"] == ["web_search", "knowledge_base"]
     assert data["temperature"] == 0.3
@@ -67,7 +67,7 @@ async def test_create_agent_with_model_config_and_verify_db(
     assert db_agent.hub_id == hub.id
     assert db_agent.endpoint_slug == "customer-support-agent"
     assert db_agent.system_prompt == "You are a polite, helpful customer service agent."
-    assert db_agent.model_id == "gemini/gemma-3-27b-it"
+    assert db_agent.model_id == "gemini/gemma-4-31b-it"
 
     # Verify AuditLog row
     stmt = select(AuditLog).where(
@@ -96,7 +96,7 @@ async def test_update_agent_and_slug_regeneration(
             "name": "Initial Agent",
             "role": "general",
             "system_prompt": "Initial prompt.",
-            "model_id": "gemini/gemma-3-27b-it",
+            "model_id": "gemini/gemma-4-26b-a4b-it",
             "temperature": 0.7,
             "max_tokens": 2048,
         },
@@ -157,7 +157,7 @@ async def test_toggle_agent_active_status(
             "name": "Toggle Agent",
             "role": "bot",
             "system_prompt": "Prompt",
-            "model_id": "gemini/gemma-3-27b-it",
+            "model_id": "gemini/gemma-3-12b-it",
             "is_active": True,
         },
         headers=headers,
@@ -199,7 +199,7 @@ async def test_duplicate_agent_within_hub(
             "name": "Primary Agent",
             "role": "analyst",
             "system_prompt": "Analyze datasets.",
-            "model_id": "gemini/gemma-3-27b-it",
+            "model_id": "gemini/gemma-3-4b-it",
             "temperature": 0.5,
         },
         headers=headers,
@@ -241,7 +241,7 @@ async def test_delete_agent_and_cleanup(
             "name": "Disposable Agent",
             "role": "temp",
             "system_prompt": "Disposable prompt.",
-            "model_id": "gemini/gemma-3-27b-it",
+            "model_id": "gemini/gemma-4-31b-it",
         },
         headers=headers,
     )
@@ -281,7 +281,7 @@ async def test_agent_hub_scoping_isolation(
             "name": "Secret Agent A",
             "role": "secret",
             "system_prompt": "Hub A only",
-            "model_id": "gemini/gemma-3-27b-it",
+            "model_id": "gemini/gemma-4-26b-a4b-it",
         },
         headers=headers_a,
     )
@@ -374,16 +374,16 @@ async def test_available_models_endpoint(
         role="completion",
         mode="api",
         provider="google",
-        model_id="gemini/gemma-3-27b-it",
-        display_name="Gemini 3.5 Flash",
+        model_id="gemini/gemma-4-31b-it",
+        display_name="Gemma 4 31B",
         is_enabled=True,
     )
     m2 = ModelRegistryModel(
         role="classifier",
         mode="api",
         provider="google",
-        model_id="gemini/gemma-3-27b-it",
-        display_name="Gemma 3 27B",
+        model_id="gemini/gemma-4-26b-a4b-it",
+        display_name="Gemma 4 26B A4B",
         is_enabled=True,
     )
     real_db_session.add_all([m1, m2])
@@ -393,5 +393,5 @@ async def test_available_models_endpoint(
     assert resp.status_code == 200, f"Available models query failed: {resp.text}"
     models = resp.json().get("models", [])
     model_ids = [m["model_id"] for m in models]
-    assert "gemini/gemma-3-27b-it" in model_ids
-    assert "gemini/gemma-3-27b-it" in model_ids
+    assert "gemini/gemma-4-31b-it" in model_ids
+    assert "gemini/gemma-4-26b-a4b-it" in model_ids

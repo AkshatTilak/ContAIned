@@ -17,9 +17,10 @@ export interface Hub {
   owner_id: string;
   is_archived: boolean;
   my_role: HubRole;
-  resource_counts: Record<string, number>;
+  resource_count?: number;
+  resource_counts?: Record<string, number> | null;
   member_count: number;
-  last_activity_at: string | null;
+  last_activity_at?: string | null;
   created_at: string;
   updated_at: string;
 }

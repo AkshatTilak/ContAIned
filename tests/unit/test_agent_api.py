@@ -84,7 +84,7 @@ async def test_agent_crud_flow():
                 "name": "Integration Test Agent",
                 "role": "QA Specialist",
                 "system_prompt": "You test system routes.",
-                "model_id": "gemini/gemini-3.5-flash",
+                "model_id": "gemini/gemma-3-27b-it",
                 "tools": ["web_search"],
                 "temperature": 0.3,
                 "max_tokens": 1024,
