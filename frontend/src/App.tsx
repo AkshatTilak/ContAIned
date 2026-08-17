@@ -55,6 +55,7 @@ import { WorkflowRuns } from "./components/hubs/workflow/WorkflowRuns";
 // Eval Workspace
 import { EvalHubOverview } from "./components/hubs/eval/EvalHubOverview";
 import { SuiteManager } from "./components/hubs/eval/SuiteManager";
+import { SuiteDetailWorkspace } from "./components/hubs/eval/SuiteDetailWorkspace";
 import { EvalResultsDashboard } from "./components/hubs/eval/EvalResultsDashboard";
 
 // Admin
@@ -262,7 +263,7 @@ export default function App() {
                       />
                       <Route
                         path="suites/:suiteId"
-                        element={<EvalResultsDashboard />}
+                        element={<SuiteDetailWorkspace />}
                       />
                       <Route
                         path="runs"

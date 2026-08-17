@@ -9,9 +9,9 @@ from common.models.database import NODE_ASSERTION_TYPES
 class EvalTarget(BaseModel):
     """Polymorphic target for evaluation test suites and runs."""
 
-    type: Literal["agent", "workflow"]
-    target_hub_id: str
-    target_id: str
+    type: Literal["agent", "workflow"] = "agent"
+    target_hub_id: Optional[str] = None
+    target_id: Optional[str] = None
 
 
 class EvalSuiteCreate(BaseModel):
@@ -19,7 +19,12 @@ class EvalSuiteCreate(BaseModel):
 
     name: str
     description: Optional[str] = None
-    target: EvalTarget
+    target: Optional[EvalTarget] = None
+    target_type: Optional[str] = None
+    target_hub_id: Optional[str] = None
+    target_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    workflow_id: Optional[str] = None
 
 
 class EvalSuiteUpdate(BaseModel):

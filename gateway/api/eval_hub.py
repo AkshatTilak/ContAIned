@@ -95,12 +95,18 @@ async def create_eval_suite(
 ):
     """Creates a new evaluation test suite."""
     try:
+        target_payload = payload.target or {
+            "type": payload.target_type or ("agent" if payload.agent_id else "workflow" if payload.workflow_id else "agent"),
+            "target_hub_id": payload.target_hub_id,
+            "target_id": payload.target_id or payload.agent_id or payload.workflow_id,
+        }
         suite = await manager.create_suite(
             db,
             hub_id=ctx.hub.id,
             name=payload.name,
             description=payload.description,
-            target=payload.target,
+            target=target_payload,
+            agent_id=payload.agent_id,
         )
         return _suite_to_response(suite)
     except HubLinkError as hle:

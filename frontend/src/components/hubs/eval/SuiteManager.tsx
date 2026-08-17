@@ -33,6 +33,9 @@ export function SuiteManager() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [targetType, setTargetType] = useState<"agent" | "workflow">("agent");
+  const [selectedTargetId, setSelectedTargetId] = useState("");
+  const [availableTargets, setAvailableTargets] = useState<any[]>([]);
+  const [loadingTargets, setLoadingTargets] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -50,10 +53,51 @@ export function SuiteManager() {
     }
   };
 
+  const fetchTargets = async () => {
+    if (!hubId) return;
+    setLoadingTargets(true);
+    try {
+      if (targetType === "agent") {
+        const agentHubs = await api.hubs.list({ hub_type: "agent" });
+        const list = Array.isArray(agentHubs) ? agentHubs : (agentHubs as any).items || [];
+        const agentPromises = list.map((h: any) =>
+          api.agents.list(h.id).then((res: any) => {
+            const ags = Array.isArray(res) ? res : res.items || [];
+            return ags.map((ag: any) => ({ ...ag, hub_id: h.id, hub_name: h.name }));
+          }).catch(() => [])
+        );
+        const results = await Promise.all(agentPromises);
+        setAvailableTargets(results.flat());
+      } else {
+        const wfHubs = await api.hubs.list({ hub_type: "workflow" });
+        const list = Array.isArray(wfHubs) ? wfHubs : (wfHubs as any).items || [];
+        const wfPromises = list.map((h: any) =>
+          api.workflows.list(h.id).then((res: any) => {
+            const wfs = Array.isArray(res) ? res : res.items || [];
+            return wfs.map((wf: any) => ({ ...wf, hub_id: h.id, hub_name: h.name }));
+          }).catch(() => [])
+        );
+        const results = await Promise.all(wfPromises);
+        setAvailableTargets(results.flat());
+      }
+    } catch {
+      setAvailableTargets([]);
+    } finally {
+      setLoadingTargets(false);
+    }
+  };
+
   useEffect(() => {
     fetchSuites();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hubId]);
+
+  useEffect(() => {
+    if (isCreateOpen) {
+      fetchTargets();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreateOpen, targetType]);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,13 +106,24 @@ export function SuiteManager() {
     setSubmitting(true);
     setCreateError(null);
     try {
+      const selectedObj = availableTargets.find((t) => t.id === selectedTargetId);
+      const targetHubId = selectedObj?.hub_id;
       await api.evals.suites.create(hubId, {
         name: name.trim(),
         description,
         target_type: targetType,
+        target_id: selectedTargetId || undefined,
+        target_hub_id: targetHubId || undefined,
+        target: selectedTargetId ? {
+          type: targetType,
+          target_hub_id: targetHubId || hubId,
+          target_id: selectedTargetId,
+        } : undefined,
       });
       setIsCreateOpen(false);
       setName("");
+      setDescription("");
+      setSelectedTargetId("");
       fetchSuites();
     } catch (err: any) {
       setCreateError(err?.message || "Failed to create eval suite");
@@ -136,7 +191,7 @@ export function SuiteManager() {
 
         {can("create_resource") && !isArchived && (
           <button
-            onClick={() => setIsCreateOpen(true)}
+            onClick={() => setIsCreateOpen(!isCreateOpen)}
             className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-xl shadow-lg shadow-indigo-500/20 transition-all shrink-0"
           >
             <Plus className="w-4 h-4" />
@@ -157,7 +212,7 @@ export function SuiteManager() {
           <h3 className="text-base font-bold text-slate-100 font-display">Create Evaluation Suite</h3>
           {createError && <p className="text-xs text-red-400">{createError}</p>}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">Suite Name *</label>
               <input
@@ -174,11 +229,32 @@ export function SuiteManager() {
               <label className="block text-xs font-semibold text-slate-300 mb-1">Target Type</label>
               <select
                 value={targetType}
-                onChange={(e) => setTargetType(e.target.value as any)}
+                onChange={(e) => {
+                  setTargetType(e.target.value as any);
+                  setSelectedTargetId("");
+                }}
                 className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
               >
                 <option value="agent">Agent Target</option>
                 <option value="workflow">Workflow Graph Target</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Target {targetType === "agent" ? "Agent" : "Workflow"}
+              </label>
+              <select
+                value={selectedTargetId}
+                onChange={(e) => setSelectedTargetId(e.target.value)}
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+              >
+                <option value="">{loadingTargets ? "Loading targets…" : `-- Choose ${targetType === "agent" ? "Agent" : "Workflow"} (Optional) --`}</option>
+                {availableTargets.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.hub_name || t.hub_id})
+                  </option>
+                ))}
               </select>
             </div>
           </div>
